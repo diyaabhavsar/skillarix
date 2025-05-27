@@ -1,0 +1,209 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
+import Setup from "./pages/Setup";
+import Practice from "./pages/Practice";
+import PracticeSessionPage from "./pages/PracticeSession";
+import PastSessions from "./pages/PastSessions";
+import FeedbackViewer from "./pages/FeedbackViewer";
+import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
+import Auth from "./pages/Auth";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
+import AppLayout from "./components/AppLayout";
+
+// New admin pages
+import AdminDashboard from "./pages/admin/Dashboard";
+import ManageUsers from "./pages/admin/ManageUsers";
+
+// Import the new TestSetup page component
+import TestSetup from "./pages/TestSetup";
+
+const queryClient = new QueryClient();
+
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <TooltipProvider>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Regular user routes */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Dashboard />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/setup" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "Setup", path: "/setup" }
+                      ]}
+                    >
+                      <Setup />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/test-setup" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "Test Setup", path: "/test-setup" }
+                      ]}
+                    >
+                      <TestSetup />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/practice" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "Practice", path: "/practice" }
+                      ]}
+                    >
+                      <Practice />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/practice-session" 
+                element={
+                  <ProtectedRoute>
+                    <PracticeSessionPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/final-session" 
+                element={
+                  <ProtectedRoute>
+                    <PracticeSessionPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/past-sessions" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "History", path: "/past-sessions" }
+                      ]}
+                    >
+                      <PastSessions />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/feedback/:sessionId" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "History", path: "/past-sessions" },
+                        { label: "Feedback", path: "" }
+                      ]}
+                    >
+                      <FeedbackViewer />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/settings" 
+                element={
+                  <ProtectedRoute>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Dashboard", path: "/dashboard" },
+                        { label: "Settings", path: "/settings" }
+                      ]}
+                    >
+                      <Settings />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Admin-only routes */}
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Admin Dashboard", path: "/admin/dashboard" }
+                      ]}
+                    >
+                      <AdminDashboard />
+                    </AppLayout>
+                  </RoleProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/users" 
+                element={
+                  <RoleProtectedRoute allowedRoles={["admin"]}>
+                    <AppLayout 
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Admin Dashboard", path: "/admin/dashboard" },
+                        { label: "Manage Users", path: "/admin/users" }
+                      ]}
+                    >
+                      <ManageUsers />
+                    </AppLayout>
+                  </RoleProtectedRoute>
+                } 
+              />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </TooltipProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+};
+
+export default App;
