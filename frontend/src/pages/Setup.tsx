@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import ProductSetupBreadcrumb from "@/components/setup/ProductSetupBreadcrumb";
-import SetupHeader from "@/components/setup/SetupHeader";
+import { SetupHeader } from "@/components/setup/SetupHeader";
 import FileUploadSection from "@/components/setup/FileUploadSection";
 import ProductInfoForm from "@/components/setup/ProductInfoForm";
 import FormActionButtons from "@/components/setup/FormActionButtons";

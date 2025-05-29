@@ -22,6 +22,7 @@ const Navbar = () => {
     { title: "Setup", href: "/setup" },
     { title: "Practice", href: "/practice" },
     { title: "History", href: "/past-sessions" },
+    { title: "Test Setup", href: "/test-setup" },
   ];
 
   const getInitials = (name: string) => {

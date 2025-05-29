@@ -2,7 +2,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from '@/components/ui/checkbox'; // Need Checkbox here
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button'; // Added Button for potential future use or Cancel
+// import { Button } from '@/components/ui/button'; // Added Button for potential future use or Cancel
 
 // Define interfaces for persona and criteria data structure
 interface VisitorPersona {
@@ -20,23 +20,28 @@ interface AdditionalCriteria {
     communication_simplicity: boolean;
 }
 
+// Define the shape of the form data state managed by the parent
+export interface TestConfigurationFormData {
+    name: string; // ADDED: Name field
+    visitorPersona: VisitorPersona;
+    additionalCriteria: AdditionalCriteria;
+}
+
 // Define the props for this component
 export interface TestConfigurationFormProps {
-    // State for the form data
-    formData: {
-        visitorPersona: VisitorPersona;
-        additionalCriteria: AdditionalCriteria;
-    };
+    // State for the form data (now includes name)
+    formData: TestConfigurationFormData; // Use the updated interface
     // Handlers to update the parent state
+    onNameChange: (name: string) => void; // ADDED: Handler for name change
     onPersonaChange: (field: keyof VisitorPersona, value: string) => void;
     onCriteriaChange: (field: keyof AdditionalCriteria, checked: boolean) => void;
     isLoading: boolean; // To disable inputs while loading
-    // Add a handler for submitting/saving the configuration later
-    // onSaveConfiguration?: () => Promise<void>;
+    // onSaveConfiguration is likely handled by the parent button
 }
 
 const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
     formData,
+    onNameChange, // ADDED: Destructure the new prop
     onPersonaChange,
     onCriteriaChange,
     isLoading,
@@ -44,6 +49,22 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
 }) => {
     return (
         <div className="grid gap-6">
+            {/* ADDED: Test Name Field */}
+            <div className="grid gap-2">
+                <Label htmlFor="test-name" className="text-sm font-medium">
+                    Test Name <span className="text-red-500">*</span> {/* Indicate compulsory */}
+                </Label>
+                <Input
+                    id="test-name"
+                    value={formData.name} // Bind value to parent state
+                    onChange={e => onNameChange(e.target.value)} // Call parent handler on change
+                    disabled={isLoading}
+                    required // HTML required attribute (for basic browser validation)
+                    placeholder="Enter a name for this test scenario" // Added placeholder
+                />
+            </div>
+            {/* End Test Name Field */}
+
             {/* Visitor Persona Section */}
             <div>
                 <div className="text-lg font-medium mb-4">Visitor Persona</div>
