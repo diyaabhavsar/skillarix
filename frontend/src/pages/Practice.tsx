@@ -40,6 +40,7 @@ interface ConversationPair {
 
 const Practice = () => {
     const { token } = useAuth();
+    console.log(token)
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -368,7 +369,7 @@ const Practice = () => {
                                 </Label>
                                 <Select onValueChange={setSelectedTestConfigId} value={selectedTestConfigId} disabled={isSelectionLoading || testConfigurations.length === 0 || !selectedProductId}>
                                     <SelectTrigger id="select-test-config">
-                                        <SelectValue />
+                                        <SelectValue placeholder={selectedProductId ? (isSelectionLoading ? "Loading scenarios..." : "Choose a scenario") : "Select a product first"} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {testConfigurations.map((config) => (

@@ -1,14 +1,26 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import PastSessionsTable from "@/components/past-sessions/PastSessionsTable";
 import SessionsPagination from "@/components/past-sessions/SessionsPagination";
 import { pastSessionsData } from "@/data/mockSessionsData";
+import { useConversationHistory } from "@/hooks/useConversationHistory";
 
 const PastSessions = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const totalPages = Math.ceil(pastSessionsData.length / itemsPerPage);
+  const { conversations, fetchConversations, loading, error } = useConversationHistory();
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      console.log("Fetched Conversations:", conversations);
+    }
+  }, [conversations]);
 
   // Using pagination logic only for UI demo - in a real app we would slice the data
   // based on the current page and items per page
@@ -29,7 +41,7 @@ const PastSessions = () => {
           </p>
         </div>
         
-        <PastSessionsTable sessions={pastSessionsData} />
+        <PastSessionsTable sessions={conversations} />
         
         <SessionsPagination
           currentPage={currentPage}

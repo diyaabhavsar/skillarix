@@ -4,8 +4,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Dict, Optional, Union, Any
 from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC  # Import UTC
 from jose import JWTError, jwt
+from bson.errors import InvalidId
 from passlib.context import CryptContext
 from bson import ObjectId
 import json
@@ -20,7 +21,9 @@ from groq import Groq
 from PyPDF2 import PdfReader
 from transformers import pipeline
 import pickle
+import asyncio
 from fastapi.websockets import WebSocketState
+import traceback
 
 # Initialize FastAPI app
 app = FastAPI(title="Sales Evaluation System API")
@@ -48,15 +51,29 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # MongoDB setup
 def setup_mongodb():
-    client = MongoClient("mongodb://localhost:27017/")
-    db = client["sales_evaluation_db"]
+    # client = MongoClient("mongodb://localhost:27017/")
+    # db = client["sales_evaluation_db"]
+    client = MongoClient('mongodb+srv://chinmaypatel2024:chinmay%402024@cluster0.hf0wpbs.mongodb.net/')
+    db = client['sales']
     # Access the new collection
     test_configurations_collection = db["test_configurations"]
     return db, gridfs.GridFS(db)
 
 db, fs = setup_mongodb()
 
-# Pydantic models for request/response
+# Helper function to convert ObjectIds to strings for API response
+def convert_objectids_to_strings(data):
+    """Recursively converts ObjectId instances in a dictionary or list to strings."""
+    if isinstance(data, dict):
+        return {key: convert_objectids_to_strings(value) for key, value in data.items()}
+    elif isinstance(data, list):
+         return [convert_objectids_to_strings(item) for item in data]
+    elif isinstance(data, ObjectId):
+        return str(data)
+    else:
+        return data
+
+# Pydantic models for request/response - Ensure they expect string IDs for _id, created_by, etc.
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -73,7 +90,7 @@ class UserCreate(UserBase):
     role: str  # "employee" or "admin"
 
 class User(UserBase):
-    id: str
+    id: str # Expect string ID
     role: str
 
 class CategoryBase(BaseModel):
@@ -83,27 +100,29 @@ class CategoryCreate(CategoryBase):
     pass
 
 class Category(CategoryBase):
-    id: str
-    created_by: str
+    id: str # Expect string ID
+    created_by: str # Expect string ID
     created_at: datetime
     updated_at: datetime
     is_deleted: bool = False
-    updated_by: Optional[str] = None
+    updated_by: Optional[str] = None # Expect string ID
 
 class ProductBase(BaseModel):
     name: str
-    category_id: str
+    category_id: str # Expect string ID
     description: Optional[str] = None
 
 class ProductCreate(ProductBase):
     pass
 
 class Product(ProductBase):
-    id: str
-    created_by: str
+    id: str # Expect string ID
+    category_id: str # Expect string ID
+    created_by: str # Expect string ID
     created_at: datetime
     updated_at: datetime
     metadata: Dict[str, Any]
+    updated_by: Optional[str] = None # Expect string ID
 
 class ConversationPair(BaseModel):
     visitor_text: str
@@ -111,10 +130,11 @@ class ConversationPair(BaseModel):
 
 class ConversationHistory(BaseModel):
     pairs: List[ConversationPair]
+    id: str = Field(alias="_id") # Expect string ID
 
 class EvaluationRequest(BaseModel):
     conversation: List[ConversationPair]
-    product_id: str
+    product_id: str # Expect string ID
     is_complete: bool = False
     additional_criteria: Optional[str] = None
 
@@ -122,13 +142,14 @@ class EvaluationResponse(BaseModel):
     evaluation: str
     score: float
     metrics: Dict[str, Any]
-    conversation_id: str
+    conversation_id: str # Expect string ID
 
 # Add these Pydantic models for user authentication
 class UserInDB(User):
     hashed_password: str
+    last_login: Optional[datetime] = None # Added last_login field
 
-# Add Pydantic models for Test Configuration
+# Add Pydantic models for Test Configuration - Ensure they expect string IDs
 class VisitorPersona(BaseModel):
     background: str
     pain_points: str
@@ -143,16 +164,23 @@ class AdditionalCriteria(BaseModel):
     communication_simplicity: bool
 
 class TestConfigurationCreate(BaseModel):
-    product_id: str
+    product_id: str # Expect string ID for input
     visitorPersona: VisitorPersona
     additionalCriteria: AdditionalCriteria
+    name: str
 
-class TestConfiguration(TestConfigurationCreate):
-    id: str = Field(alias="_id")
-    created_by: str
+class TestConfiguration(BaseModel):
+    id: str = Field(alias="_id") # Expect string ID for output
+    product_id: str # Expect string ID for output
+    visitorPersona: Dict[str, Any]
+    additionalCriteria: Dict[str, bool]
+    name: str
+    created_by: str # Expect string ID for output
     created_at: datetime
+    # Assuming no updated_by for test configs based on current schema, add if needed
+    # updated_by: Optional[str] = None
 
-# Add these helper functions for authentication
+# Helper functions for authentication
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -170,19 +198,17 @@ def get_user(db, email: str):
             "username": user_dict["username"],
             "email": user_dict["email"],
             "role": user_dict["role"],
-            "hashed_password": user_dict["password"] # Map the stored password field to hashed_password
+            "hashed_password": user_dict["password"], # Map the stored password field to hashed_password
+            "last_login": user_dict.get("last_login") # Get last_login, defaults to None if not exists
         }
-        # Ensure 'role' is present, although it's in UserBase so should be
-        # mapped_user_dict['role'] = user_dict.get('role', 'employee') # Add default if needed
-
-        print("Mapped user dict for Pydantic:", mapped_user_dict) # Add logging to see the dict structure
-        return UserInDB(**mapped_user_dict) # Use the mapped dictionary
-    print("User not found in DB.") # Add logging
+        print("Mapped user dict for Pydantic:", mapped_user_dict)
+        return UserInDB(**mapped_user_dict)
+    print("User not found in DB.")
     return None
 
 def authenticate_user(db, email: str, password: str):
-    print(f"Authenticating user: {email}") # Add logging
-    user = get_user(db, email) # <-- Pass email to get_user
+    print(f"Authenticating user: {email}")
+    user = get_user(db, email)
     if not user:
         print("Authentication failed: User not found.")
         return False
@@ -211,16 +237,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = TokenData(username=username)
 
     except JWTError as e:
-        print(f"JWT Error during decode: {e}") # <-- THIS WILL SHOW IF IT'S EXPIRATION
+        print(f"JWT Error during decode: {e}")
         raise credentials_exception
 
     # Now look up the user in the database
     print(f"Looking up user '{token_data.username}' in DB...")
-    user = get_user(db, token_data.username) # Assuming get_user returns UserInDB object or None
+    user = get_user(db, token_data.username)
     print(f"DB lookup result: {'Found' if user else 'Not Found'}")
 
     if user is None:
-        print(f"User '{token_data.username}' not found in database.") # <-- THIS WILL SHOW IF USER NOT FOUND
+        print(f"User '{token_data.username}' not found in database.")
         raise credentials_exception
 
     print(f"User '{user.username}' validated.")
@@ -239,135 +265,180 @@ class DatabaseOperations:
         self.products = db.products
         self.conversations = db.conversations
         self.users = db.users
-        self.test_configurations = db.test_configurations # Access the new collection
+        self.test_configurations = db.test_configurations
 
     def create_category(self, name: str, created_by: str) -> ObjectId:
-        category = {
+        category_data = {
             "name": name,
-            "created_by": created_by,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_by": ObjectId(created_by), # Store as ObjectId
+            "created_at": datetime.now(UTC), # Use timezone-aware datetime
+            "updated_at": datetime.now(UTC), # Use timezone-aware datetime
             "is_deleted": False,
-            "updated_by": created_by
+            "updated_by": ObjectId(created_by) # Store as ObjectId
         }
-        result = self.categories.insert_one(category)
+        result = self.categories.insert_one(category_data)
         return result.inserted_id
 
     def update_category(self, category_id: ObjectId, name: str, updated_by: str) -> tuple[bool, str]:
-        try:
-            result = self.categories.update_one(
-                {"_id": category_id, "is_deleted": False},
-                {
-                    "$set": {
-                        "name": name,
-                        "updated_at": datetime.utcnow(),
-                        "updated_by": updated_by
-                    }
-                }
-            )
-            return result.modified_count > 0, "Category updated successfully"
-        except Exception as e:
-            return False, str(e)
-
-    def soft_delete_category(self, category_id: ObjectId, updated_by: str) -> bool:
+        # Ensure category_id is an ObjectId when querying
         result = self.categories.update_one(
-            {"_id": category_id},
+            {"_id": category_id, "is_deleted": False},
             {
                 "$set": {
-                    "is_deleted": True,
-                    "updated_at": datetime.utcnow(),
-                    "updated_by": updated_by
+                    "name": name,
+                    "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+                    "updated_by": ObjectId(updated_by) # Store as ObjectId
                 }
             }
         )
-        return result.modified_count > 0
+        if result.matched_count == 0:
+            return False, "Category not found or already deleted"
+        return True, "Category updated successfully"
+
+    def soft_delete_category(self, category_id: ObjectId, updated_by: str) -> bool:
+         # Ensure category_id is an ObjectId when querying
+        result = self.categories.update_one(
+            {"_id": category_id, "is_deleted": False},
+            {
+                "$set": {
+                    "is_deleted": True,
+                    "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+                    "updated_by": ObjectId(updated_by) # Store as ObjectId
+                }
+            }
+        )
+        return result.matched_count > 0
 
     def get_categories(self, user_id: str):
-        return list(self.categories.find(
-            {"is_deleted": False},
-            {"_id": 1, "name": 1, "created_at": 1, "updated_at": 1, "updated_by": 1 }
-        ))
+        # When fetching, we return dictionaries. Convert ObjectIds to strings.
+        # Querying for non-deleted categories
+        categories_cursor = self.categories.find({"is_deleted": False})
+        # Convert cursor to list and then process
+        categories_list = list(categories_cursor)
+        # Convert ObjectIds to strings before returning
+        return convert_objectids_to_strings(categories_list)
 
     def create_product(self, name: str, category_id: ObjectId, pdf_content: str, metadata: dict, created_by: str, description: Optional[str] = None) -> ObjectId:
-        product = {
+        product_data = {
             "name": name,
-            "category_id": category_id,
+            "category_id": category_id, # category_id should already be ObjectId from endpoint
             "content": pdf_content,
             "metadata": metadata,
-            "created_by": created_by,
-            "description": description,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "created_by": ObjectId(created_by), # Store as ObjectId
+            "created_at": datetime.now(UTC), # Use timezone-aware datetime
+            "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+            "updated_by": ObjectId(created_by), # Store as ObjectId
+            "description": description
         }
-        result = self.products.insert_one(product)
+        result = self.products.insert_one(product_data)
         return result.inserted_id
 
     def get_products_by_category(self, category_id: ObjectId):
-        return list(self.products.find({"category_id": category_id}))
+        """
+        Retrieves products for a given category, ensuring ObjectId fields are converted to strings.
+        """
+        # Ensure category_id is an ObjectId when querying
+        products_cursor = self.products.find({"category_id": category_id})
+        products_list = list(products_cursor)
+        # Convert ObjectIds to strings before returning
+        return convert_objectids_to_strings(products_list)
 
     def get_product_by_id(self, product_id: ObjectId):
-        return self.products.find_one({"_id": product_id})
+        # Ensure product_id is an ObjectId when querying
+        product = self.products.find_one({"_id": product_id})
+        if product:
+            # Convert ObjectIds to strings before returning
+            return convert_objectids_to_strings(product)
+        return None
 
     def save_conversation(self, product_id: ObjectId, conversation_data: dict, user_id: str, evaluation_data: dict = None):
         """
         Save conversation and its evaluation data.
-        
+
         Args:
             product_id: ObjectId of the product
             conversation_data: Dictionary containing conversation pairs
-            user_id: ID of the user
-            evaluation_data: Dictionary containing evaluation data including:
-                - current_evaluation: Current exchange evaluation
-                - mid_evaluations: List of evaluations for each exchange
-                - complete_evaluation: Final complete conversation evaluation
-                - metrics: Calculated metrics
-                - score: Overall score
-                - additional_criteria_evaluation: Optional evaluation against custom criteria
+            user_id: ID of the user (now expects string, stores as ObjectId)
+            evaluation_data: Dictionary containing evaluation data
         """
-        conversation = {
-            "product_id": product_id,
-            "user_id": user_id,
+        conversation_doc = {
+            "product_id": product_id, # product_id should already be ObjectId from endpoint
+            "user_id": ObjectId(user_id), # Store as ObjectId
             "conversation_data": conversation_data,
-            "evaluation_data": evaluation_data or {},
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "evaluation_data": evaluation_data if evaluation_data is not None else {},
+            "created_at": datetime.now(UTC), # Use timezone-aware datetime
+            "updated_at": datetime.now(UTC)  # Use timezone-aware datetime
         }
-        return self.conversations.insert_one(conversation)
+        result = self.conversations.insert_one(conversation_doc)
+        return result.inserted_id
 
     def get_conversations_by_product(self, product_id: ObjectId, user_id: str):
-        """Get all conversations for a product with their evaluations."""
-        return list(self.conversations.find(
-            {"product_id": product_id, "user_id": user_id},
-            sort=[("created_at", -1)]
-        ))
+        """Get all conversations for a product by user_id (string)."""
+        # Ensure product_id and user_id are ObjectIds when querying
+        conversations_cursor = self.conversations.find({
+            "product_id": product_id,
+            "user_id": ObjectId(user_id) # Query using ObjectId
+        })
+        conversations_list = list(conversations_cursor)
+        # Convert ObjectIds to strings before returning
+        return convert_objectids_to_strings(conversations_list)
 
     def get_conversation_by_id(self, conversation_id: ObjectId):
         """Get a specific conversation with its evaluation data."""
-        return self.conversations.find_one({"_id": conversation_id})
+         # Ensure conversation_id is an ObjectId when querying
+        conversation = self.conversations.find_one({"_id": conversation_id})
+        if conversation:
+            # Convert ObjectIds to strings before returning
+            return convert_objectids_to_strings(conversation)
+        return None
 
     def update_conversation_evaluation(self, conversation_id: ObjectId, evaluation_data: dict):
         """Update evaluation data for an existing conversation."""
-        return self.conversations.update_one(
+         # Ensure conversation_id is an ObjectId when querying
+        result = self.conversations.update_one(
             {"_id": conversation_id},
-            {
-                "$set": {
-                    "evaluation_data": evaluation_data,
-                    "updated_at": datetime.utcnow()
-                }
-            }
+            {"$set": {"evaluation_data": evaluation_data, "updated_at": datetime.now(UTC)}} # Use timezone-aware datetime
         )
+        return result.matched_count > 0
 
-    # New method to save test configuration
+    # Method to save test configuration
     def save_test_configuration(self, config_data: TestConfigurationCreate, created_by: str) -> ObjectId:
-        test_config = {
-            "product_id": ObjectId(config_data.product_id), # Store product_id as ObjectId
-            "visitorPersona": config_data.visitorPersona.model_dump(), # Use model_dump() for Pydantic V2
-            "additionalCriteria": config_data.additionalCriteria.model_dump(), # Use model_dump() for Pydantic V2
-            "created_by": created_by,
-            "created_at": datetime.utcnow(),
+        test_config_doc = {
+            "product_id": ObjectId(config_data.product_id), # Store as ObjectId
+            "visitorPersona": config_data.visitorPersona.model_dump(), # Use model_dump()
+            "additionalCriteria": config_data.additionalCriteria.model_dump(), # Use model_dump()
+            "name": config_data.name,
+            "created_by": ObjectId(created_by), # Store as ObjectId
+            "created_at": datetime.now(UTC), # Use timezone-aware datetime
         }
-        result = self.test_configurations.insert_one(test_config)
+        result = self.test_configurations.insert_one(test_config_doc)
         return result.inserted_id
+
+    # New method to get test configurations by product ID and by current user
+    # def get_test_configurations_by_product(self, product_id: ObjectId, user_id: str) -> List[Dict[str, Any]]:
+    #     """
+    #     Retrieves test configurations for a given product and user_id (string).
+    #     Only fetches configurations created by the current user.
+    #     """
+    #     # Ensure product_id and user_id are ObjectIds when querying
+    #     configs_cursor = self.test_configurations.find({
+    #         "product_id": product_id,
+    #         "created_by": ObjectId(user_id) # Query using ObjectId
+    #     })
+    #     configs_list = list(configs_cursor)
+    #      # Convert ObjectIds to strings before returning
+    #     return convert_objectids_to_strings(configs_list)
+
+    # New method to get test configurations by product ID
+    def get_test_configurations_by_product(self, product_id: ObjectId) -> List[Dict[str, Any]]:
+        """
+        Retrieves all test configurations for a given product.
+        """
+        configs_cursor = self.test_configurations.find({
+            "product_id": product_id
+        })
+        configs_list = list(configs_cursor)
+        return convert_objectids_to_strings(configs_list)
 
 # User Management Class
 class User:
@@ -378,22 +449,23 @@ class User:
     def register(self, username: str, email: str, password: str, role: str) -> bool:
         if self.users.find_one({"$or": [{"username": username}, {"email": email}]}):
             return False
-        
+
         hashed_password = pwd_context.hash(password)
         user = {
             "username": username,
             "email": email,
             "password": hashed_password,
             "role": role,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "created_at": datetime.now(UTC), # Use timezone-aware datetime
+            "updated_at": datetime.now(UTC),  # Use timezone-aware datetime
+            "last_login": None # Initialize last_login to None
         }
         self.users.insert_one(user)
         return True
 
     def login(self, email: str, password: str):
-        print(f"User manager login attempt for email: {email}") # Add logging
-        user = get_user(self.db, email) # <-- Use get_user which now looks up by email
+        print(f"User manager login attempt for email: {email}")
+        user = get_user(self.db, email)
         if not user:
             print("User manager login failed: User not found.")
             return None
@@ -401,20 +473,31 @@ class User:
             print("User manager login failed: Incorrect password.")
             return None
         print("User manager login successful.")
+        
+        # Update last_login timestamp
+        self.db.users.update_one(
+            {"_id": ObjectId(user.id)}, # Use ObjectId to query by _id
+            {"$set": {"last_login": datetime.now(UTC)}}
+        )
+
         # Return dictionary representation, ensuring ObjectId _id is stringified if part of the dict
         user_dict = user.model_dump() # Use model_dump() for Pydantic V2
         user_dict['id'] = str(user_dict['id']) # Ensure id is string
         # Remove hashed_password for security before returning
         user_dict.pop('hashed_password', None)
+        # Update last_login in the returned dict to the new timestamp
+        user_dict['last_login'] = datetime.now(UTC).isoformat() # Return as ISO format string
+
         return user_dict
+
 
     def get_user_id(self, username: str) -> str:
         user = self.users.find_one({"username": username})
-        return str(user["_id"]) if user else None
+        return str(user["_id"]) if user and "_id" in user else None
 
     def get_user_by_username(self, username: str):
-        print(f"DB lookup by username field: {username}") # Add logging
-        return self.users.find_one({"username": username}) # <-- Looks up by username field
+        print(f"DB lookup by username field: {username}")
+        return self.users.find_one({"username": username})
 
 # Initialize database operations
 db_ops = DatabaseOperations(db)
@@ -425,306 +508,57 @@ def parse_transcript(transcript_text: str) -> List[dict]:
     lines = transcript_text.strip().split('\n')
     conversation_pairs = []
     current_pair = {'visitor_text': '', 'salesperson_text': ''}
-    
+
     for line in lines:
         line = line.strip()
         if not line:
             continue
-            
+
         if line.lower().startswith('visitor:'):
             if current_pair['visitor_text'] and current_pair['salesperson_text']:
                 conversation_pairs.append(current_pair)
                 current_pair = {'visitor_text': '', 'salesperson_text': ''}
             current_pair['visitor_text'] = line[8:].strip()
-            
+
         elif line.lower().startswith('salesperson:'):
             current_pair['salesperson_text'] = line[12:].strip()
-    
+
     if current_pair['visitor_text'] and current_pair['salesperson_text']:
         conversation_pairs.append(current_pair)
-    
+
     return conversation_pairs
 
 def read_pdf(pdf_file):
     reader = PdfReader(pdf_file)
     text = ""
-    
+
     metadata = {
         'title': reader.metadata.get('/Title', 'Untitled'),
         'author': reader.metadata.get('/Author', 'Unknown'),
         'creation_date': reader.metadata.get('/CreationDate', ''),
         'total_pages': len(reader.pages)
     }
-    
+
     for page in reader.pages:
         text += page.extract_text() + "\n"
-    
+
     return text.strip(), metadata
 
-def generate_answer_rag(context: str, question: str, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
-    try:
-        greeting_instruction = "Start with a warm greeting" if is_first_exchange else "Skip the greeting as this is a continuing conversation"
-        
-        conversation_context = ""
-        if conversation_history and len(conversation_history) > 0:
-            conversation_context = f"""
-Previous conversation:
-{format_conversation_history(conversation_history)}
-
-Continue the conversation naturally, referring back to previous exchanges when relevant.
-"""
-        
-        prompt = f"""
-You are a friendly and knowledgeable sales representative at a product expo. Your goal is to engage customers and help them understand the product's value, focusing on their needs and interests.
-
-Context from product documentation:
-{context}
-
-{conversation_context}
-
-Customer Question: {question}
-
-Guidelines for your response:
-1. {greeting_instruction}
-2. Focus on customer benefits and value first, not technical specifications
-3. Proactively identify and present solutions to common customer pain points
-4. Only provide technical details if:
-   - The customer specifically asks for them
-   - They are directly relevant to the customer's question
-   - The customer has shown enough interest to warrant deeper information
-5. Use simple, non-technical language unless the customer demonstrates technical knowledge
-6. Connect features to customer benefits and real-world applications
-7. Be conversational and engaging
-8. End with an open-ended question that encourages the customer to share more about their needs
-
-Remember:
-- Start with high-level benefits
-- Progress to features only as customer interest grows
-- Save detailed specifications for when they're specifically requested
-- Focus on how the product solves customer problems
-- Use analogies and examples that resonate with customers
-- Never ask the customer to figure out how the product solves their problems
-- Instead, proactively present solutions based on common customer needs
-- Show expertise by anticipating customer concerns and addressing them
-
-Your response:
-"""
-        
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1,
-            max_completion_tokens=1024,
-            top_p=1,
-            stream=True,
-            stop=None,
-        )   
-        
-        full_response = ""
-        for chunk in completion:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-        
-        return full_response.strip()
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
-
-def evaluate_individual_answer(rag_answer: str, salesperson_answer: str, customer_question: str, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
-    """Evaluate salesperson's answer against RAG answer."""
-    greeting_instruction = "For the first interaction, check if the salesperson starts with an appropriate greeting" if is_first_exchange else "A greeting is not necessary since this is not the first interaction"
-    
-    # Format conversation history if available
-    conversation_context = ""
-    if conversation_history and len(conversation_history) > 0:
-        conversation_context = f"""
-Previous conversation context:
-{format_conversation_history(conversation_history)}
-
-Take into account the conversation flow and whether the salesperson maintains continuity with previous exchanges.
-"""
-    
-    prompt = f"""
-You are an experienced sales trainer evaluating a salesperson's performance at a product expo. Compare the salesperson's answer to both the customer's question and the reference answer, focusing on both technical accuracy and sales effectiveness.
-
-{conversation_context}
-
-Customer's Question:
-{customer_question}
-
-Salesperson's Answer:
-{salesperson_answer}
-
-Reference Answer (Best Practice):
-{rag_answer}
-
-Important Note: {greeting_instruction}
-
-Evaluate the salesperson's performance on:
-1. Question Relevance (0-3 points)
-   - How well does the answer address the specific question asked?
-   - Is the response focused on what the customer wants to know?
-   - Does it avoid going off-topic?
-
-2. Technical Accuracy (0-3 points)
-   - Is the information provided factually correct?
-   - Does it align with the product specifications?
-   - Are technical details presented accurately?
-
-3. Sales Effectiveness (0-4 points)
-   - Does it proactively present solutions?
-   - Is it customer-centric and benefit-focused?
-   - Does it demonstrate expertise without being overly technical?
-   - Does it engage the customer and encourage further interaction?
-   - {"Does it begin with an appropriate greeting?" if is_first_exchange else ""}
-   - Does it reference previous exchanges appropriately? (if applicable)
-
-Give a total score out of 10 and provide specific feedback on how they can improve their pitch and customer interaction.
-
-Your evaluation:
-"""
-
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
-
-def evaluate_mid_conversation(recent_exchanges: List[dict], context: str) -> str:
+# Helper function to remove invalid control characters from a string
+def remove_invalid_json_chars(raw_string: str) -> str:
     """
-    Evaluate the last 4 exchanges of the conversation to assess progress and direction.
+    Removes characters that are invalid in JSON strings.
+    Specifically targets control characters except allowed ones (\b, \f, \n, \r, \t).
     """
-    # Format the exchanges into a readable string
-    exchanges_text = "\n".join([
-        f"Exchange {i+1}:\n"
-        f"Customer: {exchange['visitor_text']}\n"
-        f"Salesperson: {exchange['salesperson_text']}"
-        for i, exchange in enumerate(recent_exchanges)
-    ])
-
-    prompt = f"""
-You are evaluating a series of recent exchanges in a sales conversation. Analyze the last few interactions 
-to assess the conversation's progress and effectiveness.
-
-Context from product documentation:
-{context}
-
-Recent Exchanges:
-{exchanges_text}
-
-Evaluate the following aspects:
-1. Conversation Direction (0-3 points)
-   - Is the conversation moving towards a clear goal?
-   - Are key product benefits being effectively communicated?
-   - Is there a logical progression in the discussion?
-
-2. Information Consistency (0-3 points)
-   - Are the salesperson's responses consistent with previous statements?
-   - Is product information accurately maintained throughout?
-   - Are customer concerns being tracked and addressed?
-
-3. Customer Engagement (0-4 points)
-   - Is the customer showing increasing interest?
-   - Are their questions being fully addressed?
-   - Is the salesperson building rapport and trust?
-   - Is the conversation becoming more specific/detailed?
-
-Provide:
-1. Scores for each category
-2. Specific examples from the conversation
-3. Actionable recommendations for improvement
-4. Suggested next steps or topics to address
-
-Your evaluation:
-"""
-
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
-
-def evaluate_complete_conversation(full_conversation: List[dict], context: str) -> str:
-    """
-    Evaluate the entire sales conversation for overall effectiveness and outcomes.
-    """
-    prompt = f"""
-You are evaluating a complete sales conversation. Analyze the entire interaction to assess overall 
-effectiveness and achievement of sales objectives.
-
-Context from product documentation:
-{context}
-
-Complete Conversation:
-{format_conversation_history(full_conversation)}
-
-Evaluate the following aspects:
-1. Overall Progress (0-3 points)
-   - Did the conversation achieve its objectives?
-   - Was there clear progression from introduction to closing?
-   - Were key decision points effectively handled?
-
-2. Sales Strategy (0-3 points)
-   - Was the sales approach appropriate for the customer?
-   - Were product benefits effectively communicated?
-   - Was objection handling effective?
-
-3. Customer Journey (0-2 points)
-   - Did customer understanding/interest increase?
-   - Was there clear movement toward a decision?
-
-4. Technical Accuracy (0-2 points)
-   - Was product information consistently accurate?
-   - Were technical details explained appropriately?
-
-Provide:
-1. Overall score and breakdown by category
-2. Key successful moments in the conversation
-3. Critical missed opportunities
-4. Pattern analysis of effective/ineffective techniques used
-5. Recommendations for future conversations
-
-Your evaluation:
-"""
-
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+    # JSON allows \b, \f, \n, \r, \t. Other control characters (0x00-0x1F excluding these) are invalid unescaped.
+    # Regex matches characters in range 0x00-0x1F EXCEPT 0x08 (\b), 0x09 (\t), 0x0a (\n), 0x0c (\f), 0x0d (\r)
+    # More simply, target chars < 32 that are not \t, \n, \r. \b, \f are less common.
+    # Let's remove all control characters except the most common newlines and tabs for simplicity and robustness.
+    # A common pattern is to remove all non-printable ASCII characters.
+    # Or, stick strictly to JSON invalid characters: \x00-\x07, \x0b, \x0e-\x1f
+    # Let's use a regex that removes these specific invalid ones.
+    control_char_regex = re.compile(r'[\x00-\x07\x0B\x0C\x0E-\x1F]+')
+    return control_char_regex.sub('', raw_string)
 
 def generate_customer_persona(product_context: str) -> dict:
     """Generate a customer persona based on the product context."""
@@ -783,7 +617,360 @@ Format the response as a JSON object with these fields.
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating customer persona: {str(e)}")
 
-def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict, salesperson_last_response: str = None) -> str:
+
+def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
+    try:
+        greeting_instruction = "Start with a warm greeting" if is_first_exchange else "Skip the greeting as this is a continuing conversation"
+
+        conversation_context = ""
+        if conversation_history and len(conversation_history) > 0:
+            conversation_context = f"""
+Previous conversation:
+{format_conversation_history(conversation_history)}
+
+Continue the conversation naturally, referring back to previous exchanges when relevant.
+"""
+
+        prompt = f"""
+You are a friendly and knowledgeable sales representative at a product expo. Your goal is to engage customers and help them understand the product's value, focusing on their needs and interests.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
+
+Context from product documentation:
+{context}
+
+{conversation_context}
+
+Customer Question: {question}
+
+Guidelines for your response:
+1. {greeting_instruction}
+2. Focus on customer benefits and value first, not technical specifications
+3. Proactively identify and present solutions to common customer pain points
+4. Only provide technical details if:
+   - The customer specifically asks for them
+   - They are directly relevant to the customer's question
+   - The customer has shown enough interest to warrant deeper information
+5. Use simple, non-technical language unless the customer demonstrates technical knowledge
+6. Connect features to customer benefits and real-world applications
+7. Be conversational and engaging
+8. End with an open-ended question that encourages the customer to share more about their needs
+9. Tailor your response to match the customer's:
+   - Technical knowledge level
+   - Pain points and goals
+   - Budget sensitivity
+   - Decision-making authority
+   - Previous experience
+
+Remember:
+- Start with high-level benefits
+- Progress to features only as customer interest grows
+- Save detailed specifications for when they're specifically requested
+- Focus on how the product solves customer problems
+- Use analogies and examples that resonate with customers
+- Never ask the customer to figure out how the product solves their problems
+- Instead, proactively present solutions based on common customer needs
+- Show expertise by anticipating customer concerns and addressing them
+
+Your response:
+"""
+
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=1,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+
+    except Exception as e:
+        # Use HTTPException only in API endpoints, not here.
+        # Re-raise the exception or handle it appropriately.
+        print(f"Error generating RAG answer: {str(e)}")
+        raise # Re-raise the exception
+
+def evaluate_individual_answer(rag_answer: str, salesperson_answer: str, customer_question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
+    """Evaluate salesperson's answer against RAG answer."""
+    greeting_instruction = "For the first interaction, check if the salesperson starts with an appropriate greeting" if is_first_exchange else "A greeting is not necessary since this is not the first interaction"
+
+    # Format conversation history if available
+    conversation_context = ""
+    if conversation_history and len(conversation_history) > 0:
+        conversation_context = f"""
+Previous conversation context:
+{format_conversation_history(conversation_history)}
+
+Take into account the conversation flow and whether the salesperson maintains continuity with previous exchanges.
+"""
+
+    prompt = f"""
+You are an experienced sales trainer evaluating a salesperson's performance at a product expo. Compare the salesperson's answer to both the customer's question and the reference answer, focusing on both technical accuracy and sales effectiveness.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
+
+{conversation_context}
+
+Customer's Question:
+{customer_question}
+
+Salesperson's Answer:
+{salesperson_answer}
+
+Reference Answer (Best Practice):
+{rag_answer}
+
+Important Note: {greeting_instruction}
+
+Evaluate the salesperson's performance on:
+1. Question Relevance (0-3 points)
+   - How well does the answer address the specific question asked?
+   - Is the response focused on what the customer wants to know?
+   - Does it avoid going off-topic?
+
+2. Technical Accuracy (0-3 points)
+   - Is the information provided factually correct?
+   - Does it align with the product specifications?
+   - Are technical details presented accurately?
+
+3. Sales Effectiveness (0-4 points)
+   - Does it proactively present solutions?
+   - Is it customer-centric and benefit-focused?
+   - Does it demonstrate expertise without being overly technical?
+   - Does it engage the customer and encourage further interaction?
+   - {"Does it begin with an appropriate greeting?" if is_first_exchange else ""}
+   - Does it reference previous exchanges appropriately? (if applicable)
+   - Does it appropriately address the customer's:
+     * Technical knowledge level
+     * Pain points and goals
+     * Budget sensitivity
+     * Decision-making authority
+     * Previous experience
+
+Give a total score out of 10 and provide specific feedback on how they can improve their pitch and customer interaction.
+
+IMPORTANT INSTRUCTIONS:
+- Return ONLY a valid JSON object, and nothing else.
+- Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
+- The JSON object must have exactly two fields: "evaluation" and "rating".
+- "evaluation" should be a single string containing all your analysis, feedback, and suggestions.
+- "rating" should be an object with the following structure and ONLY numbers as values:
+
+{{
+  "evaluation": "Your detailed feedback, analysis, and suggestions here.",
+  "rating": {{
+    "question_relevance": {{"score": 2, "max": 3}},
+    "technical_accuracy": {{"score": 1, "max": 3}},
+    "sales_effectiveness": {{"score": 3, "max": 4}},
+    "total": {{"score": 6, "max": 10}}
+  }}
+}}
+"""
+
+    completion = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1,
+        stream=True,
+        stop=None,
+    )
+
+    full_response = ""
+    for chunk in completion:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+
+    return full_response.strip()
+
+def evaluate_mid_conversation(recent_exchanges: List[dict], context: str, persona: dict) -> str:
+    """
+    Evaluate the last 4 exchanges of the conversation to assess progress and direction.
+    
+    Args:
+        recent_exchanges: List of recent conversation exchanges
+        context: Product context from PDF
+        persona: Customer persona details for context-aware evaluation
+    """
+    # Format the exchanges into a readable string
+    exchanges_text = "\n".join([
+        f"Exchange {i+1}:\n"
+        f"Customer: {exchange['visitor_text']}\n"
+        f"Salesperson: {exchange['salesperson_text']}"
+        for i, exchange in enumerate(recent_exchanges)
+    ])
+
+    prompt = f"""
+You are evaluating a series of recent exchanges in a sales conversation. Analyze the last few interactions 
+to assess the conversation's progress and effectiveness.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
+
+Context from product documentation:
+{context}
+
+Recent Exchanges:
+{exchanges_text}
+
+Evaluate the following aspects:
+1. Conversation Direction (0-3 points)
+   - Is the conversation moving towards a clear goal?
+   - Are key product benefits being effectively communicated?
+   - Is there a logical progression in the discussion?
+   - Is the sales approach appropriate for this specific customer persona?
+
+2. Information Consistency (0-3 points)
+   - Are the salesperson's responses consistent with previous statements?
+   - Is product information accurately maintained throughout?
+   - Are customer concerns being tracked and addressed?
+   - Is the technical level appropriate for the customer's knowledge?
+
+3. Customer Engagement (0-4 points)
+   - Is the customer showing increasing interest?
+   - Are their questions being fully addressed?
+   - Is the salesperson building rapport and trust?
+   - Is the conversation becoming more specific/detailed?
+   - Is the salesperson addressing the customer's:
+     * Technical knowledge level appropriately
+     * Pain points and goals
+     * Budget sensitivity
+     * Decision-making authority
+     * Previous experience
+
+Provide:
+1. Scores for each category
+2. Specific examples from the conversation
+3. Actionable recommendations for improvement
+4. Suggested next steps or topics to address
+5. How well the salesperson is adapting to this specific customer persona
+
+Your evaluation:
+"""
+
+    completion = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1,
+        stream=True,
+        stop=None,
+    )
+    
+    full_response = ""
+    for chunk in completion:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+    
+    return full_response.strip()
+
+def evaluate_complete_conversation(full_conversation: List[dict], context: str, persona: dict) -> str:
+    """
+    Evaluate the entire sales conversation for overall effectiveness and outcomes.
+    """
+    prompt = f"""
+You are evaluating a complete sales conversation. Analyze the entire interaction to assess overall 
+effectiveness and achievement of sales objectives.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
+
+Key Persona Considerations:
+- Technical Knowledge Level: {persona.get('technical_knowledge', 'Not specified')}
+- Pain Points: {persona.get('pain_points', 'Not specified')}
+- Goals: {persona.get('goals', 'Not specified')}
+- Budget Sensitivity: {persona.get('budget_sensitivity', 'Not specified')}
+- Decision Authority: {persona.get('decision_authority', 'Not specified')}
+- Previous Experience: {persona.get('previous_experience', 'Not specified')}
+
+Context from product documentation:
+{context}
+
+Complete Conversation:
+{format_conversation_history(full_conversation)}
+
+Evaluate the following aspects:
+1. Overall Progress (0-3 points)
+   - Did the conversation achieve its objectives?
+   - Was there clear progression from introduction to closing?
+   - Were key decision points effectively handled?
+   - Was the approach consistently appropriate for this customer persona?
+
+2. Sales Strategy (0-3 points)
+   - Was the sales approach appropriate for this specific customer?
+   - Were product benefits effectively communicated in a way that resonated with this customer?
+   - Was objection handling effective and persona-appropriate?
+   - Was the technical depth consistently appropriate?
+
+3. Customer Journey (0-2 points)
+   - Did customer understanding/interest increase?
+   - Was there clear movement toward a decision?
+   - Was the journey tailored to this customer's decision-making style?
+
+4. Technical Accuracy (0-2 points)
+   - Was product information consistently accurate?
+   - Were technical details explained at the appropriate level for this customer?
+   - Was the technical complexity matched to the customer's knowledge level?
+
+Provide:
+1. Explanation of Overall score and breakdown by category (key name to be used for this point: overall_score, the response for this point must be in single string)
+2. Key successful moments in the conversation (key name to be used: key_successful_moments, the response for this point must be in single string)
+3. Critical missed opportunities (key name to be used: critical_missed_opportunities, the response for this point must be in single string)
+4. Pattern analysis of effective/ineffective techniques used (key name to be used: pattern_analysis, the response for this point must be in single string)
+5. Recommendations for future conversations (key name to be used: recommendations, the response for this point must be in single string)
+6. Specific analysis of how well the salesperson adapted to this customer persona throughout the conversation (key name to be used: specific_analysis, the response for this point must be in single string)
+
+IMPORTANT INSTRUCTIONS:
+- Return ONLY a valid JSON object, and nothing else.
+- All the keys must be in lowercase and instead of space use underscore.
+- Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
+- The JSON object must have exactly two fields: "complete_evaluation" and "complete_rating".
+- "complete_evaluation" should be containing all your analysis, feedback, and suggestions as suggested in the prompt in detail. make sure to include all the details as suggested in the prompt.
+- "complete_rating" should be an object with the following structure and ONLY numbers as values:
+
+{{
+  "complete_evaluation": "Your detailed feedback, analysis, and suggestions here as suggested in the prompt in detail.",
+  "complete_rating": {{
+    "overall_progress": {{"score": <number>, "max": 3}},
+    "sales_strategy": {{"score": <number>, "max": 3}},
+    "customer_journey": {{"score": <number>, "max": 2}},
+    "technical_accuracy": {{"score": <number>, "max": 2}},
+    "total": {{"score": <number>, "max": 10}}
+  }}
+}}
+"""
+
+    completion = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1,
+        stream=True,
+        stop=None,
+    )
+    
+    full_response = ""
+    for chunk in completion:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+    
+    return full_response.strip()
+
+
+def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
     """
     Generate a customer question based on the product context, persona, and conversation history.
     Can generate both initial questions and follow-up questions based on the salesperson's response.
@@ -792,7 +979,6 @@ def generate_customer_question(product_context: str, conversation_history: List[
         product_context: The product documentation context
         conversation_history: List of previous conversation exchanges
         persona: Customer persona details
-        salesperson_last_response: The salesperson's last response (optional, for follow-up questions)
     
     Returns:
         str: Generated customer question
@@ -806,7 +992,7 @@ Previous conversation:
 """
         
         # Determine if this is a follow-up question
-        is_follow_up = salesperson_last_response is not None
+        is_follow_up = len(conversation_history) > 0
         
         # Base prompt for customer persona and context
         base_prompt = f"""
@@ -822,10 +1008,9 @@ Product Documentation:
         # Add specific instructions based on whether it's a follow-up question
         if is_follow_up:
             prompt = f"""{base_prompt}
-Salesperson's last response:
-{salesperson_last_response}
 
-Generate a realistic follow-up question that this customer would ask based on the salesperson's response. The question should:
+
+Generate a realistic follow-up question that this customer would ask based on the conversation and salesperson's last response. The question should:
 1. Be relevant to the previous exchange and salesperson's response
 2. Show appropriate level of technical understanding
 3. Reflect the customer's stage in the buying process
@@ -846,7 +1031,7 @@ Generate a realistic initial question that this customer would ask about the pro
 5. Not be too specific or technical unless the persona suggests it
 6. Set a good foundation for the conversation
 
-Your question:
+Just return the only question, no other text at all. Your question:
 """
         
         completion = client.chat.completions.create(
@@ -894,7 +1079,7 @@ Generate a realistic follow-up question that this customer would ask based on th
 6. Show engagement with the salesperson's points
 7. Move the conversation forward
 
-Your follow-up question:
+Just return the question, no other text. Your follow-up question:
 """
         
         completion = client.chat.completions.create(
@@ -917,7 +1102,7 @@ Your follow-up question:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating follow-up question: {str(e)}")
 
-def evaluate_additional_criteria(conversation: List[dict], criteria: str, context: str) -> str:
+def evaluate_additional_criteria(conversation: List[dict], criteria: str, context: str, persona: dict) -> str:
     """
     Evaluate the conversation based on additional criteria.
     
@@ -925,6 +1110,7 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
         conversation: List of conversation exchanges
         criteria: The selected criteria to evaluate
         context: Product context from PDF
+        persona: Customer persona details
     
     Returns:
         str: Evaluation text
@@ -986,6 +1172,9 @@ Provide specific examples from the conversation and actionable feedback.
     # Create the full prompt
     full_prompt = f"""
 Based on the following conversation and product context, evaluate the salesperson's performance according to the specified criteria.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
 
 Product Context:
 {context}
@@ -1065,7 +1254,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         "access_token": access_token,
         "token_type": "bearer",
         "role": user["role"],
-        "username": user["username"]
+        "username": user["username"],
+        "last_login": user.get("last_login") # Include last_login here
     }
 
 @app.post("/register")
@@ -1076,7 +1266,19 @@ async def register_user(user: UserCreate):
 
 @app.post("/categories")
 async def create_category(category: CategoryCreate, current_user: User = Depends(get_current_user)):
+    # Check if a category with the same name already exists and is not deleted
+    # Use the db object directly or add a method to DatabaseOperations
+    existing_category = db.categories.find_one({"name": category.name, "is_deleted": False})
+    if existing_category:
+        # If a category with this name exists and is not deleted, return a 400 error
+        raise HTTPException(status_code=400, detail="This Category name already exists")
+
+    # If no existing active category with the same name, proceed with creation
+    # The db_ops.create_category method should handle the database insertion
     category_id = db_ops.create_category(category.name, current_user.id)
+
+    # You might want to fetch the newly created category to return its details
+    # For now, let's keep the original return structure
     return {"id": str(category_id), "name": category.name}
 
 @app.get("/categories")
@@ -1119,177 +1321,439 @@ async def create_product(
     current_user: User = Depends(get_current_user)
 ):
     pdf_content, metadata = read_pdf(file.file)
+    
+    # Ensure category_id is ObjectId for storage
+    category_obj_id = ObjectId(category_id)
+
+    # Call create_product, passing string user ID (db_ops converts it to ObjectId)
     product_id = db_ops.create_product(
         name=name,
-        category_id=ObjectId(category_id),
+        category_id=category_obj_id,
         pdf_content=pdf_content,
         metadata=metadata,
-        created_by=current_user.id,
+        created_by=current_user.id, # Pass string user ID
         description=description
     )
-    created_product = db_ops.get_product_by_id(product_id)
-    created_product['_id'] = str(created_product['_id'])
-    created_product['category_id'] = str(created_product['category_id'])
-    return created_product
+
+    # Fetch the newly created product
+    # The db_ops method *should* return dict with string IDs, but let's ensure conversion here
+    created_product_dict = db.products.find_one({"_id": product_id}) # Fetch the raw document
+
+    # --- FIX START: Manually convert all known ObjectId fields to strings for the response ---
+    if created_product_dict: # Ensure product was found after insertion
+        # Convert top-level ObjectId fields
+        if '_id' in created_product_dict and isinstance(created_product_dict['_id'], ObjectId):
+             created_product_dict['_id'] = str(created_product_dict['_id'])
+        if 'category_id' in created_product_dict and isinstance(created_product_dict['category_id'], ObjectId):
+             created_product_dict['category_id'] = str(created_product_dict['category_id'])
+        if 'created_by' in created_product_dict and isinstance(created_product_dict['created_by'], ObjectId):
+             created_product_dict['created_by'] = str(created_product_dict['created_by'])
+        if 'updated_by' in created_product_dict and isinstance(created_product_dict['updated_by'], ObjectId):
+             created_product_dict['updated_by'] = str(created_product_dict['updated_by'])
+
+        # Check if metadata is a dictionary and look for ObjectIds inside it
+        if 'metadata' in created_product_dict and isinstance(created_product_dict['metadata'], dict):
+             # Assuming you don't store ObjectIds deep inside metadata.
+             # If you do, you'd need recursive conversion or specific checks here.
+             pass # Metadata fields like title, author, creation_date, total_pages are likely strings/ints
+
+        # You can add checks for any other fields you suspect might contain ObjectIds
+        # For example, if you add a list of ObjectIds:
+        # if 'related_ids' in created_product_dict and isinstance(created_product_dict['related_ids'], list):
+        #     created_product_dict['related_ids'] = [str(oid) if isinstance(oid, ObjectId) else oid for oid in created_product_dict['related_ids']]
+
+    # --- FIX END ---
+
+    # Return the dictionary with ObjectIds converted to strings
+    return created_product_dict
 
 @app.get("/products/{category_id}")
 async def get_products(category_id: str, current_user: User = Depends(get_current_user)):
-    products = db_ops.get_products_by_category(ObjectId(category_id))
-    for product in products:
-        product['_id'] = str(product['_id'])
-        product['category_id'] = str(product['category_id'])
-    return products
-
-@app.post("/evaluate")
-async def evaluate_conversation(
-    evaluation_request: EvaluationRequest,
-    current_user: User = Depends(get_current_user)
-):
-    product = db_ops.get_product_by_id(ObjectId(evaluation_request.product_id))
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    context = product["content"]
-    conversation = evaluation_request.conversation
-    
-    # Get the last exchange for individual evaluation
-    last_exchange = conversation[-1]
-    rag_answer = generate_answer_rag(
-        context,
-        last_exchange['visitor_text'],
-        len(conversation) == 1,
-        conversation[:-1]
-    )
-    
-    # Evaluate individual answer
-    individual_evaluation = evaluate_individual_answer(
-        rag_answer,
-        last_exchange['salesperson_text'],
-        last_exchange['visitor_text'],
-        len(conversation) == 1,
-        conversation[:-1]
-    )
-    
-    # Check if we need a mid-conversation evaluation (every 4 pairs)
-    mid_evaluation = None
-    if len(conversation) % 4 == 0:
-        mid_evaluation = evaluate_mid_conversation(conversation, context)
-    
-    # Get complete evaluation and additional criteria evaluation if conversation is complete
-    complete_evaluation = None
-    additional_criteria_evaluation = None
-    if evaluation_request.is_complete:
-        # Perform complete evaluation
-        complete_evaluation = evaluate_complete_conversation(conversation, context)
-        
-        # Perform additional criteria evaluation if criteria are provided
-        if hasattr(evaluation_request, 'additional_criteria') and evaluation_request.additional_criteria:
-            additional_criteria_evaluation = evaluate_additional_criteria(
-                conversation,
-                evaluation_request.additional_criteria,
-                context
-            )
-        else:
-            additional_criteria_evaluation = "No additional criteria selected"
-    
-    # Calculate metrics
-    score = extract_score(individual_evaluation)
-    metrics = calculate_metrics(conversation)
-    
-    # Save all evaluation data
-    evaluation_data = {
-        "individual_evaluation": individual_evaluation,
-        "mid_evaluation": mid_evaluation,
-        "complete_evaluation": complete_evaluation,
-        "additional_criteria_evaluation": additional_criteria_evaluation,
-        "score": score,
-        "metrics": metrics,
-        "is_complete": evaluation_request.is_complete
-    }
-    
-    conversation_id = db_ops.save_conversation(
-        ObjectId(evaluation_request.product_id),
-        conversation,
-        current_user.id,
-        evaluation_data
-    )
-    
-    return {
-        "individual_evaluation": individual_evaluation,
-        "mid_evaluation": mid_evaluation,
-        "complete_evaluation": complete_evaluation,
-        "additional_criteria_evaluation": additional_criteria_evaluation,
-        "score": score,
-        "metrics": metrics,
-        "conversation_id": str(conversation_id.inserted_id)
-    }
+    """
+    Retrieves products for a category, authenticated.
+    db_ops.get_products_by_category now handles ObjectId conversion.
+    """
+    try:
+        # Call the updated db_ops method
+        products = db_ops.get_products_by_category(ObjectId(category_id))
+        # The list 'products' returned by db_ops should now contain only dictionaries
+        # with string representations of ObjectIds, which FastAPI can serialize.
+        return products
+    except Exception as e:
+        print(f"Error fetching products for category {category_id}: {e}")
+        traceback.print_exc() # Print full traceback for debugging
+        raise HTTPException(status_code=500, detail="Failed to fetch products")
 
 @app.websocket("/ws/chat")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     await websocket.accept()
+    # --- AUTHENTICATION PATCH START ---
     try:
+        if not token:
+            await websocket.send_json({"error": "Authentication required (no token provided)"})
+            await websocket.close()
+            return
+        user = await get_current_user(token)
+        user_id = user.id
+    except Exception as e:
+        await websocket.send_json({"error": "Authentication failed"})
+        await websocket.close()
+        return
+    # --- AUTHENTICATION PATCH END ---
+
+    try:
+        # Receive initial data including product_id and optionally test_configuration_id
+        data = await websocket.receive_json()
+        
+        if data.get("type") == "start":
+            product_id_str = data.get("product_id")
+            test_config_id_str = data.get("test_configuration_id") # Get the test config ID
+
+            if not product_id_str:
+                 await websocket.send_json({"error": "product_id is required to start session"})
+                 await websocket.close()
+                 return
+
+            product_id = ObjectId(product_id_str)
+            product = db_ops.get_product_by_id(product_id)
+            if not product:
+                await websocket.send_json({"error": "Product not found"})
+                await websocket.close()
+                return
+
+            # Load test configuration if provided
+            persona = {} # Default empty persona
+            # additional_criteria_config = None # Default no additional criteria config
+
+            if test_config_id_str:
+                 test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id_str)})
+                 if test_config:
+                      persona = test_config.get("visitorPersona", {})
+                    #   additional_criteria_config = test_config.get("additionalCriteria", None)
+                 else:
+                      # Optionally send a warning to the client if config not found
+                      print(f"Warning: Test configuration {test_config_id_str} not found.")
+
+
+            conversation_history = []
+            # Generate initial customer question using the loaded persona
+            question = generate_customer_question(product["content"], conversation_history, persona, None)
+            await websocket.send_json({
+                "type": "question",
+                "content": question,
+                # Optionally send persona/criteria back to the client for display or confirmation
+                # "persona": persona,
+                # "additional_criteria_config": additional_criteria_config
+            })
+
+        # Handle subsequent messages in the conversation
         while True:
             data = await websocket.receive_json()
-            
-            if data["type"] == "start":
-                # Initialize new conversation
-                product_id = ObjectId(data["product_id"])
-                product = db_ops.get_product_by_id(product_id)
-                if not product:
-                    await websocket.send_json({"error": "Product not found"})
-                    continue
-                
-                # Generate initial customer question
-                question = generate_customer_question(product["content"], [], {}, None)
-                await websocket.send_json({
-                    "type": "question",
-                    "content": question
-                })
-                
-            elif data["type"] == "answer":
+
+            if data.get("type") == "answer":
                 # Process salesperson's answer
-                product_id = ObjectId(data["product_id"])
-                product = db_ops.get_product_by_id(product_id)
+                product_id_str = data.get("product_id")
+                # test_config_id_str = data.get("test_configuration_id") # Can retrieve again if needed, or pass in each message
+
+                # You might want to retrieve the test config here again if not stored client-side
+                # and needed for generate_customer_question or evaluation
+
+                product = db_ops.get_product_by_id(ObjectId(product_id_str))
+                if not product:
+                     await websocket.send_json({"error": "Product not found"})
+                     continue # Keep the connection open? Or close? Based on desired flow.
+
                 conversation_history = data.get("history", [])
-                
-                # Generate AI response
-                rag_answer = generate_answer_rag(
-                    product["content"],
-                    data["last_question"],
-                    len(conversation_history) == 0,
-                    conversation_history
-                )
-                
-                # Evaluate salesperson's answer
-                evaluation = evaluate_individual_answer(
-                    rag_answer,
-                    data["answer"],
-                    data["last_question"],
-                    len(conversation_history) == 0,
-                    conversation_history
-                )
-                
-                # Generate next question
+                salesperson_answer = data.get("answer")
+                last_question = data.get("last_question")
+
+                if salesperson_answer is None or last_question is None:
+                     await websocket.send_json({"error": "Answer or last question missing"})
+                     continue
+
+                # Retrieve persona and additional criteria for evaluation and next question
+                # This assumes test_configuration_id is sent with each answer message
+                # Alternatively, store it server-side in the websocket handler state
+                current_persona = {} # Default
+                current_additional_criteria_config = None # Default
+
+                test_config_id_str_current = data.get("test_configuration_id") # Check if passed in message
+                if test_config_id_str_current:
+                     test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id_str_current)})
+                     if test_config:
+                          current_persona = test_config.get("visitorPersona", {})
+                          current_additional_criteria_config = test_config.get("additionalCriteria", None)
+                     # else: Log warning if config not found again
+
+
+                # Generate next question using the persona
                 next_question = generate_customer_question(
                     product["content"],
                     conversation_history + [{
-                        "visitor_text": data["last_question"],
-                        "salesperson_text": data["answer"]
+                        "visitor_text": last_question,
+                        "salesperson_text": salesperson_answer
                     }],
-                    {},
-                    data["answer"]
+                    current_persona # Use the loaded persona for the next question
                 )
-                
+
                 await websocket.send_json({
-                    "type": "evaluation",
-                    "evaluation": evaluation,
-                    "next_question": next_question
+                    "type": "next_question",
+                    # "evaluation": evaluation_text,
+                    # "rating": rating,
+                    "content": next_question
                 })
                 
+            elif data.get("type") == "end_session":
+                 # Handle session completion and final evaluation
+                 product_id_str = data.get("product_id")
+                 conversation_history = data.get("history", [])
+                 test_config_id_str = data.get("test_configuration_id") # Get config ID for final eval
+
+                 # --- ADD THIS BLOCK: append the last Q&A to the history ---
+                 last_question = data.get("last_question")
+                 last_answer = data.get("answer")
+                 if last_question and last_answer:
+                     conversation_history = conversation_history + [{
+                         "visitor_text": last_question,
+                         "salesperson_text": last_answer
+                     }]
+                 # --- END OF ADDED BLOCK ---
+
+                 if not product_id_str:
+                      await websocket.send_json({"error": "product_id is required for final evaluation"})
+                      await websocket.close()
+                      return
+
+                 product_id = ObjectId(product_id_str)
+                 product = db_ops.get_product_by_id(product_id)
+                 if not product:
+                      await websocket.send_json({"error": "Product not found for final evaluation"})
+                      await websocket.close()
+                      return
+
+                 # Load test configuration for final evaluation
+                 current_persona = {}
+                 final_additional_criteria_config = None
+                 if test_config_id_str:
+                      test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id_str)})
+                      if test_config:
+                           current_persona = test_config.get("visitorPersona", {})
+                           final_additional_criteria_config = test_config.get("additionalCriteria", None)
+                      # else: Log warning
+
+
+                 # Perform complete evaluation
+                 complete_evaluation = evaluate_complete_conversation(
+                     conversation_history,
+                     product["content"],
+                     current_persona  # Add the persona parameter
+                 )
+                 # In your end_session handler, after getting complete_evaluation:
+                 complete_evaluation_text = complete_evaluation # Default to raw text
+                 complete_rating = None # Default rating to None
+
+                 try:
+                     # --- Apply cleaning here ---
+                     cleaned_complete_eval = remove_invalid_json_chars(complete_evaluation)
+                     print("Cleaned complete_evaluation:", repr(cleaned_complete_eval))
+
+                     # Attempt to parse the cleaned string
+                     complete_eval_json = json.loads(cleaned_complete_eval, strict=False)
+                     print("PARSED complete_evaluation:", complete_eval_json)
+
+                     # Extract evaluation and rating, falling back to defaults if keys are missing
+                     complete_evaluation_text = complete_eval_json.get("complete_evaluation", cleaned_complete_eval)
+                     complete_rating = complete_eval_json.get("complete_rating", {
+                         "overall_progress": {"score": 0, "max": 3},
+                         "sales_strategy": {"score": 0, "max": 3},
+                         "customer_journey": {"score": 0, "max": 2},
+                         "technical_accuracy": {"score": 0, "max": 2},
+                         "total": {"score": 0, "max": 10}
+                      })
+
+                 except Exception as e:
+                      print(f"JSON decode error for complete evaluation: {e}")
+                      # On error, complete_evaluation_text remains the raw output
+                      # complete_rating remains None (or could set to default structure here too)
+                      complete_rating = { # Set default rating structure on parsing error
+                          "overall_progress": {"score": 0, "max": 3},
+                          "sales_strategy": {"score": 0, "max": 3},
+                          "customer_journey": {"score": 0, "max": 2},
+                          "technical_accuracy": {"score": 0, "max": 2},
+                          "total": {"score": 0, "max": 10}
+                       }
+
+                 # Mapping from config keys to prompt keys
+                 criteria_key_map = {
+                     "distraction_handling": "Distraction Handling",
+                     "communication_simplicity": "Communication Simplicity"
+                 }
+
+                 additional_criteria_evaluation = {}
+                 if final_additional_criteria_config:
+                     for criteria, enabled in final_additional_criteria_config.items():
+                         if enabled:
+                             prompt_key = criteria_key_map.get(criteria, criteria)
+                             eval_text = evaluate_additional_criteria(
+                                 conversation_history,
+                                 prompt_key,
+                                 product["content"],
+                                 current_persona  # Add the persona parameter
+                             )
+                             additional_criteria_evaluation[criteria] = eval_text
+                 else:
+                     additional_criteria_evaluation = "No additional criteria selected for this test configuration."
+
+
+                 # 1. Generate individual evaluations for each exchange
+                 individual_evaluations = []
+                 for idx, exchange in enumerate(conversation_history):
+                     rag_answer = generate_answer_rag(
+                         product["content"],
+                         exchange["visitor_text"],
+                         current_persona,
+                         idx == 0,
+                         conversation_history[:idx]
+                     )
+                     indiv_eval = evaluate_individual_answer(
+                         rag_answer,
+                         exchange["salesperson_text"],
+                         exchange["visitor_text"],
+                         current_persona,
+                         idx == 0,
+                         conversation_history[:idx]
+                     )
+                     
+                     # --- MODIFIED PARSING START ---
+                     individual_eval_obj = None # Initialize to None
+                     parsed_evaluation_text = indiv_eval # Default to raw text on failure
+                     parsed_rating = None # Default rating to None
+
+                     try:
+                         # --- Apply cleaning here ---
+                         cleaned_indiv_eval = remove_invalid_json_chars(indiv_eval)
+                         print(f"Cleaned individual evaluation {idx}:", repr(cleaned_indiv_eval))
+
+                         # Attempt to parse the cleaned string
+                         parsed_json = json.loads(cleaned_indiv_eval)
+                         # If successful, extract the specific keys using .get()
+                         parsed_evaluation_text = parsed_json.get("evaluation", cleaned_indiv_eval) # Fallback to raw if "evaluation" key is missing
+                         parsed_rating = parsed_json.get("rating") # Can be None if "rating" key is missing
+
+                         # Construct the object to append
+                         individual_eval_obj = {
+                             "evaluation": parsed_evaluation_text,
+                             "rating": parsed_rating # Store the parsed rating (could be None)
+                         }
+
+                     except json.JSONDecodeError as e:
+                          # Handle JSON parsing errors specifically
+                          print(f"JSON decode error for individual evaluation {idx}: {e}")
+                          # Keep parsed_evaluation_text as raw indiv_eval
+                          # Keep parsed_rating as None
+                          individual_eval_obj = {
+                              "evaluation": parsed_evaluation_text,
+                              "rating": { # Provide a default rating structure on parsing error
+                                  "question_relevance": {"score": 0, "max": 3},
+                                  "technical_accuracy": {"score": 0, "max": 3},
+                                  "sales_effectiveness": {"score": 0, "max": 4},
+                                  "total": {"score": 0, "max": 10}
+                              }
+                          }
+                     except Exception as e:
+                         # Handle any other unexpected errors during parsing/extraction
+                         print(f"Unexpected error parsing individual evaluation {idx}: {e}")
+                         # Keep parsed_evaluation_text as raw indiv_eval
+                         # Keep parsed_rating as None
+                         individual_eval_obj = {
+                             "evaluation": parsed_evaluation_text,
+                             "rating": { # Provide a default rating structure on other errors
+                                 "question_relevance": {"score": 0, "max": 3},
+                                 "technical_accuracy": {"score": 0, "max": 3},
+                                 "sales_effectiveness": {"score": 0, "max": 4},
+                                 "total": {"score": 0, "max": 10}
+                             }
+                         }
+                     
+                     # Append the resulting object
+                     individual_evaluations.append(individual_eval_obj)
+                     # --- MODIFIED PARSING END ---
+
+                 # 2. Optionally, generate mid-evaluations (e.g., every 4 exchanges)
+                 mid_evaluations = []
+                 for i in range(3, len(conversation_history), 4):
+                     mid_eval = evaluate_mid_conversation(conversation_history[:i+1], product["content"], current_persona)
+                     mid_evaluations.append(mid_eval)
+
+                 # 3. Complete evaluation (already done)
+                 # complete_evaluation = evaluate_complete_conversation(conversation_history, product["content"])
+
+                 # 4. Additional criteria evaluation (already done above)
+
+                 
+
+                 # 5. Save everything
+                 evaluation_data = {
+                     "individual_evaluations": individual_evaluations,
+                     "mid_evaluations": mid_evaluations,
+                     "complete_evaluation": complete_evaluation_text,
+                     "complete_rating": complete_rating,
+                     "additional_criteria_evaluation": additional_criteria_evaluation,
+                     "is_complete": True,
+                     "test_configuration_id": ObjectId(test_config_id_str) if test_config_id_str else None  # Convert to ObjectId
+                 }
+
+                 try:
+                      saved_conversation_result = db_ops.save_conversation(
+                           ObjectId(product_id_str),
+                           {"pairs": conversation_history},
+                           ObjectId(user_id),
+                           evaluation_data
+                      )
+                      conversation_db_id = str(saved_conversation_result)
+                      print(f"Conversation saved with ID: {conversation_db_id}")
+                      
+                      # Send the final evaluation results back to the client
+                      await websocket.send_json({
+                          "type": "end_session",
+                          "conversation_id": conversation_db_id,
+                          "evaluation": {
+                              "individual_evaluations": individual_evaluations,
+                              "mid_evaluations": mid_evaluations,
+                              "complete_evaluation": complete_evaluation_text,
+                              "complete_rating": complete_rating,
+                              "additional_criteria_evaluation": additional_criteria_evaluation
+                          }
+                      })
+                 except Exception as save_error:
+                      print(f"Error saving conversation: {save_error}")
+                      await websocket.send_json({
+                          "type": "error",
+                          "message": f"Error saving conversation: {str(save_error)}"
+                      })
+
+                 await websocket.close()
+                 return
+
+
     except WebSocketDisconnect:
+        # Handle websocket disconnect
+        print("WebSocket disconnected.")
         pass
     except Exception as e:
-        await websocket.send_json({"error": str(e)})
+        # Catch any other exceptions during websocket communication
+        print(f"WebSocket error: {e}")
+        traceback.print_exc()
+        try:
+            # Attempt to send error message before closing
+            await websocket.send_json({"error": str(e)})
+        except:
+            # Ignore errors if sending fails during closing
+            pass
+        try:
+            await websocket.close(code=1011)
+        except RuntimeError:
+            pass
 
 # Helper functions for authentication
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -1345,81 +1809,6 @@ def extract_score(evaluation_text: str) -> float:
     except:
         return 0.0
 
-# Add new endpoints for the additional functionality
-@app.post("/evaluate/additional-criteria")
-async def evaluate_with_criteria(
-    conversation: List[ConversationPair],
-    criteria: str,
-    product_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    product = db_ops.get_product_by_id(ObjectId(product_id))
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    evaluation = evaluate_additional_criteria(conversation, criteria, product["content"])
-    
-    # Save the additional criteria evaluation
-    evaluation_data = {
-        "additional_criteria_evaluation": evaluation,
-        "criteria": criteria
-    }
-    
-    conversation_id = db_ops.save_conversation(
-        ObjectId(product_id),
-        conversation,
-        current_user.id,
-        evaluation_data
-    )
-    
-    return {
-        "evaluation": evaluation,
-        "conversation_id": str(conversation_id.inserted_id)
-    }
-
-@app.post("/evaluate/complete")
-async def evaluate_full_conversation(
-    conversation: List[ConversationPair],
-    product_id: str,
-    current_user: User = Depends(get_current_user)
-):
-    product = db_ops.get_product_by_id(ObjectId(product_id))
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    # Get all mid-conversation evaluations
-    mid_evaluations = []
-    for i in range(len(conversation)):
-        mid_eval = evaluate_mid_conversation(conversation[:i+1], product["content"])
-        mid_evaluations.append(mid_eval)
-    
-    # Get complete evaluation
-    complete_evaluation = evaluate_complete_conversation(conversation, product["content"])
-    score = extract_score(complete_evaluation)
-    metrics = calculate_metrics(conversation)
-    
-    # Save the complete evaluation data
-    evaluation_data = {
-        "mid_evaluations": mid_evaluations,
-        "complete_evaluation": complete_evaluation,
-        "score": score,
-        "metrics": metrics,
-        "is_complete": True
-    }
-    
-    conversation_id = db_ops.save_conversation(
-        ObjectId(product_id),
-        conversation,
-        current_user.id,
-        evaluation_data
-    )
-    
-    return EvaluationResponse(
-        evaluation=complete_evaluation,
-        score=score,
-        metrics=metrics,
-        conversation_id=str(conversation_id.inserted_id)
-    )
 
 @app.post("/export-report")
 async def export_report(
@@ -1450,9 +1839,23 @@ async def get_conversation_details(
     conversation = db_ops.get_conversation_by_id(ObjectId(conversation_id))
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Manually convert ObjectId fields to string before returning
+    if "_id" in conversation:
+        conversation["_id"] = str(conversation["_id"])
+    if "product_id" in conversation:
+        conversation["product_id"] = str(conversation["product_id"])
+    if "user_id" in conversation:
+        conversation["user_id"] = str(conversation["user_id"])
+    # Handle potential ObjectId in evaluation_data
+    if "evaluation_data" in conversation and conversation["evaluation_data"] and "test_configuration_id" in conversation["evaluation_data"]:
+         if isinstance(conversation["evaluation_data"]["test_configuration_id"], ObjectId):
+              conversation["evaluation_data"]["test_configuration_id"] = str(conversation["evaluation_data"]["test_configuration_id"])
+
+
     return conversation
 
-# New endpoint to save test configurations
+# Endpoint to save test configurations
 @app.post("/test-configurations")
 async def create_test_configuration(
     config_data: TestConfigurationCreate,
@@ -1468,6 +1871,147 @@ async def create_test_configuration(
         # Log the error for debugging
         print(f"Error saving test configuration: {e}")
         raise HTTPException(status_code=500, detail="Failed to save test configuration")
+
+@app.get("/test-configurations/{product_id}")
+async def get_test_configurations(
+    product_id: str,
+) -> List[TestConfiguration]:
+    """
+    Retrieves test configurations for a given product.
+    """
+    try:
+        configs = db_ops.get_test_configurations_by_product(ObjectId(product_id))
+        return [TestConfiguration(**config) for config in configs]
+    except Exception as e:
+        print(f"Error fetching test configurations for product {product_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+# New endpoint to get test configurations by product ID and created by current user
+# @app.get("/test-configurations/{product_id}")
+# async def get_test_configurations(
+#     product_id: str,
+#     current_user: User = Depends(get_current_user) # Requires authentication
+# ) -> List[TestConfiguration]:
+#     """
+#     Retrieves test configurations for a given product, created by the current user.
+#     """
+#     try:
+#         configs = db_ops.get_test_configurations_by_product(ObjectId(product_id),current_user.id)
+#         # Pydantic will handle converting the dicts to TestConfiguration models
+#         return [TestConfiguration(**config) for config in configs]
+#     except Exception as e:
+#         print(f"Error fetching test configurations for product {product_id}: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+# @app.get("/conversations")
+# async def get_all_conversations_for_user(
+#     current_user: User = Depends(get_current_user)
+# ):
+#     conversations = list(db.conversations.find({"user_id": current_user.id}))
+#     # Optionally convert ObjectId fields to strings for JSON serialization
+#     for conv in conversations:
+#         conv["_id"] = str(conv["_id"])
+#         conv["product_id"] = str(conv["product_id"])
+#     return conversations
+
+@app.get("/conversations")
+async def get_all_conversations_for_user(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieves conversations based on user role:
+    - Admin: Returns all conversations in the database.
+    - Employee: Returns only conversations belonging to the logged-in user.
+    """
+    conversations = []
+
+    # Check the role of the authenticated user
+    if current_user.role == "admin":
+        print(f"Admin user {current_user.username} accessing all conversations.")
+        conversations = list(db.conversations.find({}))
+    else:
+        print(f"Employee user {current_user.username} accessing their conversations.")
+        conversations = list(db.conversations.find({"user_id": ObjectId(current_user.id)}))
+
+    # Convert all ObjectId fields to strings
+    for conv in conversations:
+        # Convert top-level ObjectId fields
+        if "_id" in conv:
+            conv["_id"] = str(conv["_id"])
+        if "product_id" in conv:
+            conv["product_id"] = str(conv["product_id"])
+        if "user_id" in conv:
+            conv["user_id"] = str(conv["user_id"])
+        
+        # Handle nested ObjectId in evaluation_data
+        if "evaluation_data" in conv and conv["evaluation_data"]:
+            if "test_configuration_id" in conv["evaluation_data"]:
+                test_config_id = conv["evaluation_data"]["test_configuration_id"]
+                if isinstance(test_config_id, ObjectId):
+                    conv["evaluation_data"]["test_configuration_id"] = str(test_config_id)
+
+    return conversations
+
+@app.get("/conversation/{conversation_id}")
+async def get_conversation_by_id(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific conversation by its ID.
+    Returns the conversation data including evaluation results.
+    """
+    try:
+        # Convert string ID to ObjectId
+        conversation_obj_id = ObjectId(conversation_id)
+        
+        # Get conversation from database
+        conversation = db_ops.get_conversation_by_id(conversation_obj_id)
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Conversation not found"
+            )
+            
+        # Check if user has permission to access this conversation
+        # Admin can access all conversations, regular users can only access their own
+        if current_user.role != "admin" and str(conversation["user_id"]) != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to access this conversation"
+            )
+        
+        # Convert ObjectId fields to strings for JSON serialization
+        if "_id" in conversation:
+            conversation["_id"] = str(conversation["_id"])
+        if "product_id" in conversation:
+            conversation["product_id"] = str(conversation["product_id"])
+        if "user_id" in conversation:
+            conversation["user_id"] = str(conversation["user_id"])
+            
+        # Handle potential ObjectId in evaluation_data
+        if "evaluation_data" in conversation and conversation["evaluation_data"]:
+            if "test_configuration_id" in conversation["evaluation_data"]:
+                test_config_id = conversation["evaluation_data"]["test_configuration_id"]
+                if isinstance(test_config_id, ObjectId):
+                    conversation["evaluation_data"]["test_configuration_id"] = str(test_config_id)
+        
+        return conversation
+        
+    except InvalidId:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid conversation ID format"
+        )
+    except Exception as e:
+        print(f"Error fetching conversation: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while fetching conversation"
+        )
+
+
 
 if __name__ == "__main__":
     import uvicorn
