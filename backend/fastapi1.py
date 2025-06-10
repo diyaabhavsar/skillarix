@@ -925,7 +925,7 @@ Evaluate the following aspects:
    - Was the technical complexity matched to the customer's knowledge level?
 
 Provide:
-1. Explanation of Overall score and breakdown by category (key name to be used for this point: overall_score, the response for this point must be in single string)
+1. Explanation of Overall score(don't include score itself, just it's explaination) and breakdown by category (key name to be used for this point: overall_score, the response for this point must be in single string)
 2. Key successful moments in the conversation (key name to be used: key_successful_moments, the response for this point must be in single string)
 3. Critical missed opportunities (key name to be used: critical_missed_opportunities, the response for this point must be in single string)
 4. Pattern analysis of effective/ineffective techniques used (key name to be used: pattern_analysis, the response for this point must be in single string)
@@ -1011,13 +1011,16 @@ Product Documentation:
 
 
 Generate a realistic follow-up question that this customer would ask based on the conversation and salesperson's last response. The question should:
-1. Be relevant to the previous exchange and salesperson's response
-2. Show appropriate level of technical understanding
+1. Be relevant to the previous exchange and salesperson's last response
+2. Move the conversation forward
 3. Reflect the customer's stage in the buying process
 4. Be natural and conversational
 5. Not be too specific or technical unless the persona suggests it
 6. Show engagement with the salesperson's points
-7. Move the conversation forward
+
+IMPORTANT INSTRUCTIONS:
+- Just return the question only, no other text at all.
+- Be relevant to the salesperson's last response
 
 Your follow-up question:
 """
@@ -1025,13 +1028,15 @@ Your follow-up question:
             prompt = f"""{base_prompt}
 Generate a realistic initial question that this customer would ask about the product. The question should:
 1. Be relevant to the customer's persona and needs
-2. Show appropriate level of technical understanding
-3. Reflect the customer's stage in the buying process
-4. Be natural and conversational
-5. Not be too specific or technical unless the persona suggests it
-6. Set a good foundation for the conversation
+2. Reflect the customer's stage in the buying process
+3. Be natural and conversational
+4. Not be too specific or technical unless the persona suggests it
+5. Set a good foundation for the conversation
 
-Just return the only question, no other text at all. Your question:
+IMPORTANT INSTRUCTIONS:
+- Just return visitor response, no other text at all. 
+
+Your question:
 """
         
         completion = client.chat.completions.create(
@@ -1386,6 +1391,7 @@ async def get_products(category_id: str, current_user: User = Depends(get_curren
 
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
+    # print("connected")
     await websocket.accept()
     # --- AUTHENTICATION PATCH START ---
     try:
@@ -1437,7 +1443,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
 
             conversation_history = []
             # Generate initial customer question using the loaded persona
-            question = generate_customer_question(product["content"], conversation_history, persona, None)
+            question = generate_customer_question(product["content"], conversation_history, persona)
             await websocket.send_json({
                 "type": "question",
                 "content": question,
@@ -1445,6 +1451,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                 # "persona": persona,
                 # "additional_criteria_config": additional_criteria_config
             })
+            # print("question")   
 
         # Handle subsequent messages in the conversation
         while True:
@@ -1543,45 +1550,63 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
 
 
                  # Perform complete evaluation
-                 complete_evaluation = evaluate_complete_conversation(
+                 complete_evaluation_raw = evaluate_complete_conversation(
                      conversation_history,
                      product["content"],
                      current_persona  # Add the persona parameter
                  )
-                 # In your end_session handler, after getting complete_evaluation:
-                 complete_evaluation_text = complete_evaluation # Default to raw text
-                 complete_rating = None # Default rating to None
+
+                 # Initialize default values
+                 # Default complete_evaluation to the raw text in case parsing fails
+                 complete_evaluation_to_save = complete_evaluation_raw
+                 complete_rating_to_save = {
+                     "overall_progress": {"score": 0, "max": 3},
+                     "sales_strategy": {"score": 0, "max": 3},
+                     "customer_journey": {"score": 0, "max": 2},
+                     "technical_accuracy": {"score": 0, "max": 2},
+                     "total": {"score": 0, "max": 10}
+                 }
 
                  try:
-                     # --- Apply cleaning here ---
-                     cleaned_complete_eval = remove_invalid_json_chars(complete_evaluation)
+                     # Clean the response - remove markdown code block markers and clean invalid characters
+                     cleaned_complete_eval = complete_evaluation_raw.strip()
+                     # Remove markdown code block
+                     if cleaned_complete_eval.startswith('```json'): # Be more specific with json marker
+                         cleaned_complete_eval = cleaned_complete_eval[7:]
+                     elif cleaned_complete_eval.startswith('```'):
+                         cleaned_complete_eval = cleaned_complete_eval[3:]
+                     if cleaned_complete_eval.endswith('```'):
+                         cleaned_complete_eval = cleaned_complete_eval[:-3]
+                     cleaned_complete_eval = cleaned_complete_eval.strip()
+                     
+                     # Remove any remaining invalid control characters
+                     cleaned_complete_eval = remove_invalid_json_chars(cleaned_complete_eval)
                      print("Cleaned complete_evaluation:", repr(cleaned_complete_eval))
 
                      # Attempt to parse the cleaned string
                      complete_eval_json = json.loads(cleaned_complete_eval, strict=False)
                      print("PARSED complete_evaluation:", complete_eval_json)
 
-                     # Extract evaluation and rating, falling back to defaults if keys are missing
-                     complete_evaluation_text = complete_eval_json.get("complete_evaluation", cleaned_complete_eval)
-                     complete_rating = complete_eval_json.get("complete_rating", {
-                         "overall_progress": {"score": 0, "max": 3},
-                         "sales_strategy": {"score": 0, "max": 3},
-                         "customer_journey": {"score": 0, "max": 2},
-                         "technical_accuracy": {"score": 0, "max": 2},
-                         "total": {"score": 0, "max": 10}
-                      })
+                     # Check if parsing resulted in a dictionary with the expected keys
+                     if isinstance(complete_eval_json, dict):
+                         # If parsing was successful and the expected keys exist, use the parsed values
+                         if "complete_evaluation" in complete_eval_json and isinstance(complete_eval_json["complete_evaluation"], dict):
+                              complete_evaluation_to_save = complete_eval_json["complete_evaluation"] # Save the nested evaluation object
+                         elif "complete_evaluation" in complete_eval_json:
+                              complete_evaluation_to_save = complete_eval_json["complete_evaluation"] # Save the value even if not a dict (e.g., string fallback from LLM)
+
+                         if "complete_rating" in complete_eval_json and isinstance(complete_eval_json["complete_rating"], dict):
+                              complete_rating_to_save = complete_eval_json["complete_rating"] # Save the rating object
+                         
+                     # If parsing failed or the structure wasn't as expected,
+                     # complete_evaluation_to_save remains the raw text,
+                     # and complete_rating_to_save remains the default structure.
 
                  except Exception as e:
-                      print(f"JSON decode error for complete evaluation: {e}")
-                      # On error, complete_evaluation_text remains the raw output
-                      # complete_rating remains None (or could set to default structure here too)
-                      complete_rating = { # Set default rating structure on parsing error
-                          "overall_progress": {"score": 0, "max": 3},
-                          "sales_strategy": {"score": 0, "max": 3},
-                          "customer_journey": {"score": 0, "max": 2},
-                          "technical_accuracy": {"score": 0, "max": 2},
-                          "total": {"score": 0, "max": 10}
-                       }
+                      print(f"JSON decode or parsing error for complete evaluation: {e}")
+                      # On error, complete_evaluation_to_save remains the raw text
+                      # and complete_rating_to_save remains the default structure.
+                      pass # Continue with the default/raw values
 
                  # Mapping from config keys to prompt keys
                  criteria_key_map = {
@@ -1696,8 +1721,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                  evaluation_data = {
                      "individual_evaluations": individual_evaluations,
                      "mid_evaluations": mid_evaluations,
-                     "complete_evaluation": complete_evaluation_text,
-                     "complete_rating": complete_rating,
+                     "complete_evaluation": complete_evaluation_to_save, # Use the potentially parsed object or raw text
+                     "complete_rating": complete_rating_to_save,       # Use the potentially parsed object or default structure
                      "additional_criteria_evaluation": additional_criteria_evaluation,
                      "is_complete": True,
                      "test_configuration_id": ObjectId(test_config_id_str) if test_config_id_str else None  # Convert to ObjectId
@@ -1720,8 +1745,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                           "evaluation": {
                               "individual_evaluations": individual_evaluations,
                               "mid_evaluations": mid_evaluations,
-                              "complete_evaluation": complete_evaluation_text,
-                              "complete_rating": complete_rating,
+                              "complete_evaluation": complete_evaluation_to_save,
+                              "complete_rating": complete_rating_to_save,
                               "additional_criteria_evaluation": additional_criteria_evaluation
                           }
                       })
@@ -1962,7 +1987,7 @@ async def get_conversation_by_id(
     Returns the conversation data including evaluation results.
     """
     try:
-        # Convert string ID to ObjectId
+        # Convert string ID toSSS ObjectId
         conversation_obj_id = ObjectId(conversation_id)
         
         # Get conversation from database

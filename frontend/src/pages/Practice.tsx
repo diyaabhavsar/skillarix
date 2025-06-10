@@ -40,7 +40,6 @@ interface ConversationPair {
 
 const Practice = () => {
     const { token } = useAuth();
-    console.log(token)
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -79,7 +78,7 @@ const Practice = () => {
                 if (fetchedCategories.length > 0) {
                     setSelectedCategoryId(fetchedCategories[0].id);
                 } else {
-                     setSelectedCategoryId('');
+                    setSelectedCategoryId('');
                 }
             } catch (error: any) {
                 console.error("Error fetching categories:", error);
@@ -105,10 +104,10 @@ const Practice = () => {
                 const res = await fetch(`http://localhost:8000/products/${selectedCategoryId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                 if (!res.ok) {
+                if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.detail || "Failed to fetch products");
-                 }
+                }
                 const data = await res.json();
                 const fetchedProducts: Product[] = data.map((prod: any) => ({
                     id: prod._id,
@@ -150,16 +149,25 @@ const Practice = () => {
                 const res = await fetch(`http://localhost:8000/test-configurations/${selectedProductId}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                 if (!res.ok) {
+                if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.detail || "Failed to fetch test configurations");
-                 }
+                }
                 const data = await res.json();
-                setTestConfigurations(data);
-                const currentSelectionExists = data.some((config: TestConfiguration) => config.id === selectedTestConfigId);
-                if (data.length > 0 && (!selectedTestConfigId || !currentSelectionExists)) {
-                    setSelectedTestConfigId(data[0].id);
-                } else if (data.length === 0) {
+                // Ensure proper formatting of test configuration data
+                const formattedConfigs = data.map((config: any) => ({
+                    id: config.id || config._id,
+                    name: config.name,
+                    product_id: config.product_id,
+                    visitorPersona: config.visitorPersona || {},
+                    additionalCriteria: config.additionalCriteria || {},
+                    created_at: config.created_at
+                }));
+                setTestConfigurations(formattedConfigs);
+                const currentSelectionExists = formattedConfigs.some((config: TestConfiguration) => config.id === selectedTestConfigId);
+                if (formattedConfigs.length > 0 && (!selectedTestConfigId || !currentSelectionExists)) {
+                    setSelectedTestConfigId(formattedConfigs[0].id);
+                } else if (formattedConfigs.length === 0) {
                     setSelectedTestConfigId('');
                 }
             } catch (error: any) {
@@ -174,6 +182,11 @@ const Practice = () => {
         fetchTestConfigurations();
     }, [selectedProductId, token]);
 
+    // Add debugging useEffect at the component level (not inside another function)
+    useEffect(() => {
+        console.log("Conversation history updated:", conversationHistory);
+    }, [conversationHistory]);
+
     useEffect(() => {
         if (!isSessionActive) {
             websocket?.close();
@@ -181,25 +194,55 @@ const Practice = () => {
             return;
         }
 
-        const ws = new WebSocket("ws://localhost:8000/ws/chat");
-
-        ws.onopen = () => {
-            console.log("WebSocket connection established.");
-            if (selectedProductId && selectedTestConfigId) {
-                 ws.send(JSON.stringify({
-                      type: "start",
-                      product_id: selectedProductId,
-                      test_configuration_id: selectedTestConfigId,
-                 }));
-                 setSessionLoading(true);
-                 setSessionError(null);
-            } else {
-                 setSessionError("Product and Test Configuration must be selected to start.");
-                 setIsSessionActive(false);
-                 ws.close();
+        // Add token as a query parameter to the WebSocket URL
+        const ws = new WebSocket(`ws://localhost:8000/ws/chat?token=${token}`);
+        
+        let connectionAttempts = 0;
+        const maxAttempts = 3;
+        
+        const connectWebSocket = () => {
+            if (connectionAttempts >= maxAttempts) {
+                setSessionError(`Failed to connect after ${maxAttempts} attempts. Please check if the server is running.`);
+                setIsSessionActive(false);
+                setSessionLoading(false);
+                return;
             }
+            
+            connectionAttempts++;
+            
+            ws.onopen = () => {
+                console.log("WebSocket connection established.");
+                connectionAttempts = 0; // Reset counter on successful connection
+                
+                if (selectedProductId && selectedTestConfigId) {
+                    // Add a small delay to ensure the connection is fully established
+                    setTimeout(() => {
+                        try {
+                            // Simplified message format to match backend expectations
+                            ws.send(JSON.stringify({
+                                type: "start",
+                                product_id: selectedProductId,
+                                test_configuration_id: selectedTestConfigId,
+                            }));
+                            setSessionLoading(true);
+                            setSessionError(null);
+                        } catch (error) {
+                            console.error("Error sending start message:", error);
+                            setSessionError("Failed to start session. Please try again.");
+                            setIsSessionActive(false);
+                        }
+                    }, 500);
+                } else {
+                    setSessionError("Product and Test Configuration must be selected to start.");
+                    setIsSessionActive(false);
+                    ws.close();
+                }
+            };
         };
+        
+        connectWebSocket();
 
+        // Fix the WebSocket message handler to preserve salesperson responses
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             console.log("WebSocket message received:", data);
@@ -208,51 +251,60 @@ const Practice = () => {
                 setCurrentCustomerQuestion(data.content);
                 setConversationHistory(prev => [...prev, { visitor_text: data.content, salesperson_text: '' }]);
                 setSessionLoading(false);
-            } else if (data.type === "evaluation") {
-                setConversationHistory(prev => {
-                    const lastPair = { ...prev[prev.length - 1] };
-                    lastPair.salesperson_text = salespersonInput;
-                    return [...prev.slice(0, -1), lastPair];
-                });
-                console.log("Individual Evaluation:", data.evaluation);
+            } else if (data.type === "evaluation" || data.type === "next_question") {
+                // Don't modify the existing conversation history entries
+                
+                if (data.evaluation) {
+                    console.log("Individual Evaluation:", data.evaluation);
+                }
+                
                 setSalespersonInput('');
-
-                 setCurrentCustomerQuestion(data.next_question);
-                 setConversationHistory(prev => [...prev, { visitor_text: data.next_question, salesperson_text: '' }]);
-
-
+                
+                // Only add a new question if there is one
+                const nextQuestion = data.next_question || data.content;
+                if (nextQuestion) {
+                    setCurrentCustomerQuestion(nextQuestion);
+                    setConversationHistory(prev => [...prev, { visitor_text: nextQuestion, salesperson_text: '' }]);
+                }
+                
                 setSessionLoading(false);
-
             } else if (data.type === "session_complete") {
-                 console.log("Session Complete:", data);
-                 setEvaluationResults({
-                      complete: data.complete_evaluation,
-                      additional: data.additional_criteria_evaluation,
-                 });
-                 setIsSessionActive(false);
-                 setSessionLoading(false);
-
+                console.log("Session Complete:", data);
+                setEvaluationResults({
+                    complete: data.complete_evaluation,
+                    additional: data.additional_criteria_evaluation,
+                });
+                setIsSessionActive(false);
+                setSessionLoading(false);
             } else if (data.type === "error") {
-                 console.error("WebSocket Error from server:", data.content);
-                 setSessionError(data.content || "An error occurred during the session.");
-                 setIsSessionActive(false);
-                 setSessionLoading(false);
+                console.error("WebSocket Error from server:", data.content);
+                setSessionError(data.content || "An error occurred during the session.");
+                setIsSessionActive(false);
+                setSessionLoading(false);
             }
         };
 
         ws.onerror = (event) => {
             console.error("WebSocket error:", event);
-            setSessionError("WebSocket connection error.");
-            setIsSessionActive(false);
-            setSessionLoading(false);
+            // Try to reconnect on error
+            setTimeout(() => {
+                if (isSessionActive && connectionAttempts < maxAttempts) {
+                    console.log(`Attempting to reconnect (${connectionAttempts + 1}/${maxAttempts})...`);
+                    connectWebSocket();
+                } else {
+                    setSessionError("WebSocket connection error. Please check if the server is running.");
+                    setIsSessionActive(false);
+                    setSessionLoading(false);
+                }
+            }, 1000);
         };
 
         ws.onclose = (event) => {
             console.log("WebSocket connection closed:", event.code, event.reason);
-            if (isSessionActive) {
-                 setSessionError("Session ended unexpectedly.");
+            if (isSessionActive && event.code !== 1000) { // 1000 is normal closure
+                setSessionError("Session ended unexpectedly. Please try again.");
+                setIsSessionActive(false);
             }
-            setIsSessionActive(false);
             setSessionLoading(false);
         };
 
@@ -263,69 +315,107 @@ const Practice = () => {
         };
     }, [isSessionActive, selectedProductId, selectedTestConfigId, token]);
 
-     const sendSalespersonAnswer = () => {
-         if (websocket && websocket.readyState === WebSocket.OPEN && !sessionLoading && salespersonInput.trim() && currentCustomerQuestion) {
-             setSessionLoading(true);
-             setSessionError(null);
+    const sendSalespersonAnswer = () => {
+        if (websocket && websocket.readyState === WebSocket.OPEN && !sessionLoading && salespersonInput.trim() && currentCustomerQuestion) {
+            setSessionLoading(true);
+            setSessionError(null);
 
-             const historyPayload = conversationHistory.map((pair, index) => {
-                 if (index === conversationHistory.length - 1) {
-                      return { visitor_text: pair.visitor_text, salesperson_text: salespersonInput };
-                 }
-                 return pair;
-             });
+            // Immediately update the conversation history with the salesperson's response
+            setConversationHistory(prev => {
+                const updatedHistory = [...prev];
+                if (updatedHistory.length > 0) {
+                    const lastIndex = updatedHistory.length - 1;
+                    updatedHistory[lastIndex] = {
+                        ...updatedHistory[lastIndex],
+                        salesperson_text: salespersonInput
+                    };
+                }
+                return updatedHistory;
+            });
 
-             websocket.send(JSON.stringify({
-                 type: "answer",
-                 product_id: selectedProductId,
-                 last_question: currentCustomerQuestion,
-                 answer: salespersonInput,
-                 history: historyPayload,
-                 test_configuration_id: selectedTestConfigId,
-             }));
+            // Create the history payload for the server
+            const historyPayload = conversationHistory.map((pair, index) => {
+                if (index === conversationHistory.length - 1) {
+                    return { visitor_text: pair.visitor_text, salesperson_text: salespersonInput };
+                }
+                return pair;
+            });
 
-         }
-     };
-
-     const endSession = () => {
-          if (websocket && websocket.readyState === WebSocket.OPEN && selectedProductId && selectedTestConfigId) {
-               setSessionLoading(true);
-               websocket.send(JSON.stringify({
-                    type: "end_session",
+            // Send the message to the server
+            try {
+                websocket.send(JSON.stringify({
+                    type: "answer",
                     product_id: selectedProductId,
-                    history: conversationHistory,
+                    last_question: currentCustomerQuestion,
+                    answer: salespersonInput,
+                    history: historyPayload,
                     test_configuration_id: selectedTestConfigId,
-               }));
-          } else {
-               setIsSessionActive(false);
-          }
-     };
-
-    const startSession = () => {
-         if (!selectedProductId || !selectedTestConfigId) {
-              toast.error("Please select a product and a test configuration to start.");
-              return;
-         }
-         setIsSessionActive(true);
-         setConversationHistory([]);
-         setCurrentCustomerQuestion('');
-         setEvaluationResults(null);
-         setSessionError(null);
+                }));
+            } catch (error) {
+                console.error("Error sending answer:", error);
+                setSessionError("Failed to send your response. Please try again.");
+                setSessionLoading(false);
+            }
+        }
     };
 
-     const isStartButtonDisabled = isSelectionLoading || !selectedProductId || !selectedTestConfigId || isSessionActive;
+    const endSession = () => {
+        if (websocket && websocket.readyState === WebSocket.OPEN && selectedProductId && selectedTestConfigId) {
+            setSessionLoading(true);
+            console.log({
+                type: "end_session",
+                product_id: selectedProductId,
+                history: conversationHistory,
+                test_configuration_id: selectedTestConfigId,
+            })
+            websocket.send(JSON.stringify({
+                type: "end_session",
+                product_id: selectedProductId,
+                history: conversationHistory,
+                test_configuration_id: selectedTestConfigId,
+            }));
+            console.log({websocket})
+        } else {
+            setIsSessionActive(false);
+        }
+    };
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8">
-                <SetupHeader/>
-                
+    const startSession = () => {
+        if (!selectedProductId || !selectedTestConfigId) {
+            toast.error("Please select a product and a test configuration to start.");
+            return;
+        }
+
+        try {
+            setIsSessionActive(true);
+            setConversationHistory([]);
+            setCurrentCustomerQuestion('');
+            setEvaluationResults(null);
+            setSessionError(null);
+            setSessionLoading(true);
+
+            console.log("Starting session with product:", selectedProductId, "and config:", selectedTestConfigId);
+        } catch (error) {
+            console.error("Error starting session:", error);
+            setSessionError("Failed to start session. Please try again.");
+            setIsSessionActive(false);
+            setSessionLoading(false);
+        }
+    };
+
+    const isStartButtonDisabled = isSelectionLoading || !selectedProductId || !selectedTestConfigId || isSessionActive;
+
+    return (
+        <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-1 container mx-auto px-4 py-8">
+                <SetupHeader />
+
                 {!isSessionActive ? (
                     <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Start Session</CardTitle>
-                </CardHeader>
+                        <CardHeader>
+                            <CardTitle>Start Session</CardTitle>
+                        </CardHeader>
                         <CardContent className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="select-category" className="text-sm font-medium">
@@ -333,18 +423,18 @@ const Practice = () => {
                                 </Label>
                                 <Select onValueChange={setSelectedCategoryId} value={selectedCategoryId} disabled={isSelectionLoading}>
                                     <SelectTrigger id="select-category">
-                        <SelectValue placeholder="Choose a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((cat) => (
+                                        <SelectValue placeholder="Choose a category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map((cat) => (
                                             <SelectItem key={cat.id} value={cat.id}>
                                                 {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="grid gap-2">
                                 <Label htmlFor="select-product" className="text-sm font-medium">
                                     Select Product
@@ -352,17 +442,17 @@ const Practice = () => {
                                 <Select onValueChange={setSelectedProductId} value={selectedProductId} disabled={isSelectionLoading || products.length === 0 || !selectedCategoryId}>
                                     <SelectTrigger id="select-product">
                                         <SelectValue placeholder={selectedCategoryId ? (isSelectionLoading ? "Loading products..." : "Choose a product") : "Select a category first"} />
-                      </SelectTrigger>
-                      <SelectContent>
+                                    </SelectTrigger>
+                                    <SelectContent>
                                         {products.map((prod) => (
                                             <SelectItem key={prod.id} value={prod.id}>
                                                 {prod.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div className="grid gap-2">
                                 <Label htmlFor="select-test-config" className="text-sm font-medium">
                                     Select Test Scenario
@@ -383,93 +473,118 @@ const Practice = () => {
 
                             <Button onClick={startSession} disabled={isStartButtonDisabled}>
                                 {isSessionActive ? "Session in Progress" : "Start Session"}
-                    </Button>
+                            </Button>
 
                             {sessionError && <div className="text-red-500">{sessionError}</div>}
 
-                </CardContent>
-              </Card>
+                        </CardContent>
+                    </Card>
                 ) : (
                     <Card className="mb-6">
-                         <CardHeader>
-                             <CardTitle>Practice Session</CardTitle>
-                             {selectedProductId && (
-                                  <p className="text-sm text-muted-foreground">
-                                      Product: {products.find(p => p.id === selectedProductId)?.name || 'N/A'} |
-                                      Scenario: {testConfigurations.find(c => c.id === selectedTestConfigId)?.name || 'N/A'}
-                                  </p>
-                             )}
-                         </CardHeader>
-                         <CardContent className="grid gap-6">
-                              <ScrollArea className="h-[400px] border rounded-md p-4">
-                              {conversationHistory.map((pair, index) => (
-    <div key={index} className="mb-4">
-        <div className="font-semibold text-blue-600">Customer:</div>
-        <div>{pair.visitor_text}</div>
-        {pair.salesperson_text && (
-            <div>
-                <div className="font-semibold text-green-600 mt-2">Salesperson:</div>
-                <div>{pair.salesperson_text}</div>
-            </div>
-        )}
-    </div>
-))}
-                                  {sessionLoading && (
-                                       <div className="italic text-muted-foreground">AI is thinking...</div>
-                                  )}
-                             </ScrollArea>
+                        <CardHeader>
+                            <CardTitle>Practice Session {sessionLoading ? "(Connecting...)" : ""}</CardTitle>
+                            {selectedProductId && (
+                                <p className="text-sm text-muted-foreground">
+                                    Product: {products.find(p => p.id === selectedProductId)?.name || 'N/A'} |
+                                    Scenario: {testConfigurations.find(c => c.id === selectedTestConfigId)?.name || 'N/A'}
+                                </p>
+                            )}
+                        </CardHeader>
+                        <CardContent className="grid gap-6">
+                            <ScrollArea className="h-[400px] border rounded-md p-4">
+                                {conversationHistory.map((pair, index) => (
+                                    <div key={index} className="mb-4">
+                                        <div className="font-semibold text-blue-600">Customer:</div>
+                                        <div className="mb-2">{pair.visitor_text}</div>
+                                        
+                                        {pair.salesperson_text && (
+                                            <div className="mt-3">
+                                                <div className="font-semibold text-green-600">Salesperson:</div>
+                                                <div>{pair.salesperson_text}</div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* Show current input as draft when typing for the latest question */}
+                                        {index === conversationHistory.length - 1 && 
+                                         !pair.salesperson_text && 
+                                         salespersonInput.trim() && 
+                                         !sessionLoading && (
+                                            <div className="mt-3">
+                                                <div className="font-semibold text-green-600">Salesperson (Draft):</div>
+                                                <div className="text-muted-foreground italic">{salespersonInput}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                                {sessionLoading && (
+                                    <div className="italic text-muted-foreground">AI is thinking...</div>
+                                )}
+                            </ScrollArea>
 
-                             <div className="grid gap-2">
-                                 <Label htmlFor="salesperson-input" className="text-sm font-medium">
-                                     Your Response
-                                 </Label>
-                                 <Textarea
-                                     id="salesperson-input"
-                                     placeholder="Type your response here..."
-                                     value={salespersonInput}
-                                     onChange={(e) => setSalespersonInput(e.target.value)}
-                                     disabled={sessionLoading}
-                                     rows={3}
-                                 />
-                                  <Button onClick={sendSalespersonAnswer} disabled={sessionLoading || !salespersonInput.trim()}>
-                                      {sessionLoading ? "Sending..." : "Send Response"}
-                                  </Button>
-            </div>
-            
-                             <div className="flex justify-end">
-                                  <Button variant="outline" onClick={endSession} disabled={sessionLoading}>
-                                       End Session & Get Evaluation
-                      </Button>
-                    </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="salesperson-input" className="text-sm font-medium">
+                                    Your Response
+                                </Label>
+                                <Textarea
+                                    id="salesperson-input"
+                                    placeholder="Type your response here..."
+                                    value={salespersonInput}
+                                    onChange={(e) => setSalespersonInput(e.target.value)}
+                                    disabled={sessionLoading || !currentCustomerQuestion} // Only disable when loading or no question
+                                    rows={3}
+                                />
+                                <Button 
+                                    onClick={sendSalespersonAnswer} 
+                                    disabled={sessionLoading || !salespersonInput.trim() || !currentCustomerQuestion}>
+                                    {sessionLoading ? "Sending..." : "Send Response"}
+                                </Button>
+                            </div>
 
-                              {sessionError && <div className="text-red-500 mt-4">{sessionError}</div>}
-                  </CardContent>
-                </Card>
+                            <div className="flex justify-end">
+                                <Button variant="outline" onClick={endSession} disabled={sessionLoading}>
+                                    End Session & Get Evaluation
+                                </Button>
+                            </div>
+
+                            {sessionError && <div className="text-red-500 mt-4">{sessionError}</div>}
+                        </CardContent>
+                    </Card>
                 )}
 
-                 {evaluationResults && (
-                <Card>
-                  <CardHeader>
-                                <CardTitle>Evaluation Results</CardTitle>
-                  </CardHeader>
-                           <CardContent className="grid gap-4">
+                {evaluationResults && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Evaluation Results</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid gap-4">
+                            <div>
+                                <h3 className="text-lg font-semibold mb-2">Complete Conversation Evaluation:</h3>
+                                <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: evaluationResults.complete.replace(/\n/g, '<br/>') }}></div>
+                            </div>
+                            {evaluationResults.additional && (
                                 <div>
-                                     <h3 className="text-lg font-semibold mb-2">Complete Conversation Evaluation:</h3>
-                                     <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: evaluationResults.complete.replace(/\n/g, '<br/>') }}></div>
-                        </div>
-                                {evaluationResults.additional && (
-                                     <div>
-                                          <Separator className="my-4" />
-                                          <h3 className="text-lg font-semibold mb-2">Additional Criteria Evaluation:</h3>
-                                           <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: evaluationResults.additional.replace(/\n/g, '<br/>') }}></div>
-                      </div>
-                                )}
-                  </CardContent>
-                </Card>
-        )}
-      </main>
-    </div>
-  );
+                                    <Separator className="my-4" />
+                                    <h3 className="text-lg font-semibold mb-2">Additional Criteria Evaluation:</h3>
+                                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: evaluationResults.additional.replace(/\n/g, '<br/>') }}></div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+            </main>
+        </div>
+    );
 };
 
 export default Practice;
+
+
+
+
+
+
+
+
+
+
+
