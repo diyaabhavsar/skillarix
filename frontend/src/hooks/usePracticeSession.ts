@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/utils/api";
 import { toast } from "sonner";
 
@@ -23,77 +23,167 @@ interface TestConfiguration {
   created_at: string;
 }
 
-export const usePracticeSession = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [testConfigurations, setTestConfigurations] = useState<TestConfiguration[]>([]);
-  const [selectedTestConfigId, setSelectedTestConfigId] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
+interface PracticeSessionState {
+  categories: Category[];
+  products: Product[];
+  testConfigurations: TestConfiguration[];
+  selectedCategoryId: string;
+  selectedProductId: string;
+  selectedTestConfigId: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
+interface CategoryResponse {
+  _id: string;
+  name: string;
+}
+
+interface ProductResponse {
+  _id: string;
+  name: string;
+  description: string;
+  category_id: string;
+}
+
+interface TestConfigurationResponse {
+  _id: string;
+  id?: string;
+  name: string;
+  product_id: string;
+  visitorPersona: Record<string, unknown>;
+  additionalCriteria: Record<string, boolean>;
+  created_at: string;
+}
+
+interface PracticeSessionHook {
+  // Data states
+  categories: Category[];
+  products: Product[];
+  testConfigurations: TestConfiguration[];
+  selectedCategoryId: string;
+  selectedProductId: string;
+  selectedTestConfigId: string;
+  
+  // Loading and error states
+  isLoading: boolean;
+  error: string | null;
+
+  // Selection setters
+  setSelectedCategoryId: (id: string) => void;
+  setSelectedProductId: (id: string) => void;
+  setSelectedTestConfigId: (id: string) => void;
+
+  // Session management
+  isSelectionValid: boolean;
+  getSelectedConfig: () => {
+    productName: string;
+    configName: string;
+  } | null;
+}
+
+export const usePracticeSession = (): PracticeSessionHook => {
+  const [state, setState] = useState<PracticeSessionState>({
+    categories: [],
+    products: [],
+    testConfigurations: [],
+    selectedCategoryId: "",
+    selectedProductId: "",
+    selectedTestConfigId: "",
+    isLoading: false,
+    error: null,
+  });
+
+  const setStateWithLoading = (updater: (prevState: PracticeSessionState) => Partial<PracticeSessionState>) => {
+    setState(prev => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      ...updater(prev)
+    }));
+  };
+
+  const handleError = (operation: string, error: unknown) => {
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+    toast.error(`Failed to ${operation}: ${message}`);
+    setState(prev => ({ ...prev, error: message, isLoading: false }));
+  };
+
+  const isSelectionValid = Boolean(
+    state.selectedCategoryId && 
+    state.selectedProductId && 
+    state.selectedTestConfigId
+  );
+
+  const getSelectedConfig = useCallback(() => {
+    if (!state.selectedProductId || !state.selectedTestConfigId) return null;
+
+    const product = state.products.find(p => p.id === state.selectedProductId);
+    const config = state.testConfigurations.find(c => c.id === state.selectedTestConfigId);
+
+    return {
+      productName: product?.name || 'N/A',
+      configName: config?.name || 'N/A'
+    };
+  }, [state.selectedProductId, state.selectedTestConfigId, state.products, state.testConfigurations]);
 
   // Fetch Categories
   const fetchCategories = async () => {
-    setIsLoading(true);
+    setStateWithLoading(prev => ({ ...prev, categories: [] }));
     try {
-      const data = await api.get("/categories");
-      const fetchedCategories: Category[] = data.map((cat: any) => ({ 
+      const data = await api.get<CategoryResponse[]>("/categories");
+      const fetchedCategories: Category[] = data.map((cat) => ({ 
         id: cat._id, 
         name: cat.name 
       }));
-      setCategories(fetchedCategories);
-      if (fetchedCategories.length > 0) {
-        setSelectedCategoryId(fetchedCategories[0].id);
-      }
-    } catch (error: any) {
-      toast.error(`Failed to load categories: ${error.message}`);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      setState(prev => ({ 
+        ...prev, 
+        categories: fetchedCategories,
+        selectedCategoryId: fetchedCategories.length > 0 ? fetchedCategories[0].id : "",
+        isLoading: false 
+      }));
+    } catch (error) {
+      handleError("load categories", error);
     }
   };
 
   // Fetch Products
   const fetchProducts = async (categoryId: string) => {
     if (!categoryId) {
-      setProducts([]);
-      setSelectedProductId("");
+      setState(prev => ({ ...prev, products: [], selectedProductId: "" }));
       return;
     }
-    setIsLoading(true);
+    setStateWithLoading(prev => ({ ...prev, products: [] }));
     try {
-      const data = await api.get(`/products/${categoryId}`);
-      const fetchedProducts: Product[] = data.map((prod: any) => ({
+      const data = await api.get<ProductResponse[]>(`/products/${categoryId}`);
+      const fetchedProducts: Product[] = data.map((prod) => ({
         id: prod._id,
         name: prod.name,
         description: prod.description,
         category_id: prod.category_id,
       }));
-      setProducts(fetchedProducts);
-      if (fetchedProducts.length > 0) {
-        setSelectedProductId(fetchedProducts[0].id);
-      }
-    } catch (error: any) {
-      toast.error(`Failed to load products: ${error.message}`);
-      setProducts([]);
-      setSelectedProductId("");
-      throw error;
-    } finally {
-      setIsLoading(false);
+      setState(prev => ({ 
+        ...prev, 
+        products: fetchedProducts,
+        selectedProductId: fetchedProducts.length > 0 ? fetchedProducts[0].id : "",
+        isLoading: false 
+      }));
+    } catch (error) {
+      handleError("load products", error);
+      setState(prev => ({ ...prev, products: [], selectedProductId: "" }));
     }
   };
 
   // Fetch Test Configurations
   const fetchTestConfigurations = async (productId: string) => {
     if (!productId) {
-      setTestConfigurations([]);
-      setSelectedTestConfigId("");
+      setState(prev => ({ ...prev, testConfigurations: [], selectedTestConfigId: "" }));
       return;
     }
-    setIsLoading(true);
+    setStateWithLoading(prev => ({ ...prev, testConfigurations: [] }));
     try {
-      const data = await api.get(`/test-configurations/${productId}`);
-      const formattedConfigs = data.map((config: any) => ({
+      const data = await api.get<TestConfigurationResponse[]>(`/test-configurations/${productId}`);
+      const formattedConfigs = data.map((config) => ({
         id: config.id || config._id,
         name: config.name,
         product_id: config.product_id,
@@ -101,17 +191,15 @@ export const usePracticeSession = () => {
         additionalCriteria: config.additionalCriteria || {},
         created_at: config.created_at
       }));
-      setTestConfigurations(formattedConfigs);
-      if (formattedConfigs.length > 0) {
-        setSelectedTestConfigId(formattedConfigs[0].id);
-      }
-    } catch (error: any) {
-      toast.error(`Failed to load test configurations: ${error.message}`);
-      setTestConfigurations([]);
-      setSelectedTestConfigId("");
-      throw error;
-    } finally {
-      setIsLoading(false);
+      setState(prev => ({ 
+        ...prev, 
+        testConfigurations: formattedConfigs,
+        selectedTestConfigId: formattedConfigs.length > 0 ? formattedConfigs[0].id : "",
+        isLoading: false 
+      }));
+    } catch (error) {
+      handleError("load test configurations", error);
+      setState(prev => ({ ...prev, testConfigurations: [], selectedTestConfigId: "" }));
     }
   };
 
@@ -122,28 +210,38 @@ export const usePracticeSession = () => {
 
   // Effect for products load when category changes
   useEffect(() => {
-    if (selectedCategoryId) {
-      fetchProducts(selectedCategoryId);
+    if (state.selectedCategoryId) {
+      fetchProducts(state.selectedCategoryId);
     }
-  }, [selectedCategoryId]);
+  }, [state.selectedCategoryId]);
 
   // Effect for test configurations load when product changes
   useEffect(() => {
-    if (selectedProductId) {
-      fetchTestConfigurations(selectedProductId);
+    if (state.selectedProductId) {
+      fetchTestConfigurations(state.selectedProductId);
     }
-  }, [selectedProductId]);
+  }, [state.selectedProductId]);
 
   return {
-    categories,
-    products,
-    testConfigurations,
-    selectedCategoryId,
-    selectedProductId,
-    selectedTestConfigId,
-    setSelectedCategoryId,
-    setSelectedProductId,
-    setSelectedTestConfigId,
-    isLoading
+    // Data
+    categories: state.categories,
+    products: state.products,
+    testConfigurations: state.testConfigurations,
+    selectedCategoryId: state.selectedCategoryId,
+    selectedProductId: state.selectedProductId,
+    selectedTestConfigId: state.selectedTestConfigId,
+    
+    // Status
+    isLoading: state.isLoading,
+    error: state.error,
+    
+    // Setters
+    setSelectedCategoryId: (id: string) => setState(prev => ({ ...prev, selectedCategoryId: id })),
+    setSelectedProductId: (id: string) => setState(prev => ({ ...prev, selectedProductId: id })),
+    setSelectedTestConfigId: (id: string) => setState(prev => ({ ...prev, selectedTestConfigId: id })),
+    
+    // Helpers
+    isSelectionValid,
+    getSelectedConfig
   };
 };

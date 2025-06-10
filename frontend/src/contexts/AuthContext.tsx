@@ -14,9 +14,26 @@ export type User = {
   role: UserRole;
 };
 
+// Move types to a separate types file
+type LoginResponse = {
+  id: string;
+  username: string;
+  role: UserRole;
+  access_token: string;
+};
+
+type RegisterData = {
+  username: string;
+  email: string;
+  password: string;
+  role: UserRole;
+};
+
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
+  token: string | null;
+  getToken: () => string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
@@ -47,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem(env.TOKEN_KEY));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const data = await authService.login(email, password);
+      const data = await authService.login(email, password) as LoginResponse;
       const userData: User = {
         id: data.id,
         email,
@@ -81,15 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role: data.role,
       };
 
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem(env.TOKEN_KEY, data.access_token);
-      setUser(userData);
-      sessionService.initSession(); // Initialize session monitoring
-      navigate("/dashboard");
-      toast.success(`Login successful!`);
+      handleSuccessfulLogin(userData, data.access_token);
     } catch (error) {
-      console.error("Login failed:", error);
-      toast.error("Login failed. Please check your credentials.");
+      handleAuthError("Login", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -100,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.removeItem("user");
     localStorage.removeItem(env.TOKEN_KEY);
     setUser(null);
+    setToken(null);
     navigate("/");
     toast.success("Logged out successfully");
   }, [navigate]);
@@ -113,26 +126,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: name,
-          email,
-          password,
-          role,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.detail || "Registration failed");
-        throw new Error(err.detail || "Registration failed");
-      }
+      const registerData: RegisterData = {
+        username: name,
+        email,
+        password,
+        role,
+      };
+      
+      const response = await authService.register(registerData);
       toast.success("Registration successful! Please log in.");
-      // Optionally, you can auto-login or redirect here
     } catch (error) {
-      console.error("Registration failed:", error);
-      toast.error("Registration failed. Please try again.");
+      handleAuthError("Registration", error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -157,16 +161,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Helper functions
+  const handleSuccessfulLogin = (userData: User, accessToken: string) => {
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem(env.TOKEN_KEY, accessToken);
+    setUser(userData);
+    setToken(accessToken);
+    sessionService.initSession();
+    navigate("/dashboard");
+    toast.success("Login successful!");
+  };
+
+  const handleAuthError = (operation: string, error: any) => {
+    console.error(`${operation} failed:`, error);
+    toast.error(`${operation} failed. ${error.message || 'Please try again.'}`);
+  };
+
+  const getToken = useCallback(() => {
+    return localStorage.getItem(env.TOKEN_KEY);
+  }, []);
+
   const value = useMemo(() => ({
     user,
     isLoading,
+    token,
+    getToken,
     login,
     register,
     logout,
     forgotPassword,
     isAdmin: () => user?.role === "admin",
     isEmployee: () => user?.role === "employee",
-  }), [user, isLoading, login, register, logout, forgotPassword]);
+  }), [user, isLoading, token, getToken, login, register, logout, forgotPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

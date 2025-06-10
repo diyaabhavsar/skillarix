@@ -1,5 +1,6 @@
 import { env } from '@/config/env';
 import { sessionService } from '@/services/sessionService';
+import { toast } from 'sonner';
 
 const BASE_URL = env.API_URL;
 const TOKEN_KEY = env.TOKEN_KEY;
@@ -12,31 +13,71 @@ interface CacheItem {
 
 const cache: Map<string, CacheItem> = new Map();
 
+interface WebSocketConfig {
+    maxRetries?: number;
+    retryDelay?: number;
+    debug?: boolean;
+    onOpen?: () => void;
+    onError?: (error: Event) => void;
+    onClose?: (event: CloseEvent) => void;
+}
+
+class ApiError extends Error {
+  status?: number;
+  detail?: string;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+interface ApiResponse<T> {
+  data: T;
+  error?: string;
+}
+
+const handleApiError = (error: unknown): never => {
+  const apiError = error as ApiError;
+  const message = apiError.detail || apiError.message || "An unexpected error occurred";
+  toast.error(message);
+  throw apiError;
+};
+
 export const api = {
   getToken: () => localStorage.getItem(TOKEN_KEY),
 
-  handleResponse: async (response: Response) => {
+  handleResponse: async <T>(response: Response): Promise<T> => {
     if (response.status === 401) {
       // Session expired or invalid token
       sessionService.endSession();
-      throw new Error('Session expired. Please login again.');
+      throw new ApiError("Session expired. Please login again.", 401);
     }
+    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "API request failed");
+      const error = await response.json() as { detail?: string };
+      throw new ApiError(error.detail || "API request failed", response.status);
     }
-    return response.json();
+    
+    return response.json() as Promise<T>;
   },
 
-  get: async (endpoint: string) => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return api.handleResponse(response);
+  get: async <T>(endpoint: string): Promise<T> => {
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return api.handleResponse<T>(response);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        return handleApiError(error);
+      }
+      throw error;
+    }
   },
 
   post: async (endpoint: string, data: any) => {
@@ -146,13 +187,13 @@ export const api = {
   },
 
   // Caching layer
-  getCached: async (endpoint: string) => {
+  getCached: async <T>(endpoint: string): Promise<T> => {
     const cachedItem = cache.get(endpoint);
     if (cachedItem && Date.now() - cachedItem.timestamp < CACHE_DURATION) {
-      return cachedItem.data;
+      return cachedItem.data as T;
     }
 
-    const data = await api.get(endpoint);
+    const data = await api.get<T>(endpoint);
     cache.set(endpoint, { data, timestamp: Date.now() });
     return data;
   },
@@ -172,14 +213,79 @@ export const api = {
   },
 
   // Update WebSocket connections to use a more robust connection
-  connectWebSocket: (endpoint: string) => {
-    const token = api.getToken();
-    const ws = new WebSocket(`${env.WS_URL}${endpoint}?token=${token}`);
-    
-    ws.addEventListener('error', (error) => {
-      console.error('WebSocket error:', error);
-    });
+  connectWebSocket: (endpoint: string, config: WebSocketConfig = {}) => {
+    const {
+      maxRetries = 3,
+      retryDelay = 1000,
+      debug = false,
+      onOpen,
+      onError,
+      onClose
+    } = config;
 
-    return ws;
+    const token = api.getToken();
+    if (!token) {
+      sessionService.endSession();
+      throw new Error('No authentication token available');
+    }
+
+    let attempts = 0;
+    let ws: WebSocket | null = null;
+    let pingInterval: NodeJS.Timeout;
+
+    const cleanup = () => {
+      if (pingInterval) clearInterval(pingInterval);
+      ws?.close();
+    };
+
+    const setupPing = () => {
+      pingInterval = setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, 30000);
+    };
+
+    const connect = () => {
+      try {
+        cleanup();
+        ws = new WebSocket(`${env.WS_URL}${endpoint}?token=${token}`);
+
+        ws.onopen = () => {
+          if (debug) console.log('WebSocket connected successfully');
+          attempts = 0;
+          setupPing();
+          onOpen?.();
+        };
+
+        ws.onclose = (event) => {
+          cleanup();
+          if (!event.wasClean && attempts < maxRetries) {
+            attempts++;
+            if (debug) console.log(`WebSocket reconnecting... Attempt ${attempts}/${maxRetries}`);
+            setTimeout(connect, retryDelay * attempts);
+          } else if (attempts >= maxRetries) {
+            toast.error('Connection lost. Please refresh the page.');
+          }
+          onClose?.(event);
+        };
+
+        ws.onerror = (error) => {
+          if (debug || process.env.NODE_ENV === 'development') {
+            console.error('WebSocket error:', error);
+          }
+          onError?.(error);
+          ws?.close();
+        };
+
+      } catch (error) {
+        if (debug) console.error('WebSocket connection error:', error);
+        setTimeout(connect, retryDelay * attempts);
+      }
+
+      return ws;
+    };
+
+    return connect();
   },
 };
