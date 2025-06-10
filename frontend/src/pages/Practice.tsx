@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { usePracticeSession } from "@/hooks/usePracticeSession";
+import { useWebSocketSession } from "@/hooks/useWebSocketSession";
 
 interface Category {
     id: string;
@@ -39,346 +41,41 @@ interface ConversationPair {
 }
 
 const Practice = () => {
-    const { token } = useAuth();
-
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-    const [products, setProducts] = useState<Product[]>([]);
-    const [selectedProductId, setSelectedProductId] = useState<string>('');
-    const [testConfigurations, setTestConfigurations] = useState<TestConfiguration[]>([]);
-    const [selectedTestConfigId, setSelectedTestConfigId] = useState<string>('');
+    const { user } = useAuth();
+    
+    const {
+        categories,
+        products,
+        testConfigurations,
+        selectedCategoryId,
+        selectedProductId,
+        selectedTestConfigId,
+        setSelectedCategoryId,
+        setSelectedProductId,
+        setSelectedTestConfigId,
+        isLoading
+    } = usePracticeSession();
 
     const [isSessionActive, setIsSessionActive] = useState(false);
-    const [conversationHistory, setConversationHistory] = useState<ConversationPair[]>([]);
+    
+    const {
+        websocket,
+        sessionLoading,
+        sessionError,
+        conversationHistory,
+        currentCustomerQuestion,
+        evaluationResults,
+        sendAnswer,
+        endSession,
+    } = useWebSocketSession(isSessionActive, selectedProductId, selectedTestConfigId);
+
     const [salespersonInput, setSalespersonInput] = useState('');
-    const [currentCustomerQuestion, setCurrentCustomerQuestion] = useState('');
-    const [sessionLoading, setSessionLoading] = useState(false);
-    const [sessionError, setSessionError] = useState<string | null>(null);
-    const [websocket, setWebsocket] = useState<WebSocket | null>(null);
-
-    const [evaluationResults, setEvaluationResults] = useState<any>(null);
-
     const [isSelectionLoading, setIsSelectionLoading] = useState(false);
-
-    useEffect(() => {
-        const fetchCategories = async () => {
-            if (!token) return;
-            setIsSelectionLoading(true);
-            try {
-                const res = await fetch("http://localhost:8000/categories", {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || "Failed to fetch categories");
-                }
-                const data = await res.json();
-                const fetchedCategories: Category[] = data.map((cat: any) => ({ id: cat._id, name: cat.name }));
-                setCategories(fetchedCategories);
-                if (fetchedCategories.length > 0) {
-                    setSelectedCategoryId(fetchedCategories[0].id);
-                } else {
-                    setSelectedCategoryId('');
-                }
-            } catch (error: any) {
-                console.error("Error fetching categories:", error);
-                toast.error(`Failed to load categories: ${error.message}`);
-            } finally {
-                setIsSelectionLoading(false);
-            }
-        };
-        fetchCategories();
-    }, [token]);
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            if (!selectedCategoryId || !token) {
-                setProducts([]);
-                setSelectedProductId('');
-                setTestConfigurations([]);
-                setSelectedTestConfigId('');
-                return;
-            }
-            setIsSelectionLoading(true);
-            try {
-                const res = await fetch(`http://localhost:8000/products/${selectedCategoryId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || "Failed to fetch products");
-                }
-                const data = await res.json();
-                const fetchedProducts: Product[] = data.map((prod: any) => ({
-                    id: prod._id,
-                    name: prod.name,
-                    description: prod.description,
-                    category_id: prod.category_id,
-                }));
-                setProducts(fetchedProducts);
-                setTestConfigurations([]);
-                setSelectedTestConfigId('');
-                if (fetchedProducts.length > 0) {
-                    setSelectedProductId(fetchedProducts[0].id);
-                } else {
-                    setSelectedProductId('');
-                }
-            } catch (error: any) {
-                console.error("Error fetching products:", error);
-                toast.error(`Failed to load products: ${error.message}`);
-                setProducts([]);
-                setSelectedProductId('');
-                setTestConfigurations([]);
-                setSelectedTestConfigId('');
-            } finally {
-                setIsSelectionLoading(false);
-            }
-        };
-        fetchProducts();
-    }, [selectedCategoryId, token]);
-
-    useEffect(() => {
-        const fetchTestConfigurations = async () => {
-            if (!selectedProductId || !token) {
-                setTestConfigurations([]);
-                setSelectedTestConfigId('');
-                return;
-            }
-            setIsSelectionLoading(true);
-            try {
-                const res = await fetch(`http://localhost:8000/test-configurations/${selectedProductId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || "Failed to fetch test configurations");
-                }
-                const data = await res.json();
-                // Ensure proper formatting of test configuration data
-                const formattedConfigs = data.map((config: any) => ({
-                    id: config.id || config._id,
-                    name: config.name,
-                    product_id: config.product_id,
-                    visitorPersona: config.visitorPersona || {},
-                    additionalCriteria: config.additionalCriteria || {},
-                    created_at: config.created_at
-                }));
-                setTestConfigurations(formattedConfigs);
-                const currentSelectionExists = formattedConfigs.some((config: TestConfiguration) => config.id === selectedTestConfigId);
-                if (formattedConfigs.length > 0 && (!selectedTestConfigId || !currentSelectionExists)) {
-                    setSelectedTestConfigId(formattedConfigs[0].id);
-                } else if (formattedConfigs.length === 0) {
-                    setSelectedTestConfigId('');
-                }
-            } catch (error: any) {
-                console.error("Error fetching test configurations:", error);
-                toast.error(`Failed to load test configurations: ${error.message}`);
-                setTestConfigurations([]);
-                setSelectedTestConfigId('');
-            } finally {
-                setIsSelectionLoading(false);
-            }
-        };
-        fetchTestConfigurations();
-    }, [selectedProductId, token]);
 
     // Add debugging useEffect at the component level (not inside another function)
     useEffect(() => {
         console.log("Conversation history updated:", conversationHistory);
     }, [conversationHistory]);
-
-    useEffect(() => {
-        if (!isSessionActive) {
-            websocket?.close();
-            setWebsocket(null);
-            return;
-        }
-
-        // Add token as a query parameter to the WebSocket URL
-        const ws = new WebSocket(`ws://localhost:8000/ws/chat?token=${token}`);
-        
-        let connectionAttempts = 0;
-        const maxAttempts = 3;
-        
-        const connectWebSocket = () => {
-            if (connectionAttempts >= maxAttempts) {
-                setSessionError(`Failed to connect after ${maxAttempts} attempts. Please check if the server is running.`);
-                setIsSessionActive(false);
-                setSessionLoading(false);
-                return;
-            }
-            
-            connectionAttempts++;
-            
-            ws.onopen = () => {
-                console.log("WebSocket connection established.");
-                connectionAttempts = 0; // Reset counter on successful connection
-                
-                if (selectedProductId && selectedTestConfigId) {
-                    // Add a small delay to ensure the connection is fully established
-                    setTimeout(() => {
-                        try {
-                            // Simplified message format to match backend expectations
-                            ws.send(JSON.stringify({
-                                type: "start",
-                                product_id: selectedProductId,
-                                test_configuration_id: selectedTestConfigId,
-                            }));
-                            setSessionLoading(true);
-                            setSessionError(null);
-                        } catch (error) {
-                            console.error("Error sending start message:", error);
-                            setSessionError("Failed to start session. Please try again.");
-                            setIsSessionActive(false);
-                        }
-                    }, 500);
-                } else {
-                    setSessionError("Product and Test Configuration must be selected to start.");
-                    setIsSessionActive(false);
-                    ws.close();
-                }
-            };
-        };
-        
-        connectWebSocket();
-
-        // Fix the WebSocket message handler to preserve salesperson responses
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log("WebSocket message received:", data);
-
-            if (data.type === "question") {
-                setCurrentCustomerQuestion(data.content);
-                setConversationHistory(prev => [...prev, { visitor_text: data.content, salesperson_text: '' }]);
-                setSessionLoading(false);
-            } else if (data.type === "evaluation" || data.type === "next_question") {
-                // Don't modify the existing conversation history entries
-                
-                if (data.evaluation) {
-                    console.log("Individual Evaluation:", data.evaluation);
-                }
-                
-                setSalespersonInput('');
-                
-                // Only add a new question if there is one
-                const nextQuestion = data.next_question || data.content;
-                if (nextQuestion) {
-                    setCurrentCustomerQuestion(nextQuestion);
-                    setConversationHistory(prev => [...prev, { visitor_text: nextQuestion, salesperson_text: '' }]);
-                }
-                
-                setSessionLoading(false);
-            } else if (data.type === "session_complete") {
-                console.log("Session Complete:", data);
-                setEvaluationResults({
-                    complete: data.complete_evaluation,
-                    additional: data.additional_criteria_evaluation,
-                });
-                setIsSessionActive(false);
-                setSessionLoading(false);
-            } else if (data.type === "error") {
-                console.error("WebSocket Error from server:", data.content);
-                setSessionError(data.content || "An error occurred during the session.");
-                setIsSessionActive(false);
-                setSessionLoading(false);
-            }
-        };
-
-        ws.onerror = (event) => {
-            console.error("WebSocket error:", event);
-            // Try to reconnect on error
-            setTimeout(() => {
-                if (isSessionActive && connectionAttempts < maxAttempts) {
-                    console.log(`Attempting to reconnect (${connectionAttempts + 1}/${maxAttempts})...`);
-                    connectWebSocket();
-                } else {
-                    setSessionError("WebSocket connection error. Please check if the server is running.");
-                    setIsSessionActive(false);
-                    setSessionLoading(false);
-                }
-            }, 1000);
-        };
-
-        ws.onclose = (event) => {
-            console.log("WebSocket connection closed:", event.code, event.reason);
-            if (isSessionActive && event.code !== 1000) { // 1000 is normal closure
-                setSessionError("Session ended unexpectedly. Please try again.");
-                setIsSessionActive(false);
-            }
-            setSessionLoading(false);
-        };
-
-        setWebsocket(ws);
-
-        return () => {
-            ws.close();
-        };
-    }, [isSessionActive, selectedProductId, selectedTestConfigId, token]);
-
-    const sendSalespersonAnswer = () => {
-        if (websocket && websocket.readyState === WebSocket.OPEN && !sessionLoading && salespersonInput.trim() && currentCustomerQuestion) {
-            setSessionLoading(true);
-            setSessionError(null);
-
-            // Immediately update the conversation history with the salesperson's response
-            setConversationHistory(prev => {
-                const updatedHistory = [...prev];
-                if (updatedHistory.length > 0) {
-                    const lastIndex = updatedHistory.length - 1;
-                    updatedHistory[lastIndex] = {
-                        ...updatedHistory[lastIndex],
-                        salesperson_text: salespersonInput
-                    };
-                }
-                return updatedHistory;
-            });
-
-            // Create the history payload for the server
-            const historyPayload = conversationHistory.map((pair, index) => {
-                if (index === conversationHistory.length - 1) {
-                    return { visitor_text: pair.visitor_text, salesperson_text: salespersonInput };
-                }
-                return pair;
-            });
-
-            // Send the message to the server
-            try {
-                websocket.send(JSON.stringify({
-                    type: "answer",
-                    product_id: selectedProductId,
-                    last_question: currentCustomerQuestion,
-                    answer: salespersonInput,
-                    history: historyPayload,
-                    test_configuration_id: selectedTestConfigId,
-                }));
-            } catch (error) {
-                console.error("Error sending answer:", error);
-                setSessionError("Failed to send your response. Please try again.");
-                setSessionLoading(false);
-            }
-        }
-    };
-
-    const endSession = () => {
-        if (websocket && websocket.readyState === WebSocket.OPEN && selectedProductId && selectedTestConfigId) {
-            setSessionLoading(true);
-            console.log({
-                type: "end_session",
-                product_id: selectedProductId,
-                history: conversationHistory,
-                test_configuration_id: selectedTestConfigId,
-            })
-            websocket.send(JSON.stringify({
-                type: "end_session",
-                product_id: selectedProductId,
-                history: conversationHistory,
-                test_configuration_id: selectedTestConfigId,
-            }));
-            console.log({websocket})
-        } else {
-            setIsSessionActive(false);
-        }
-    };
 
     const startSession = () => {
         if (!selectedProductId || !selectedTestConfigId) {
@@ -388,18 +85,10 @@ const Practice = () => {
 
         try {
             setIsSessionActive(true);
-            setConversationHistory([]);
-            setCurrentCustomerQuestion('');
-            setEvaluationResults(null);
-            setSessionError(null);
-            setSessionLoading(true);
-
-            console.log("Starting session with product:", selectedProductId, "and config:", selectedTestConfigId);
+            // Reset conversation history and other states as needed
         } catch (error) {
             console.error("Error starting session:", error);
-            setSessionError("Failed to start session. Please try again.");
             setIsSessionActive(false);
-            setSessionLoading(false);
         }
     };
 
@@ -534,7 +223,7 @@ const Practice = () => {
                                     rows={3}
                                 />
                                 <Button 
-                                    onClick={sendSalespersonAnswer} 
+                                    onClick={() => sendAnswer(salespersonInput)} 
                                     disabled={sessionLoading || !salespersonInput.trim() || !currentCustomerQuestion}>
                                     {sessionLoading ? "Sending..." : "Send Response"}
                                 </Button>

@@ -5,11 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { EyeIcon, EyeOffIcon, Lock, Mail, UserRound, ShieldCheck } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EyeIcon, EyeOffIcon, Lock, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { UserRole } from "@/types/session";
 
 // Login form schema
 const loginSchema = z.object({
@@ -21,7 +20,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const { login, loginWithDemo, isLoading } = useAuth();
+  const { login, isLoading } = useAuth();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,14 +35,6 @@ const LoginForm = () => {
       await login(data.email, data.password);
     } catch (e) {
       toast.error("Login failed. Please try again.");
-    }
-  };
-
-  const handleDemoLogin = async (role: UserRole = "employee") => {
-    try {
-      await loginWithDemo(role);
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -128,40 +119,6 @@ const LoginForm = () => {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        <div className="relative w-full">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 w-full">
-          <Button 
-            variant="outline" 
-            type="button" 
-            className="w-full"
-            onClick={() => handleDemoLogin("employee")}
-            disabled={isLoading}
-          >
-            <UserRound className="mr-2 h-4 w-4" />
-            Demo Employee
-          </Button>
-          <Button 
-            variant="outline" 
-            type="button" 
-            className="w-full bg-primary/10 hover:bg-primary/20"
-            onClick={() => handleDemoLogin("admin")}
-            disabled={isLoading}
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Demo Admin
-          </Button>
-        </div>
-      </CardFooter>
     </Card>
   );
 };

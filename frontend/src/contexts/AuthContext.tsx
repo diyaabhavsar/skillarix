@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { UserRole } from "@/types/session";
+import { authService } from '@/services/authService';
+import { sessionService } from '@/services/sessionService';
+import { env } from '@/config/env';
 
 // Define types for our auth context
 export type User = {
@@ -14,12 +17,15 @@ export type User = {
 type AuthContextType = {
   user: User | null;
   isLoading: boolean;
-  token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, name: string, password: string, role?: UserRole) => Promise<void>;
+  register: (
+    email: string,
+    name: string,
+    password: string,
+    role?: UserRole
+  ) => Promise<void>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
-  loginWithDemo: (role?: UserRole) => Promise<void>;
   isAdmin: () => boolean;
   isEmployee: () => boolean;
 };
@@ -36,67 +42,51 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
-  children 
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Check if user is logged in and token exists when component mounts
   useEffect(() => {
     const checkAuthStatus = () => {
-      // Check local storage for user info
-      const storedUser = localStorage.getItem("user");
-      const storedToken = localStorage.getItem("token");
-
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          sessionService.initSession(); // Initialize session monitoring
+        }
+      } catch (error) {
+        console.error("Error checking auth status:", error);
+        localStorage.removeItem("user");
+        localStorage.removeItem(env.TOKEN_KEY);
+      } finally {
+        setIsLoading(false);
       }
-
-      if (storedToken) {
-        setToken(storedToken);
-      }
-
-      setIsLoading(false);
     };
 
     checkAuthStatus();
+    return () => sessionService.cleanup();
   }, []);
 
-  // Login function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          username: email,
-          password,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.detail || "Login failed");
-        throw new Error(data.detail || "Login failed");
-      }
-  
-      const userData = {
-        id: "", // Set this if your backend returns a user id
+      const data = await authService.login(email, password);
+      const userData: User = {
+        id: data.id,
         email,
-        name: data.username, // or data.name if your backend returns it
+        name: data.username,
         role: data.role,
       };
-  
+
       localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("role", data.role);
-  
+      localStorage.setItem(env.TOKEN_KEY, data.access_token);
       setUser(userData);
+      sessionService.initSession(); // Initialize session monitoring
       navigate("/dashboard");
-      toast.success(`Login successful as ${data.role}!`);
+      toast.success(`Login successful!`);
     } catch (error) {
       console.error("Login failed:", error);
       toast.error("Login failed. Please check your credentials.");
@@ -106,36 +96,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Login with demo account
-  const loginWithDemo = async (role: UserRole = "employee") => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Demo user data
-      const demoUser = {
-        id: `demo-${role}-123`,
-        email: `demo-${role}@example.com`,
-        name: `Demo ${role === "admin" ? "Admin" : "User"}`,
-        role,
-      };
-      
-      localStorage.setItem("user", JSON.stringify(demoUser));
-      setUser(demoUser);
-      navigate("/dashboard");
-      toast.success(`Logged in as Demo ${role === "admin" ? "Admin" : "Employee"}`);
-    } catch (error) {
-      console.error("Demo login failed:", error);
-      toast.error("Failed to login with demo account");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const logout = useCallback(() => {
+    localStorage.removeItem("user");
+    localStorage.removeItem(env.TOKEN_KEY);
+    setUser(null);
+    navigate("/");
+    toast.success("Logged out successfully");
+  }, [navigate]);
 
   // Register function
-  const register = async (email: string, name: string, password: string, role: UserRole = "employee") => {
+  const register = async (
+    email: string,
+    name: string,
+    password: string,
+    role: UserRole = "employee"
+  ) => {
     setIsLoading(true);
     try {
       const res = await fetch("http://localhost:8000/register", {
@@ -164,21 +139,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Logout function
-  const logout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
-    navigate("/");
-    toast.success("Logged out successfully");
-  };
-
   // Forgot password function
   const forgotPassword = async (email: string) => {
     setIsLoading(true);
     try {
       // Simulate API call to backend
       // Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // Password reset email sent
       toast.success(`Password reset link sent to ${email}`);
     } catch (error) {
@@ -190,22 +157,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Helper functions for role checking
-  const isAdmin = () => user?.role === "admin";
-  const isEmployee = () => user?.role === "employee";
-
-  const value = {
+  const value = useMemo(() => ({
     user,
     isLoading,
-    token,
     login,
     register,
     logout,
     forgotPassword,
-    loginWithDemo,
-    isAdmin,
-    isEmployee,
-  };
+    isAdmin: () => user?.role === "admin",
+    isEmployee: () => user?.role === "employee",
+  }), [user, isLoading, login, register, logout, forgotPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

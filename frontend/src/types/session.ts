@@ -1,4 +1,3 @@
-
 export type Message = {
   role: "system" | "user";
   content: string;
@@ -17,4 +16,11 @@ export type FilterSettings = {
 };
 
 export type UserRole = "admin" | "employee";
+
+export interface User {
+  id: string;
+  email: string;
+  username: string;
+  role: UserRole;
+}
 
