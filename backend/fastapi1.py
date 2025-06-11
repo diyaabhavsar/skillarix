@@ -1955,38 +1955,13 @@ async def get_test_configurations(
 async def get_all_conversations_for_user(
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Retrieves conversations based on user role:
-    - Admin: Returns all conversations in the database.
-    - Employee: Returns only conversations belonging to the logged-in user.
-    """
     conversations = []
-
-    # Check the role of the authenticated user
     if current_user.role == "admin":
-        print(f"Admin user {current_user.username} accessing all conversations.")
         conversations = list(db.conversations.find({}))
     else:
-        print(f"Employee user {current_user.username} accessing their conversations.")
         conversations = list(db.conversations.find({"user_id": ObjectId(current_user.id)}))
-
-    # Convert all ObjectId fields to strings
-    for conv in conversations:
-        # Convert top-level ObjectId fields
-        if "_id" in conv:
-            conv["_id"] = str(conv["_id"])
-        if "product_id" in conv:
-            conv["product_id"] = str(conv["product_id"])
-        if "user_id" in conv:
-            conv["user_id"] = str(conv["user_id"])
-        
-        # Handle nested ObjectId in evaluation_data
-        if "evaluation_data" in conv and conv["evaluation_data"]:
-            if "test_configuration_id" in conv["evaluation_data"]:
-                test_config_id = conv["evaluation_data"]["test_configuration_id"]
-                if isinstance(test_config_id, ObjectId):
-                    conv["evaluation_data"]["test_configuration_id"] = str(test_config_id)
-
+    # Convert ObjectId fields to strings
+    conversations = convert_objectids_to_strings(conversations)
     return conversations
 
 @app.get("/conversation/{conversation_id}")
@@ -2115,15 +2090,8 @@ async def update_product(
 
     # Return the updated product
     updated_product = db.products.find_one({"_id": ObjectId(product_id)})
-    # Convert ObjectId fields to strings for the response
     if updated_product:
-        updated_product["_id"] = str(updated_product["_id"])
-        if "category_id" in updated_product and isinstance(updated_product["category_id"], ObjectId):
-            updated_product["category_id"] = str(updated_product["category_id"])
-        if "created_by" in updated_product and isinstance(updated_product["created_by"], ObjectId):
-            updated_product["created_by"] = str(updated_product["created_by"])
-        if "updated_by" in updated_product and isinstance(updated_product["updated_by"], ObjectId):
-            updated_product["updated_by"] = str(updated_product["updated_by"])
+        updated_product = convert_objectids_to_strings(updated_product)
     return updated_product
 
 @app.put("/test-configurations/{test_config_id}")
