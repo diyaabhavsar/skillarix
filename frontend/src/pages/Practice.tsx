@@ -136,7 +136,7 @@ const Practice = () => {
       });
     }
   }, [conversationHistory]);
-
+console.log({conversationHistory})
   // Pagination states and effects
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -312,20 +312,13 @@ const Practice = () => {
       const payload = {
         type: "end_session",
         product_id: selectedProductId,
-        history: finalHistory,
         test_configuration_id: selectedTestConfigId,
+        last_question: currentCustomerQuestion,
+        answer: salespersonInput.trim(),
+        history: finalHistory
       };
 
-      console.log("Ending session with payload:", {
-        type: payload.type,
-        product_id: payload.product_id,
-        test_configuration_id: payload.test_configuration_id,
-        history: finalHistory.map(h => ({
-          visitor: h.visitor_text.substring(0, 50) + "...",
-          salesperson: h.salesperson_text.substring(0, 50) + "..."
-        }))
-      });
-
+      console.log("Ending session with payload:", payload);
       websocket.send(JSON.stringify(payload));
       // Don't cleanup immediately, wait for session_complete response
       setSessionLoading(true);
