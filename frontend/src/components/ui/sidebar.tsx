@@ -733,6 +733,25 @@ const SidebarMenuSubButton = React.forwardRef<
 })
 SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 
+// Update the navigation items here
+const navigation = [
+  {
+    name: 'Dashboard',
+    href: '/dashboard',
+    icon: 'dashboard',
+  },
+  {
+    name: 'Sessions',  // Changed from 'Practice' to 'Sessions'
+    href: '/practice', // Keep the route the same for now to maintain compatibility
+    icon: 'sessions',
+  },
+  {
+    name: 'Settings',
+    href: '/settings',
+    icon: 'settings',
+  },
+]
+
 export {
   Sidebar,
   SidebarContent,

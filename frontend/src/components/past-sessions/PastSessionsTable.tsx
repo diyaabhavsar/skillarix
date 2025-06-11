@@ -120,7 +120,7 @@ const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) 
     <>
       <div className="bg-card rounded-lg border shadow">
         <Table>
-          <TableCaption>A list of your past practice sessions</TableCaption>
+          <TableCaption>A list of your past sessions</TableCaption>
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">Date & Time</TableHead>

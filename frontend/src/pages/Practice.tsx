@@ -107,6 +107,7 @@ const Practice = () => {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
+  const [isEnding, setIsEnding] = useState(false);
 
   // Add ref for scroll area
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -299,6 +300,7 @@ const Practice = () => {
   };
 
   const cleanupSession = () => {
+    setIsEnding(false); // Reset ending state
     setIsSessionActive(false);
     setConversationHistory([]);
     setCurrentCustomerQuestion("");
@@ -307,8 +309,9 @@ const Practice = () => {
     setIsSetupOpen(false); // Close sidebar
   };
 
-  const endSession = () => {
+  const endSession = async () => {
     try {
+      setIsEnding(true); // Set ending state to true
       if (!websocket) {
         throw new Error("WebSocket connection not found");
       }
@@ -320,20 +323,11 @@ const Practice = () => {
       if (!selectedProductId || !selectedTestConfigId) {
         throw new Error("Missing product or test configuration ID");
       }
-      console.log({ conversationHistory });
-      setSessionLoading(true);
+
       const finalHistory = [...conversationHistory];
 
-      // Log current state for debugging
-      console.log("Current state:", {
-        websocketState: websocket.readyState,
-        selectedProductId,
-        selectedTestConfigId,
-        historyLength: finalHistory.length,
-        currentInput: salespersonInput,
-      });
-
       if (salespersonInput.trim() && finalHistory.length > 0) {
+        // Update the last response in history
         finalHistory[finalHistory.length - 1].salesperson_text =
           salespersonInput;
       }
@@ -347,12 +341,7 @@ const Practice = () => {
         history: finalHistory,
       };
 
-      console.log("Sending end session payload:", payload);
-
       websocket.send(JSON.stringify(payload));
-      console.log("End session payload sent successfully");
-
-      // Don't cleanup immediately, wait for session_complete response
       setSessionLoading(true);
     } catch (error) {
       console.error("Error ending session:", error);
@@ -543,7 +532,7 @@ const Practice = () => {
         <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
           <SheetContent
             side="right"
-            className="w-full sm:w-[90vw] lg:w-[1400px] 2xl:w-[1600px] p-0 overflow-hidden"
+            className="w-full sm:w-[80vw] lg:w-[70vw] 2xl:w-[60vw] p-0 overflow-hidden"
           >
             <div className="flex h-full flex-col">
               <SheetHeader className="px-8 py-6 border-b">
@@ -579,6 +568,7 @@ const Practice = () => {
                     sessionLoading={sessionLoading}
                     salespersonInput={salespersonInput}
                     isRecording={isRecording}
+                    isEnding={isEnding}
                     onSalespersonInputChange={setSalespersonInput}
                     onVoiceInput={handleVoiceInput}
                     onSendResponse={sendSalespersonAnswer}

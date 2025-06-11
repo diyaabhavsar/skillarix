@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Mic, MicOff } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 interface ChatInterfaceProps {
   products: Product[];
@@ -14,6 +15,7 @@ interface ChatInterfaceProps {
   sessionLoading: boolean;
   salespersonInput: string;
   isRecording: boolean;
+  isEnding: boolean; // Add this prop
   onSalespersonInputChange: (value: string) => void;
   onVoiceInput: () => void;
   onSendResponse: () => void;
@@ -29,11 +31,23 @@ const ChatInterface = ({
   sessionLoading,
   salespersonInput,
   isRecording,
+  isEnding, // Add this prop
   onSalespersonInputChange,
   onVoiceInput,
   onSendResponse,
   onEndSession,
 }: ChatInterfaceProps) => {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Scroll to bottom when new messages are added
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversationHistory]);
+
   return (
     <div className="flex flex-col h-full gap-6">
       {/* Session Info Header */}
@@ -51,7 +65,7 @@ const ChatInterface = ({
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
         <ScrollArea className="h-[calc(100vh-400px)] border rounded-lg">
           <div className="p-6 space-y-6">
             {conversationHistory.map((pair, index) => (
@@ -79,12 +93,16 @@ const ChatInterface = ({
                 AI is thinking...
               </div>
             )}
+            <div ref={chatEndRef} className="h-px" />
           </div>
         </ScrollArea>
+
+        {/* Add overlay gradient for better visibility */}
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none" />
       </div>
 
       {/* Input Area */}
-      <div className="border-t pt-4 bg-background sticky bottom-0">
+      <div className="border-t pt-4 bg-background relative z-10">
         <div className="flex items-center justify-between mb-3">
           <Label htmlFor="salesperson-input" className="font-medium">
             Your Response
@@ -115,7 +133,7 @@ const ChatInterface = ({
         <div className="flex justify-between gap-4">
           <Button
             onClick={onSendResponse}
-            disabled={sessionLoading || !salespersonInput.trim()}
+            disabled={sessionLoading || !salespersonInput.trim() || isEnding}
             className="flex-1"
             size="lg"
           >
@@ -124,10 +142,18 @@ const ChatInterface = ({
           <Button
             variant="outline"
             onClick={onEndSession}
-            disabled={sessionLoading || !conversationHistory.length || (conversationHistory.length > 0 && !conversationHistory[conversationHistory.length - 1].salesperson_text && !salespersonInput.trim())}
+            disabled={
+              sessionLoading ||
+              !conversationHistory.length ||
+              isEnding ||
+              (conversationHistory.length > 0 &&
+                !conversationHistory[conversationHistory.length - 1]
+                  .salesperson_text &&
+                !salespersonInput.trim())
+            }
             size="lg"
           >
-            End Session
+            {isEnding ? "Ending..." : "End Session"}
           </Button>
         </div>
       </div>

@@ -26,7 +26,7 @@ const SessionHistoryTable = ({ sessions }: SessionHistoryTableProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Practice Session History</CardTitle>
+        <CardTitle>Session History</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
