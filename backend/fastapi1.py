@@ -88,6 +88,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     role: str  # "employee" or "admin"
+    active: bool = True # Add active field to UserCreate model
 
 class User(UserBase):
     id: str # Expect string ID
@@ -2267,6 +2268,133 @@ async def delete_test_configuration(
     return {"message": "Test configuration soft deleted successfully."}
 
 
+
+# Get a list of all users (admin only)
+@app.get("/api/users")
+async def get_users_list(current_user: User = Depends(get_current_user)):
+    """
+    Get a list of all users (admin only).
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You don't have permission to access the users list")
+    users = list(db.users.find({}).sort("created_at", -1))
+    # Convert ObjectId fields to strings and remove sensitive info
+    for user in users:
+        user["_id"] = str(user["_id"])
+        user.pop("password", None)
+        user.pop("hashed_password", None)
+    return users
+
+# Get a specific user (admin only)
+@app.get("/api/users/{user_id}")
+async def get_user_by_id(
+    user_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific user (admin only).
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You don't have permission to access this user")
+    user = db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user["_id"] = str(user["_id"])
+    user.pop("password", None)
+    user.pop("hashed_password", None)
+    return user
+
+# Create a new user (admin only)
+@app.post("/api/users")
+async def create_user(
+    user: UserCreate,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new user (admin only).
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You don't have permission to create users")
+    if db.users.find_one({"$or": [{"username": user.username}, {"email": user.email}]}):
+        raise HTTPException(status_code=400, detail="Username or email already exists")
+    hashed_password = get_password_hash(user.password)
+    user_doc = {
+        "username": user.username,
+        "email": user.email,
+        "password": hashed_password,
+        "role": user.role,
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+        "last_login": datetime.now(UTC),
+        "sessions": 0,
+        "active": user.active,
+    }
+    result = db.users.insert_one(user_doc)
+    return {
+        "id": str(result.inserted_id),
+        "username": user.username,
+        "email": user.email,
+        "role": user.role
+    }
+
+class Body:
+    def __init__(self, *args, **kwargs):
+        pass
+
+# Update a user (admin only)
+@app.put("/api/users/{user_id}")
+async def edit_user(
+    user_id: str,
+    user_update: dict = Body(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Edit an existing user (admin only).
+    Accepts any subset of username, email, password, role.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You don't have permission to edit users")
+    update_fields = {}
+    if "username" in user_update:
+        update_fields["username"] = user_update["username"]
+    if "email" in user_update:
+        update_fields["email"] = user_update["email"]
+    if "role" in user_update:
+        update_fields["role"] = user_update["role"]
+    if "password" in user_update and user_update["password"]:
+        update_fields["password"] = get_password_hash(user_update["password"])
+    if "active" in user_update:
+        update_fields["active"] = user_update["active"]
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    update_fields["updated_at"] = datetime.now(UTC)
+    result = db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = db.users.find_one({"_id": ObjectId(user_id)})
+    user["_id"] = str(user["_id"])
+    user.pop("password", None)
+    user.pop("hashed_password", None)
+    return user
+
+# Delete a user (admin only)
+@app.delete("/api/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a user (admin only).
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="You don't have permission to delete users")
+    result = db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"detail": "User deleted"}
 
 if __name__ == "__main__":
     import uvicorn
