@@ -96,7 +96,7 @@ const Practice = () => {
 
     return (
         <div className="min-h-screen flex flex-col">
-            <Navbar />
+            {/* <Navbar /> */}
             <main className="flex-1 container mx-auto px-4 py-8">
                 <SetupHeader />
 
