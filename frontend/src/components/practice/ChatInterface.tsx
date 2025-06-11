@@ -5,8 +5,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Mic, MicOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ChatInterfaceProps {
   products: Product[];
@@ -39,6 +49,7 @@ const ChatInterface = ({
   canEndSession,
   onEndSession,
 }: ChatInterfaceProps) => {
+  const [isEndAlertOpen, setIsEndAlertOpen] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -62,138 +73,131 @@ const ChatInterface = ({
     scrollToBottom(false);
   }, []);
 
+  const handleEndConfirm = () => {
+    setIsEndAlertOpen(false);
+    onEndSession();
+  };
+
   return (
-    <div className="flex flex-col h-[100vh]">
-      {/* Messages Area - Scrollable Container */}
-      <div ref={chatContainerRef} className="relative flex-1 overflow-hidden">
-        <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-          <div className="min-h-full pb-32">
-            <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
-              {/* Message History */}
-              <AnimatePresence mode="popLayout" initial={false}>
-                {conversationHistory.map((pair, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-4"
-                  >
-                    {/* Customer Message */}
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 max-w-[90%] md:max-w-[85%]">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-sm font-medium text-blue-600 px-2">
-                            Customer
-                          </span>
-                          <div className="bg-white rounded-2xl rounded-tl-none px-6 py-4 shadow-sm">
-                            {pair.visitor_text}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Salesperson Message */}
-                    {pair.salesperson_text && (
-                      <div className="flex items-start justify-end gap-2">
-                        <div className="flex-1 max-w-[90%] md:max-w-[85%]">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-sm font-medium text-green-600 px-2">
-                              You
-                            </span>
-                            <div className="bg-green-50 rounded-2xl rounded-tr-none px-6 py-4 shadow-sm">
-                              {pair.salesperson_text}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {/* Loading Indicator */}
-              {sessionLoading && (
+    <div className="flex flex-col h-[calc(100vh-6rem)] bg-background overflow-hidden">
+      {/* Chat messages area */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto px-4 py-4 custom-scrollbar">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {conversationHistory.map((pair, index) => (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex justify-center"
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
                 >
-                  <div className="bg-white px-4 py-2 rounded-full shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                  {/* Customer Message */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 max-w-[90%] md:max-w-[85%]">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium text-blue-600 px-2">
+                          Customer
+                        </span>
+                        <div className="bg-white rounded-2xl rounded-tl-none px-6 py-4 shadow-sm">
+                          {pair.visitor_text}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </motion.div>
-              )}
 
-              {/* Invisible element for scroll anchoring */}
-              <div ref={bottomRef} className="h-0 w-full" />
-            </div>
+                  {/* Salesperson Message */}
+                  {pair.salesperson_text && (
+                    <div className="flex items-start justify-end gap-2">
+                      <div className="flex-1 max-w-[90%] md:max-w-[85%]">
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-sm font-medium text-green-600 px-2">
+                            You
+                          </span>
+                          <div className="bg-green-50 rounded-2xl rounded-tr-none px-6 py-4 shadow-sm">
+                            {pair.salesperson_text}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {/* Loading indicator */}
+            {sessionLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-center"
+              >
+                <div className="bg-muted px-4 py-2 rounded-full">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            <div ref={bottomRef} />
           </div>
         </div>
       </div>
 
-      {/* Fixed Input Area - No scroll */}
-      <div className="w-full bg-white border-t shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 md:px-6 py-4">
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <Textarea
-                value={salespersonInput}
-                onChange={(e) => onSalespersonInputChange(e.target.value)}
-                placeholder="Type your response here..."
-                disabled={sessionLoading}
-                className="w-full resize-none rounded-xl border-gray-200 
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 min-h-[100px]"
-                rows={3}
-              />
-            </div>
+      {/* Fixed input area */}
+      <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-4xl mx-auto p-4">
+          <div className="flex gap-2">
+            <Textarea
+              value={salespersonInput}
+              onChange={(e) => onSalespersonInputChange(e.target.value)}
+              placeholder="Type your response..."
+              disabled={sessionLoading}
+              className="min-h-[80px] resize-none text-base"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (salespersonInput.trim()) onSendResponse();
+                }
+              }}
+            />
 
-            {/* Voice Input Button */}
+            {/* Voice input button */}
             <Button
               variant="outline"
               size="icon"
               onClick={onVoiceInput}
               className={cn(
-                "rounded-full w-10 h-10 flex-shrink-0",
-                isRecording
-                  ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                  : "hover:bg-gray-100"
+                "shrink-0",
+                isRecording && "bg-red-50 text-red-500 border-red-200"
               )}
             >
-              {isRecording ? (
-                <MicOff className="h-5 w-5" />
-              ) : (
-                <Mic className="h-5 w-5" />
-              )}
+              {isRecording ? <MicOff /> : <Mic />}
             </Button>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end mt-4 gap-3">
+          {/* Action buttons */}
+          <div className="flex justify-between mt-4">
             <Button
               variant="outline"
-              onClick={onEndSession}
-              disabled={!canEndSession || sessionLoading}
-              className="px-6 rounded-xl hover:bg-gray-100"
+              onClick={() => setIsEndAlertOpen(true)}
+              disabled={!canEndSession}
             >
-              End Session
+              End Assessment
             </Button>
             <Button
               onClick={onSendResponse}
               disabled={sessionLoading || !salespersonInput.trim()}
-              className="bg-blue-600 text-white rounded-xl hover:bg-blue-700
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        shadow-sm hover:shadow-md transition-all duration-200"
             >
               {sessionLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Sending...</span>
-                </span>
+                <>
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                  Sending...
+                </>
               ) : (
                 "Send Response"
               )}
@@ -201,6 +205,25 @@ const ChatInterface = ({
           </div>
         </div>
       </div>
+
+      {/* End session confirmation dialog */}
+      <AlertDialog open={isEndAlertOpen} onOpenChange={setIsEndAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Assessment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to end this assessment? You will receive your
+              final evaluation results.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleEndConfirm}>
+              End Assessment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

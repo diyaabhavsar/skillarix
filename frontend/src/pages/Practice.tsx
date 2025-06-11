@@ -76,6 +76,26 @@ interface WebSocketMessage {
   additional_criteria_evaluation?: string;
 }
 
+interface IndividualEvaluation {
+  evaluation: string;
+  reference_answer?: string;
+  rating: {
+    question_relevance: { score: number; max: number };
+    technical_accuracy: { score: number; max: number };
+    sales_effectiveness: { score: number; max: number };
+    total: { score: number; max: number };
+  };
+}
+
+interface ConversationEvaluation {
+  // ...existing code...
+  evaluation_data: {
+    individual_evaluations: IndividualEvaluation[];
+    // ...rest of evaluation_data interface
+  };
+  // ...existing code...
+}
+
 const Practice = () => {
   const navigate = useNavigate(); // Add hook
   const { token } = useAuth();
@@ -585,20 +605,18 @@ const Practice = () => {
                 )}
               >
                 {/* Header with responsive padding */}
-                <div className="relative px-6 py-8 md:px-20 border-b flex justify-between items-center bg-white supports-[backdrop-filter]:bg-white/60">
+                <div className="relative px-6 py-4 md:px-8 border-b flex justify-between items-center bg-white supports-[backdrop-filter]:bg-white/60">
                   <div className="flex flex-col md:flex-row md:items-center gap-4">
                     <h2 className="text-2xl font-semibold">
                       {!isSessionActive ? (
-                        "Start Practice Session"
+                        "Start Practice Assessment"
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span>Active Practice Session</span>
-                          <span className="text-sm text-muted-foreground">
-                            | Product:{" "}
+                        <div className="flex items-center">
+                          <span>Active Practice Assessment</span>
+                          <span className="text-sm text-muted-foreground ml-2">
                             {products.find(
                               (p) => p.id === selectedProductId
-                            )?.name}
-                            | Scenario:{" "}
+                            )?.name}{" "}
                             {testConfigurations.find(
                               (t) => t.id === selectedTestConfigId
                             )?.name}
@@ -613,32 +631,34 @@ const Practice = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleCloseAttempt() && setIsSetupOpen(false)}
-                    className="absolute top-6 right-6 hover:bg-secondary transition-colors duration-200"
+                    className="absolute top-4 right-4 hover:bg-secondary transition-colors duration-200"
                   >
                     <span className="sr-only">Close</span>
                     ✕
                   </Button>
                 </div>
 
-                {/* Content Area with responsive padding */}
-                <div className="flex-1 overflow-y-auto bg-[#f9f9fc]">
-                  <div className="container max-w-6xl mx-auto py-12 px-6 md:px-20">
+                {/* Content Area with adjusted padding */}
+                <div className="flex-1 overflow-hidden bg-[#f9f9fc]">
+                  <div className="container h-full max-w-6xl mx-auto px-4">
                     {!isSessionActive ? (
-                      <SessionSetupForm
-                        categories={categories}
-                        products={products}
-                        testConfigurations={testConfigurations}
-                        selectedCategoryId={selectedCategoryId}
-                        selectedProductId={selectedProductId}
-                        selectedTestConfigId={selectedTestConfigId}
-                        isSelectionLoading={isSelectionLoading}
-                        setSelectedCategoryId={setSelectedCategoryId}
-                        setSelectedProductId={setSelectedProductId}
-                        setSelectedTestConfigId={setSelectedTestConfigId}
-                        onStartSession={startSession}
-                        isStartButtonDisabled={isStartButtonDisabled}
-                        sessionError={sessionError}
-                      />
+                      <div className="py-8">
+                        <SessionSetupForm
+                          categories={categories}
+                          products={products}
+                          testConfigurations={testConfigurations}
+                          selectedCategoryId={selectedCategoryId}
+                          selectedProductId={selectedProductId}
+                          selectedTestConfigId={selectedTestConfigId}
+                          isSelectionLoading={isSelectionLoading}
+                          setSelectedCategoryId={setSelectedCategoryId}
+                          setSelectedProductId={setSelectedProductId}
+                          setSelectedTestConfigId={setSelectedTestConfigId}
+                          onStartSession={startSession}
+                          isStartButtonDisabled={isStartButtonDisabled}
+                          sessionError={sessionError}
+                        />
+                      </div>
                     ) : (
                       <ChatInterface
                         products={products}

@@ -2380,6 +2380,89 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted"}
 
+@app.get("/api/admin/stats")
+async def get_admin_stats(current_user: User = Depends(get_current_user)):
+    """
+    Get admin dashboard stats: total users, active users, sessions completed, average score, products.
+    Admin only.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    total_users = db.users.count_documents({})
+    active_users = db.users.count_documents({"active": True})
+    total_sessions = db.conversations.count_documents({"evaluation_data.is_complete": True})
+    # Calculate average score from all conversations (if available)
+    scores = []
+    for conv in db.conversations.find({}):
+        eval_data = conv.get("evaluation_data", {})
+        # Try to get score from complete_rating or similar
+        complete_rating = eval_data.get("complete_rating", {})
+        if isinstance(complete_rating, dict):
+            total = complete_rating.get("total", {})
+            if isinstance(total, dict) and "score" in total:
+                scores.append(total["score"])
+    average_score = round(sum(scores) / len(scores), 2) if scores else 0
+    total_products = db.products.count_documents({})
+
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "sessions_completed": total_sessions,
+        "average_score": average_score,
+        "products": total_products,
+    }
+
+@app.get("/api/admin/latest-users")
+async def get_latest_users(current_user: User = Depends(get_current_user)):
+    """
+    Get the latest 5 registered users (admin only).
+    """
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    users = list(db.users.find({}).sort("created_at", -1).limit(5))
+    for user in users:
+        user["_id"] = str(user["_id"])
+        user.pop("password", None)
+        user.pop("hashed_password", None)
+    return users
+
+def convert_object_ids(obj):
+    if isinstance(obj, dict):
+        return {k: convert_object_ids(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_object_ids(item) for item in obj]
+    elif isinstance(obj, ObjectId):
+        return str(obj)
+    else:
+        return obj
+    
+@app.get("/api/admin/latest-sessions")
+async def get_latest_sessions(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    sessions = list(db.conversations.find({"evaluation_data.is_complete": True}).sort("created_at", -1).limit(5))
+
+    for session in sessions:
+        # Add user info
+        user = db.users.find_one({"_id": session.get("user_id")})
+        session["user_name"] = user["username"] if user else "Unknown"
+
+        # Add product info
+        product = db.products.find_one({"_id": session.get("product_id")})
+        session["product_name"] = product["name"] if product else "Unknown"
+
+        # Add score
+        eval_data = session.get("evaluation_data", {})
+        complete_rating = eval_data.get("complete_rating", {})
+        total = complete_rating.get("total", {})
+        session["score"] = total.get("score", None) if isinstance(total, dict) else None
+
+    # ✅ Sanitize all ObjectId fields
+    return convert_object_ids(sessions)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8000, reload=True) 

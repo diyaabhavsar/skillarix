@@ -161,14 +161,14 @@ const SessionSetupForm = ({
             )}
           >
             {isStartButtonDisabled ? (
-              <span className="opacity-70">Start Session</span>
+              <span className="opacity-70">Start Assessment</span>
             ) : (
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="flex items-center gap-2"
               >
-                Start Session
+                Start Assessment
               </motion.span>
             )}
           </Button>
