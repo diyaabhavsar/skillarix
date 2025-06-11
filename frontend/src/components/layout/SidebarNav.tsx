@@ -29,8 +29,8 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
   // Common navigation items for all users
   const commonNavItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Setup", icon: FileUp, path: "/setup" },
-    { label: "Test Setup", icon: Settings, path: "/test-setup" },
+    { label: "Products", icon: FileUp, path: "/setup" },
+    { label: "Test Configurations", icon: Settings, path: "/test-setup" },
     { label: "Practice", icon: MessageSquare, path: "/practice" },
     { label: "History", icon: Clock, path: "/past-sessions" },
     { label: "Settings", icon: Settings, path: "/settings" },

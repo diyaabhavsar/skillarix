@@ -1,6 +1,12 @@
 import { env } from '@/config/env';
+import { User } from '@/types/session';
 
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+interface SessionData {
+  token: string;
+  user: User;
+}
 
 export const sessionService = {
   lastActivity: 0,
@@ -16,6 +22,18 @@ export const sessionService = {
     this.lastActivity = Date.now();
   },
 
+  setSession(data: SessionData) {
+    localStorage.setItem(env.TOKEN_KEY, data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    this.initSession();
+  },
+
+  clearSession() {
+    localStorage.removeItem('user');
+    localStorage.removeItem(env.TOKEN_KEY);
+    this.cleanup();
+  },
+
   startSessionTimer() {
     setInterval(() => {
       if (Date.now() - this.lastActivity > SESSION_TIMEOUT) {
@@ -25,8 +43,7 @@ export const sessionService = {
   },
 
   endSession() {
-    localStorage.removeItem('user');
-    localStorage.removeItem(env.TOKEN_KEY);
+    this.clearSession();
     window.location.href = '/login?session=expired';
   },
 

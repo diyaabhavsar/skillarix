@@ -1,67 +1,71 @@
-import React, { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
+import React, { useState } from "react";
 import ProductSetupBreadcrumb from "@/components/setup/ProductSetupBreadcrumb";
 import { SetupHeader } from "@/components/setup/SetupHeader";
-import FileUploadSection from "@/components/setup/FileUploadSection";
-import ProductInfoForm from "@/components/setup/ProductInfoForm";
-import FormActionButtons from "@/components/setup/FormActionButtons";
-import { useAuth } from "@/contexts/AuthContext";
+import { useProducts } from "@/hooks/useProducts";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Eye, FileIcon, Pencil, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import ProductForm from "@/components/setup/ProductForm";
+import ProductDetails from "@/components/setup/ProductDetails";
 
 const Setup = () => {
-  // State for file upload
   const [file, setFile] = useState<File | null>(null);
-
-  // State for categories and selected category
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-
-  // State for product info
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [productInfo, setProductInfo] = useState({
     productName: "",
     description: "",
   });
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false);
-
-  const { token } = useAuth();
-
-  // --- Fetch Categories on Mount ---
-  useEffect(() => {
-    const fetchCategories = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch("http://localhost:8000/categories", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) {
-           const err = await res.json();
-           throw new Error(err.detail || "Failed to fetch categories");
-        }
-        const data = await res.json();
-        setCategories(data.map((cat: any) => ({ id: cat._id, name: cat.name })));
-         if (data.length > 0) {
-            setSelectedCategoryId(data[0]._id);
-         }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        toast.error(`Failed to load categories: ${error.message}`);
-      }
-    };
-     if (token && categories.length === 0) {
-       fetchCategories();
-     }
-  }, [token, categories.length]);
-
-  // --- Handlers ---
+  const {
+    products,
+    categories,
+    isLoading,
+    setIsLoading,
+    createProduct,
+    deleteProduct,
+    viewProductContent,
+    setSelectedCategoryId,
+    selectedCategoryId,
+    setCategories,
+    fetchProducts,
+  } = useProducts();
 
   const handleFileChange = (uploadedFile: File | null) => {
-     setFile(uploadedFile);
+    setFile(uploadedFile);
   };
 
-  const handleProductInfoChange = (field: "productName" | "description", value: string) => {
+  const handleProductInfoChange = (
+    field: "productName" | "description",
+    value: string
+  ) => {
     setProductInfo((prev) => ({
       ...prev,
       [field]: value,
@@ -69,11 +73,9 @@ const Setup = () => {
   };
 
   const handleCreateCategory = async () => {
-    console.log("Attempting to create category:", newCategoryName); // <-- Add a console log
-    if (!newCategoryName.trim() || !token) {
-       console.log("Validation failed:", newCategoryName, token); // <-- Add a console log
-       toast.error("Please enter a category name."); // This toast is triggered
-       return;
+    if (!newCategoryName.trim()) {
+      toast.error("Please enter a category name.");
+      return;
     }
     setIsLoading(true);
     try {
@@ -81,22 +83,21 @@ const Setup = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ name: newCategoryName })
+        body: JSON.stringify({ name: newCategoryName }),
       });
-       if (!res.ok) {
-           const err = await res.json();
-           throw new Error(err.detail || "Failed to create category");
-        }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to create category");
+      }
       const newCat = await res.json();
-      const addedCat = { id: newCat.id, name: newCat.name };
+      const addedCat = { id: newCat._id, name: newCat.name };
       setCategories([...categories, addedCat]);
       setSelectedCategoryId(addedCat.id);
-      setNewCategoryName('');
+      setNewCategoryName("");
       setIsCreatingCategory(false);
       toast.success(`Category "${newCategoryName}" created.`);
-    } catch (error: any) { // Use any for now, or define a proper error type
+    } catch (error: any) {
       console.error("Error creating category:", error);
       toast.error(`Failed to create category: ${error.message}`);
     } finally {
@@ -104,86 +105,171 @@ const Setup = () => {
     }
   };
 
-  // --- Submit handler (Upload Product) ---
   const handleProcess = async () => {
-    if (!file) {
-      toast.error("Please upload a product file.");
+    if (!file || !productInfo.productName.trim() || !selectedCategoryId) {
+      if (!file) toast.error("Please upload a product file.");
+      if (!productInfo.productName.trim())
+        toast.error("Please enter a product name.");
+      if (!selectedCategoryId)
+        toast.error("Please select or create a category.");
       return;
     }
-    if (!productInfo.productName.trim()) {
-       toast.error("Please enter a product name.");
-       return;
-    }
-    if (!selectedCategoryId) {
-        toast.error("Please select or create a category.");
-        return;
-    }
-     if (!token) {
-        toast.error("Not authenticated. Please log in.");
-        return;
-     }
 
-    setIsLoading(true);
     const formDataPayload = new FormData();
     formDataPayload.append("name", productInfo.productName);
     formDataPayload.append("category_id", selectedCategoryId);
     if (productInfo.description.trim()) {
-        formDataPayload.append("description", productInfo.description);
+      formDataPayload.append("description", productInfo.description);
     }
     formDataPayload.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/products", {
-        method: "POST",
-        headers: {
-           Authorization: `Bearer ${token}`
-        },
-        body: formDataPayload,
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || "Failed to upload product");
-      }
-
-      const result = await response.json();
+      await createProduct(formDataPayload);
+      await fetchProducts();
       toast.success("Product uploaded successfully!");
-      console.log("Uploaded Product Details:", result);
-       setFile(null);
-       setProductInfo({ productName: "", description: "" });
-       setSelectedCategoryId('');
-
-    } catch (err: any) { // Use any for now, or define a proper error type
-      console.error("Upload failed:", err);
+      setFile(null);
+      setProductInfo({ productName: "", description: "" });
+      setSelectedCategoryId("");
+    } catch (err: any) {
       toast.error(`Upload failed: ${err.message}`);
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    try {
+      await deleteProduct(productToDelete);
+      toast.success("Product deleted successfully");
+      fetchProducts();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete product");
+    } finally {
+      setProductToDelete(null);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <main className="flex-1 container mx-auto px-4 py-8">
         <ProductSetupBreadcrumb />
-        <SetupHeader />
-        <div className="grid gap-6">
-          <FileUploadSection file={file} onFileChange={handleFileChange} isLoading={isLoading} />
-          <ProductInfoForm
-            productInfo={productInfo}
-            onProductInfoChange={handleProductInfoChange}
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            onCategoryChange={setSelectedCategoryId}
-            isCreatingCategory={isCreatingCategory}
-            setIsCreatingCategory={setIsCreatingCategory}
-            newCategoryName={newCategoryName}
-            setNewCategoryName={setNewCategoryName}
-            handleCreateCategory={handleCreateCategory}
-            isLoading={isLoading}
-          />
-          <FormActionButtons onProcess={handleProcess} isLoading={isLoading} />
+        <SetupHeader onProductAdded={fetchProducts} />
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((product) => (
+                <TableRow key={product._id}>
+                  <TableCell>{product.name}</TableCell>
+                  <TableCell>
+                    {categories.find((cat) => cat.id === product.category_id)
+                      ?.name || "Unknown"}
+                  </TableCell>
+                  <TableCell>{product.description || "-"}</TableCell>
+                  <TableCell>{formatDate(product.created_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </SheetTrigger>
+                        <ProductDetails
+                          data={{
+                            name: product.name,
+                            description: product.description || "",
+                            categoryId: product.category_id,
+                            categoryName:
+                              categories.find(
+                                (cat) => cat.id === product.category_id
+                              )?.name || "Unknown",
+                            createdAt: product.created_at,
+                          }}
+                        />
+                      </Sheet>
+
+                      <Sheet>
+                        <SheetTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Edit Product"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </SheetTrigger>
+                        <ProductForm
+                          onSuccess={() => {
+                            fetchProducts();
+                            toast.success("Product updated successfully");
+                          }}
+                          initialData={{
+                            productId: product._id,
+                            productName: product.name,
+                            description: product.description || "",
+                            categoryId: product.category_id,
+                          }}
+                        />
+                      </Sheet>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setProductToDelete(product._id)}
+                        title="Delete Product"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
+
+        <AlertDialog
+          open={!!productToDelete}
+          onOpenChange={() => setProductToDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this
+                product and all its related test configurations.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

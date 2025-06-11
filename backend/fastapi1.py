@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Query
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, FileResponse
@@ -88,11 +88,12 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     role: str  # "employee" or "admin"
-    active: bool
 
 class User(UserBase):
     id: str # Expect string ID
     role: str
+    active: bool = True # Add active field to User model
+    sessions: Optional[int] = Field(default=0) # Add sessions field to User model
 
 class CategoryBase(BaseModel):
     name: str
@@ -149,6 +150,8 @@ class EvaluationResponse(BaseModel):
 class UserInDB(User):
     hashed_password: str
     last_login: Optional[datetime] = None # Added last_login field
+    active: bool = True # Ensure active field is in UserInDB
+    sessions: Optional[int] = Field(default=0) # Ensure sessions field is in UserInDB
 
 # Add Pydantic models for Test Configuration - Ensure they expect string IDs
 class VisitorPersona(BaseModel):
@@ -459,7 +462,9 @@ class User:
             "role": role,
             "created_at": datetime.now(UTC), # Use timezone-aware datetime
             "updated_at": datetime.now(UTC),  # Use timezone-aware datetime
-            "last_login": None # Initialize last_login to None
+            "last_login": None, # Initialize last_login to None
+            "sessions": 0, # Initialize sessions to 0
+            "active": True # Initialize active to True
         }
         self.users.insert_one(user)
         return True
@@ -1988,7 +1993,7 @@ async def get_conversation_by_id(
     Returns the conversation data including evaluation results.
     """
     try:
-        # Convert string ID toSSS ObjectId
+        # Convert string ID to ObjectId
         conversation_obj_id = ObjectId(conversation_id)
         
         # Get conversation from database
@@ -2037,132 +2042,249 @@ async def get_conversation_by_id(
             detail="Internal server error while fetching conversation"
         )
 
-# Get a list of all users (admin only)
-@app.get("/api/users")
-async def get_users_list(current_user: User = Depends(get_current_user)):
-    """
-    Get a list of all users (admin only).
-    """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to access the users list")
-    users = list(db.users.find({}).sort("created_at", -1))
-    # Convert ObjectId fields to strings and remove sensitive info
-    for user in users:
-        user["_id"] = str(user["_id"])
-        user.pop("password", None)
-        user.pop("hashed_password", None)
-    return users
+# @app.get("/users/details", response_model=List[User])
+# async def get_all_user_details(current_user: User = Depends(get_current_active_user)):
+#     """
+#     Retrieves details (username, email, role, last login, sessions, active status)
+#     for all users. Only accessible by admin users.
+#     """
+#     if current_user.role != "admin":
+#         raise HTTPException(
+#             status_code=403,
+#             detail="Only admin users can access this resource"
+#         )
 
-# Get a specific user (admin only)
-@app.get("/api/users/{user_id}")
-async def get_user_by_id(
-    user_id: str,
+#     users_data = []
+#     # Fetch all user documents
+#     for user_doc in db.users.find({}):
+#         user_id = str(user_doc["_id"])
+        
+#         # Construct a dictionary with the desired fields
+#         user_detail = {
+#             "id": user_id,
+#             "username": user_doc.get("username"),
+#             "email": user_doc.get("email"),
+#             "role": user_doc.get("role"),
+#             "last_login": user_doc.get("last_login"),
+#             "sessions": user_doc.get("sessions", 0), # Default to 0 if not present
+#             "active": user_doc.get("active", True) # Default to True if not present
+#         }
+#         users_data.append(user_detail)
+    
+#     return users_data
+
+# @app.get("/test-configurations")
+# async def get_all_test_configurations(
+#     current_user: User = Depends(get_current_user)
+# ) -> List[TestConfiguration]:
+#     """
+#     Retrieves all test configurations from the database.
+#     Only admin users are authorized to access this endpoint.
+#     """
+#     # Check if user is admin
+#     if current_user.role != "admin":
+#         raise HTTPException(
+#             status_code=403,
+#             detail="Not authorized. Only admin users can access all test configurations."
+#         )
+    
+#     try:
+#         # Admin can see all configurations
+#         configs_cursor = db.test_configurations.find({})
+#         configs_list = list(configs_cursor)
+#         # Convert ObjectIds to strings before returning
+#         configs_list = convert_objectids_to_strings(configs_list)
+#         return [TestConfiguration(**config) for config in configs_list]
+#     except Exception as e:
+#         print(f"Error fetching all test configurations: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+@app.get("/test-configurations")
+async def get_all_test_configurations(
+    current_user: User = Depends(get_current_user)
+) -> List[TestConfiguration]:
+    """
+    Retrieves all test configurations created by the current admin user.
+    Only admin users are authorized to access this endpoint.
+    """
+    # Check if user is admin
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized. Only admin users can access their test configurations."
+        )
+    
+    try:
+        # Only show test configurations created by the current admin
+        configs_cursor = db.test_configurations.find({"created_by": ObjectId(current_user.id)})
+        configs_list = list(configs_cursor)
+        # Convert ObjectIds to strings before returning
+        configs_list = convert_objectids_to_strings(configs_list)
+        return [TestConfiguration(**config) for config in configs_list]
+    except Exception as e:
+        print(f"Error fetching test configurations for admin {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+@app.put("/products/{product_id}")
+async def update_product(
+    product_id: str,
+    name: str = Form(None),
+    description: str = Form(None),
+    file: UploadFile = File(None),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get a specific user (admin only).
+    Update product fields: name, description, and file (PDF).
+    Does NOT update category_id.
     """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to access this user")
-    user = db.users.find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user["_id"] = str(user["_id"])
-    user.pop("password", None)
-    user.pop("hashed_password", None)
-    return user
+    update_data = {}
+    if name is not None:
+        update_data["name"] = name
+    if description is not None:
+        update_data["description"] = description
+    if file is not None:
+        # Read and process the PDF file as in your create_product endpoint
+        pdf_content, metadata = read_pdf(file.file)
+        update_data["content"] = pdf_content
+        update_data["metadata"] = metadata
 
-# Create a new user (admin only)
-@app.post("/api/users")
-async def create_user(
-    user: UserCreate,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Create a new user (admin only).
-    """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to create users")
-    if db.users.find_one({"$or": [{"username": user.username}, {"email": user.email}]}):
-        raise HTTPException(status_code=400, detail="Username or email already exists")
-    hashed_password = get_password_hash(user.password)
-    user_doc = {
-        "username": user.username,
-        "email": user.email,
-        "password": hashed_password,
-        "role": user.role,
-        "created_at": datetime.now(UTC),
-        "updated_at": datetime.now(UTC),
-        "last_login": datetime.now(UTC),
-        "sessions": 0,
-        "active": user.active,
-    }
-    result = db.users.insert_one(user_doc)
-    return {
-        "id": str(result.inserted_id),
-        "username": user.username,
-        "email": user.email,
-        "role": user.role
-    }
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-class Body:
-    def __init__(self, *args, **kwargs):
-        pass
+    # Always update the updated_at field
+    update_data["updated_at"] = datetime.now(UTC)
 
-# Update a user (admin only)
-@app.put("/api/users/{user_id}")
-async def edit_user(
-    user_id: str,
-    user_update: dict = Body(...),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Edit an existing user (admin only).
-    Accepts any subset of username, email, password, role.
-    """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to edit users")
-    update_fields = {}
-    if "username" in user_update:
-        update_fields["username"] = user_update["username"]
-    if "email" in user_update:
-        update_fields["email"] = user_update["email"]
-    if "role" in user_update:
-        update_fields["role"] = user_update["role"]
-    if "password" in user_update and user_update["password"]:
-        update_fields["password"] = get_password_hash(user_update["password"])
-    if "active" in user_update:
-        update_fields["active"] = user_update["active"]
-    if not update_fields:
-        raise HTTPException(status_code=400, detail="No valid fields to update")
-    update_fields["updated_at"] = datetime.now(UTC)
-    result = db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": update_fields}
+    result = db.products.update_one(
+        {"_id": ObjectId(product_id)},
+        {"$set": update_data}
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    user = db.users.find_one({"_id": ObjectId(user_id)})
-    user["_id"] = str(user["_id"])
-    user.pop("password", None)
-    user.pop("hashed_password", None)
-    return user
 
-# Delete a user (admin only)
-@app.delete("/api/users/{user_id}")
-async def delete_user(
-    user_id: str,
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    # Return the updated product
+    updated_product = db.products.find_one({"_id": ObjectId(product_id)})
+    # Convert ObjectId fields to strings for the response
+    if updated_product:
+        updated_product["_id"] = str(updated_product["_id"])
+        if "category_id" in updated_product and isinstance(updated_product["category_id"], ObjectId):
+            updated_product["category_id"] = str(updated_product["category_id"])
+        if "created_by" in updated_product and isinstance(updated_product["created_by"], ObjectId):
+            updated_product["created_by"] = str(updated_product["created_by"])
+        if "updated_by" in updated_product and isinstance(updated_product["updated_by"], ObjectId):
+            updated_product["updated_by"] = str(updated_product["updated_by"])
+    return updated_product
+
+@app.put("/test-configurations/{test_config_id}")
+async def update_test_configuration(
+    test_config_id: str,
+    name: str = Body(None),
+    visitorPersona: dict = Body(None),
+    additionalCriteria: dict = Body(None),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Delete a user (admin only).
+    Update name, visitorPersona, and additionalCriteria for a test configuration.
+    Only the creator (or admin) can update.
     """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to delete users")
-    result = db.users.delete_one({"_id": ObjectId(user_id)})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"detail": "User deleted"}
+    # Fetch the test config
+    test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id)})
+    if not test_config:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    # Only allow the creator or admin to update
+    if current_user.role != "admin" or str(test_config["created_by"]) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this test configuration.")
+
+    update_data = {}
+    if name is not None:
+        update_data["name"] = name
+    if visitorPersona is not None:
+        update_data["visitorPersona"] = visitorPersona
+    if additionalCriteria is not None:
+        update_data["additionalCriteria"] = additionalCriteria
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields provided for update.")
+
+    update_data["updated_at"] = datetime.now(UTC)
+
+    result = db.test_configurations.update_one(
+        {"_id": ObjectId(test_config_id)},
+        {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    # Return the updated test configuration
+    updated_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id)})
+    updated_config = convert_objectids_to_strings(updated_config)
+    return updated_config
+
+@app.get("/products")
+async def get_products_by_user(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all products created by the current logged-in user (irrespective of category).
+    """
+    try:
+        # Find all products where created_by matches the current user's ObjectId
+        products_cursor = db.products.find({"created_by": ObjectId(current_user.id)})
+        products = list(products_cursor)
+        # Convert ObjectId fields to strings for JSON serialization
+        for prod in products:
+            if "_id" in prod:
+                prod["_id"] = str(prod["_id"])
+            if "category_id" in prod and isinstance(prod["category_id"], ObjectId):
+                prod["category_id"] = str(prod["category_id"])
+            if "created_by" in prod and isinstance(prod["created_by"], ObjectId):
+                prod["created_by"] = str(prod["created_by"])
+            if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
+                prod["updated_by"] = str(prod["updated_by"])
+        return products
+    except Exception as e:
+        print(f"Error fetching products for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch products for user")
+
+@app.delete("/products/{product_id}")
+async def delete_product(
+    product_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a product by its ID.
+    """
+    product = db.products.find_one({"_id": ObjectId(product_id)})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    # Only allow the creator and admin to delete
+    if current_user.role != "admin" or str(product["created_by"]) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this product.")
+
+    db.products.delete_one({"_id": ObjectId(product_id)})
+    return {"message": "Product deleted successfully."}
+
+@app.delete("/test-configurations/{test_config_id}")
+async def delete_test_configuration(
+    test_config_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a test configuration by its ID.
+    """
+    test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id)})
+    if not test_config:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    # Only allow the creator and admin to delete
+    if current_user.role != "admin" or str(test_config["created_by"]) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this test configuration.")
+
+    db.test_configurations.delete_one({"_id": ObjectId(test_config_id)})
+    return {"message": "Test configuration deleted successfully."}
 
 if __name__ == "__main__":
     import uvicorn

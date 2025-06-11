@@ -4,9 +4,12 @@ import { api } from '@/utils/api';
 
 interface LoginResponse {
   access_token: string;
-  id: string;
-  username: string;
-  role: UserRole;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: UserRole;
+  };
 }
 
 interface RegisterData {
@@ -20,7 +23,16 @@ export const authService = {
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
       const formData = new URLSearchParams({ username: email, password });
-      return await api.submitUrlEncodedForm('/token', formData);
+      const response = await api.submitUrlEncodedForm('/token', formData);
+      return {
+        access_token: response.access_token,
+        user: {
+          id: response.id,
+          email: response.username,
+          name: response.username,
+          role: response.role
+        }
+      };
     } catch (error: any) {
       throw new Error(error.detail || "Login failed");
     }
