@@ -355,23 +355,28 @@ class DatabaseOperations:
             return convert_objectids_to_strings(product)
         return None
 
-    def save_conversation(self, product_id: ObjectId, conversation_data: dict, user_id: str, evaluation_data: dict = None):
-        """
-        Save conversation and its evaluation data.
-
-        Args:
-            product_id: ObjectId of the product
-            conversation_data: Dictionary containing conversation pairs
-            user_id: ID of the user (now expects string, stores as ObjectId)
-            evaluation_data: Dictionary containing evaluation data
-        """
+    def save_conversation(
+        self,
+        product_id: ObjectId,
+        category_id: ObjectId,
+        conversation_data: dict,
+        user_id: str,
+        evaluation_data: dict = None,
+        test_name: str = None,
+        prod_name: str = None,
+        cat_name: str = None
+    ):
         conversation_doc = {
-            "product_id": product_id, # product_id should already be ObjectId from endpoint
-            "user_id": ObjectId(user_id), # Store as ObjectId
+            "product_id": product_id,
+            "category_id": category_id,
+            "user_id": ObjectId(user_id),
             "conversation_data": conversation_data,
             "evaluation_data": evaluation_data if evaluation_data is not None else {},
-            "created_at": datetime.now(UTC), # Use timezone-aware datetime
-            "updated_at": datetime.now(UTC)  # Use timezone-aware datetime
+            "test_name": test_name,
+            "prod_name": prod_name,
+            "cat_name": cat_name,
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC)
         }
         result = self.conversations.insert_one(conversation_doc)
         return result.inserted_id
@@ -462,9 +467,9 @@ class User:
             "role": role,
             "created_at": datetime.now(UTC), # Use timezone-aware datetime
             "updated_at": datetime.now(UTC),  # Use timezone-aware datetime
-            "last_login": datetime.now(UTC), # Initialize last_login to None
+            "last_login": None, # Initialize last_login to None
             "sessions": 0, # Initialize sessions to 0
-            "active": True  # New field to track active status
+            "active": True # Initialize active to True
         }
         self.users.insert_one(user)
         return True
@@ -1317,11 +1322,29 @@ async def update_category(
         raise HTTPException(status_code=400, detail=message)
     return {"message": "Category updated successfully"}
 
+
 @app.delete("/categories/{category_id}")
-async def delete_category(category_id: str, current_user: User = Depends(get_current_user)):
-    if db_ops.soft_delete_category(ObjectId(category_id), current_user.id):
-        return {"message": "Category deleted successfully"}
-    raise HTTPException(status_code=404, detail="Category not found")
+async def soft_delete_category(
+    category_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Soft delete a category by its ID (set is_deleted=True).
+    Only the creator or an admin can delete the category.
+    """
+    category = db.categories.find_one({"_id": ObjectId(category_id)})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found.")
+
+    # Only allow the creator or admin to delete
+    if current_user.role != "admin" and str(category["created_by"]) != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this category.")
+
+    db.categories.update_one(
+        {"_id": ObjectId(category_id)},
+        {"$set": {"is_deleted": True}}
+    )
+    return {"message": "Category soft deleted successfully."}
 
 @app.post("/products")
 async def create_product(
@@ -1367,11 +1390,6 @@ async def create_product(
              # Assuming you don't store ObjectIds deep inside metadata.
              # If you do, you'd need recursive conversion or specific checks here.
              pass # Metadata fields like title, author, creation_date, total_pages are likely strings/ints
-
-        # You can add checks for any other fields you suspect might contain ObjectIds
-        # For example, if you add a list of ObjectIds:
-        # if 'related_ids' in created_product_dict and isinstance(created_product_dict['related_ids'], list):
-        #     created_product_dict['related_ids'] = [str(oid) if isinstance(oid, ObjectId) else oid for oid in created_product_dict['related_ids']]
 
     # --- FIX END ---
 
@@ -1671,10 +1689,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                          parsed_evaluation_text = parsed_json.get("evaluation", cleaned_indiv_eval) # Fallback to raw if "evaluation" key is missing
                          parsed_rating = parsed_json.get("rating") # Can be None if "rating" key is missing
 
-                         # Construct the object to append
+                         # Construct the object to append, now including the reference answer
                          individual_eval_obj = {
                              "evaluation": parsed_evaluation_text,
-                             "rating": parsed_rating # Store the parsed rating (could be None)
+                             "rating": parsed_rating,  # Store the parsed rating (could be None)
+                             "reference_answer": rag_answer  # <-- Add this line
                          }
 
                      except json.JSONDecodeError as e:
@@ -1689,7 +1708,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                                   "technical_accuracy": {"score": 0, "max": 3},
                                   "sales_effectiveness": {"score": 0, "max": 4},
                                   "total": {"score": 0, "max": 10}
-                              }
+                              },
+                              "reference_answer": rag_answer
                           }
                      except Exception as e:
                          # Handle any other unexpected errors during parsing/extraction
@@ -1703,7 +1723,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                                  "technical_accuracy": {"score": 0, "max": 3},
                                  "sales_effectiveness": {"score": 0, "max": 4},
                                  "total": {"score": 0, "max": 10}
-                             }
+                             },
+                             "reference_answer": rag_answer
                          }
                      
                      # Append the resulting object
@@ -1735,11 +1756,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                  }
 
                  try:
+                      product = db.products.find_one({"_id": ObjectId(product_id_str)})
+                      category = db.categories.find_one({"_id": product["category_id"]})
+                      test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id_str)}) if test_config_id_str else None
+
+                      prod_name = product["name"] if product else None
+                      cat_name = category["name"] if category else None
+                      test_name = test_config["name"] if test_config else None
+
                       saved_conversation_result = db_ops.save_conversation(
                            ObjectId(product_id_str),
+                           ObjectId(product["category_id"]),
                            {"pairs": conversation_history},
                            ObjectId(user_id),
-                           evaluation_data
+                           evaluation_data,
+                           test_name=test_name,
+                           prod_name=prod_name,
+                           cat_name=cat_name
                       )
                       conversation_db_id = str(saved_conversation_result)
                       print(f"Conversation saved with ID: {conversation_db_id}")
@@ -1917,33 +1950,6 @@ async def get_test_configurations(
         print(f"Error fetching test configurations for product {product_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
 
-# New endpoint to get test configurations by product ID and created by current user
-# @app.get("/test-configurations/{product_id}")
-# async def get_test_configurations(
-#     product_id: str,
-#     current_user: User = Depends(get_current_user) # Requires authentication
-# ) -> List[TestConfiguration]:
-#     """
-#     Retrieves test configurations for a given product, created by the current user.
-#     """
-#     try:
-#         configs = db_ops.get_test_configurations_by_product(ObjectId(product_id),current_user.id)
-#         # Pydantic will handle converting the dicts to TestConfiguration models
-#         return [TestConfiguration(**config) for config in configs]
-#     except Exception as e:
-#         print(f"Error fetching test configurations for product {product_id}: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
-
-# @app.get("/conversations")
-# async def get_all_conversations_for_user(
-#     current_user: User = Depends(get_current_user)
-# ):
-#     conversations = list(db.conversations.find({"user_id": current_user.id}))
-#     # Optionally convert ObjectId fields to strings for JSON serialization
-#     for conv in conversations:
-#         conv["_id"] = str(conv["_id"])
-#         conv["product_id"] = str(conv["product_id"])
-#     return conversations
 
 @app.get("/conversations")
 async def get_all_conversations_for_user(
@@ -2042,62 +2048,7 @@ async def get_conversation_by_id(
             detail="Internal server error while fetching conversation"
         )
 
-# @app.get("/users/details", response_model=List[User])
-# async def get_all_user_details(current_user: User = Depends(get_current_active_user)):
-#     """
-#     Retrieves details (username, email, role, last login, sessions, active status)
-#     for all users. Only accessible by admin users.
-#     """
-#     if current_user.role != "admin":
-#         raise HTTPException(
-#             status_code=403,
-#             detail="Only admin users can access this resource"
-#         )
 
-#     users_data = []
-#     # Fetch all user documents
-#     for user_doc in db.users.find({}):
-#         user_id = str(user_doc["_id"])
-        
-#         # Construct a dictionary with the desired fields
-#         user_detail = {
-#             "id": user_id,
-#             "username": user_doc.get("username"),
-#             "email": user_doc.get("email"),
-#             "role": user_doc.get("role"),
-#             "last_login": user_doc.get("last_login"),
-#             "sessions": user_doc.get("sessions", 0), # Default to 0 if not present
-#             "active": user_doc.get("active", True) # Default to True if not present
-#         }
-#         users_data.append(user_detail)
-    
-#     return users_data
-
-# @app.get("/test-configurations")
-# async def get_all_test_configurations(
-#     current_user: User = Depends(get_current_user)
-# ) -> List[TestConfiguration]:
-#     """
-#     Retrieves all test configurations from the database.
-#     Only admin users are authorized to access this endpoint.
-#     """
-#     # Check if user is admin
-#     if current_user.role != "admin":
-#         raise HTTPException(
-#             status_code=403,
-#             detail="Not authorized. Only admin users can access all test configurations."
-#         )
-    
-#     try:
-#         # Admin can see all configurations
-#         configs_cursor = db.test_configurations.find({})
-#         configs_list = list(configs_cursor)
-#         # Convert ObjectIds to strings before returning
-#         configs_list = convert_objectids_to_strings(configs_list)
-#         return [TestConfiguration(**config) for config in configs_list]
-#     except Exception as e:
-#         print(f"Error fetching all test configurations: {e}")
-#         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
 
 @app.get("/test-configurations")
 async def get_all_test_configurations(
@@ -2248,6 +2199,32 @@ async def get_products_by_user(
         print(f"Error fetching products for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
+@app.get("/all-products")
+async def get_products_by_user(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all products created by the current logged-in user (irrespective of category).
+    """
+    try:
+        # Find all products where created_by matches the current user's ObjectId
+        products_cursor = db.products.find({})
+        products = list(products_cursor)
+        # Convert ObjectId fields to strings for JSON serialization
+        for prod in products:
+            if "_id" in prod:
+                prod["_id"] = str(prod["_id"])
+            if "category_id" in prod and isinstance(prod["category_id"], ObjectId):
+                prod["category_id"] = str(prod["category_id"])
+            if "created_by" in prod and isinstance(prod["created_by"], ObjectId):
+                prod["created_by"] = str(prod["created_by"])
+            if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
+                prod["updated_by"] = str(prod["updated_by"])
+        return products
+    except Exception as e:
+        print(f"Error fetching products for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch products for user")
+
 @app.delete("/products/{product_id}")
 async def delete_product(
     product_id: str,
@@ -2264,7 +2241,7 @@ async def delete_product(
     if current_user.role != "admin" or str(product["created_by"]) != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this product.")
 
-    db.products.delete_one({"_id": ObjectId(product_id)})
+    db.products.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
     return {"message": "Product deleted successfully."}
 
 @app.delete("/test-configurations/{test_config_id}")
@@ -2273,7 +2250,7 @@ async def delete_test_configuration(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Delete a test configuration by its ID.
+    Soft delete a test configuration by its ID (set is_deleted=True).
     """
     test_config = db.test_configurations.find_one({"_id": ObjectId(test_config_id)})
     if not test_config:
@@ -2283,9 +2260,14 @@ async def delete_test_configuration(
     if current_user.role != "admin" or str(test_config["created_by"]) != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this test configuration.")
 
-    db.test_configurations.delete_one({"_id": ObjectId(test_config_id)})
-    return {"message": "Test configuration deleted successfully."}
+    db.test_configurations.update_one(
+        {"_id": ObjectId(test_config_id)},
+        {"$set": {"is_deleted": True}}
+    )
+    return {"message": "Test configuration soft deleted successfully."}
+
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8000, reload=True) 

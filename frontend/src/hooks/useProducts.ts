@@ -68,6 +68,21 @@ export const useProducts = () => {
     }
   };
 
+  const fetchAllProducts = async () => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+        
+      const data = await api.get(`/all-products`);
+      setProducts(data);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      toast.error(`Failed to load products: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const createProduct = async (formData: FormData) => {
     if (!token) throw new Error("Not authenticated");
     try {
@@ -140,5 +155,6 @@ export const useProducts = () => {
     setCategories,
     fetchProducts,
     fetchCategories,
+    fetchAllProducts
   };
 };

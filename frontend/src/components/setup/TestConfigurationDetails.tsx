@@ -29,12 +29,12 @@ const TestConfigurationDetails = ({ test, formatDate }: Props) => {
               </Label>
               <p className="text-lg">{formatDate(test.created_at)}</p>
             </div>
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
               <Label className="text-muted-foreground text-sm">
                 Last Updated
               </Label>
               <p className="text-lg">{formatDate(test.updated_at)}</p>
-            </div>
+            </div> */}
           </div>
         </div>
 
