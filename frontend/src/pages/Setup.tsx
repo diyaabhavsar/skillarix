@@ -10,7 +10,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, FileIcon, Pencil, Trash2 } from "lucide-react";
+import { Eye, FileIcon, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import ProductForm from "@/components/setup/ProductForm";
 import ProductDetails from "@/components/setup/ProductDetails";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Setup = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -149,12 +161,24 @@ const Setup = () => {
     }
   };
 
+  // const isTextOverflowing = (text: string) => {
+  //   // We can use a rough estimation: if text is longer than ~45 characters it will likely overflow
+  //   // This is an approximation based on the container width and typical character width
+  //   return text.length > 45;
+  // };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
+  };
+
+  const isTextOverflowing = (text: string) => {
+    // We can use a rough estimation: if text is longer than ~45 characters it will likely overflow
+    // This is an approximation based on the container width and typical character width
+    return text.length > 45;
   };
 
   return (
@@ -167,11 +191,12 @@ const Setup = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {" "}
+                <TableHead className="w-[200px]">Name</TableHead>
+                <TableHead className="w-[200px]">Category</TableHead>
+                <TableHead className="max-w-[360px]">Description</TableHead>
+                <TableHead className="w-[150px]">Created At</TableHead>
+                <TableHead className="w-[150px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -181,68 +206,100 @@ const Setup = () => {
                   <TableCell>
                     {categories.find((cat) => cat.id === product.category_id)
                       ?.name || "Unknown"}
+                  </TableCell>{" "}
+                  <TableCell>
+                    {product.description ? (
+                      <div className="relative max-w-[360px]">
+                        {isTextOverflowing(product.description) ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="block truncate cursor-default">
+                                  {product.description}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                align="start"
+                                className="max-w-[360px] bg-white text-black border shadow-lg p-3 text-sm"
+                              >
+                                {product.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="block cursor-default">
+                            {product.description}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
                   </TableCell>
-                  <TableCell>{product.description || "-"}</TableCell>
-                  <TableCell>{formatDate(product.created_at)}</TableCell>
+                  <TableCell>{formatDate(product.created_at)}</TableCell>{" "}
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </SheetTrigger>
-                        <ProductDetails
-                          data={{
-                            name: product.name,
-                            description: product.description || "",
-                            categoryId: product.category_id,
-                            categoryName:
-                              categories.find(
-                                (cat) => cat.id === product.category_id
-                              )?.name || "Unknown",
-                            createdAt: product.created_at,
-                          }}
-                        />
-                      </Sheet>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </DropdownMenuItem>
+                          </SheetTrigger>
+                          <ProductDetails
+                            data={{
+                              name: product.name,
+                              description: product.description || "",
+                              categoryId: product.category_id,
+                              categoryName:
+                                categories.find(
+                                  (cat) => cat.id === product.category_id
+                                )?.name || "Unknown",
+                              createdAt: product.created_at,
+                            }}
+                          />
+                        </Sheet>
 
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Edit Product"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </SheetTrigger>
-                        <ProductForm
-                          onSuccess={() => {
-                            fetchProducts();
-                            toast.success("Product updated successfully");
-                          }}
-                          initialData={{
-                            productId: product._id,
-                            productName: product.name,
-                            description: product.description || "",
-                            categoryId: product.category_id,
-                          }}
-                        />
-                      </Sheet>
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          </SheetTrigger>
+                          <ProductForm
+                            onSuccess={() => {
+                              fetchProducts();
+                              toast.success("Product updated successfully");
+                            }}
+                            initialData={{
+                              productId: product._id,
+                              productName: product.name,
+                              description: product.description || "",
+                              categoryId: product.category_id,
+                            }}
+                          />
+                        </Sheet>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setProductToDelete(product._id)}
-                        title="Delete Product"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+                        <DropdownMenuItem
+                          onClick={() => setProductToDelete(product._id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
