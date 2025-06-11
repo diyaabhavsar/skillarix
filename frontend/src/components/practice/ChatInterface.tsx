@@ -124,7 +124,7 @@ const ChatInterface = ({
           <Button
             variant="outline"
             onClick={onEndSession}
-            disabled={sessionLoading}
+            disabled={sessionLoading || !conversationHistory.length || (conversationHistory.length > 0 && !conversationHistory[conversationHistory.length - 1].salesperson_text && !salespersonInput.trim())}
             size="lg"
           >
             End Session

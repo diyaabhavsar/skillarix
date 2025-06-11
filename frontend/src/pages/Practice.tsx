@@ -31,6 +31,7 @@ import SessionsPagination from "@/components/past-sessions/SessionsPagination";
 import PracticeHeader from "@/components/practice/PracticeHeader";
 import SessionSetupForm from "@/components/practice/SessionSetupForm";
 import ChatInterface from "@/components/practice/ChatInterface";
+import { useNavigate } from "react-router-dom"; // Update import
 
 interface Category {
   id: string;
@@ -73,6 +74,7 @@ interface WebSocketMessage {
 }
 
 const Practice = () => {
+  const navigate = useNavigate(); // Add hook
   const { token } = useAuth();
   const {
     categories,
@@ -285,6 +287,15 @@ const Practice = () => {
     });
   };
 
+  const cleanupSession = () => {
+    setIsSessionActive(false);
+    setConversationHistory([]);
+    setCurrentCustomerQuestion("");
+    setSalespersonInput("");
+    setSessionLoading(false);
+    setIsSetupOpen(false); // Close sidebar
+  };
+
   const endSession = () => {
     if (
       websocket &&
@@ -293,16 +304,25 @@ const Practice = () => {
       selectedTestConfigId
     ) {
       setSessionLoading(true);
-      websocket.send(
-        JSON.stringify({
-          type: "end_session",
-          product_id: selectedProductId,
-          history: conversationHistory,
-          test_configuration_id: selectedTestConfigId,
-        })
-      );
+      // Create updated history with the current input if it exists
+      const finalHistory = [...conversationHistory];
+      if (salespersonInput.trim() && finalHistory.length > 0) {
+        finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
+      }
+
+      const payload = {
+        type: "end_session",
+        product_id: selectedProductId,
+        history: finalHistory,
+        test_configuration_id: selectedTestConfigId,
+      };
+
+      console.log("Ending session with payload:", payload);
+      websocket.send(JSON.stringify(payload));
+      cleanupSession();
+      navigate("/practice"); // Use navigate function instead of Navigate component
     } else {
-      setIsSessionActive(false);
+      cleanupSession();
     }
   };
 
@@ -351,8 +371,7 @@ const Practice = () => {
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
     });
-    setIsSessionActive(false);
-    setSessionLoading(false);
+    cleanupSession();
   };
 
   const handleError = (data: WebSocketMessage) => {
