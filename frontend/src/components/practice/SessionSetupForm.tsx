@@ -8,6 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Product, Category, TestConfiguration } from "@/types/practice";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface SessionSetupFormProps {
   categories: Category[];
@@ -41,99 +43,141 @@ const SessionSetupForm = ({
   sessionError
 }: SessionSetupFormProps) => {
   return (
-    <div className="space-y-8 max-w-2xl mx-auto">
-      {/* Category Selection */}
-      <div className="grid gap-2">
-        <Label htmlFor="select-category" className="text-sm font-medium">
-          Select Category
-        </Label>
-        <Select
-          onValueChange={setSelectedCategoryId}
-          value={selectedCategoryId}
-          disabled={isSelectionLoading}
-        >
-          <SelectTrigger id="select-category">
-            <SelectValue placeholder="Choose a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="max-w-2xl mx-auto">
+      <div className="space-y-6">
+        {/* Category Selection */}
+        <div className="grid gap-3">
+          <Label 
+            htmlFor="select-category" 
+            className="text-md font-semibold text-foreground"
+          >
+            Select Category
+          </Label>
+          <Select
+            onValueChange={setSelectedCategoryId}
+            value={selectedCategoryId}
+            disabled={isSelectionLoading}
+          >
+            <SelectTrigger 
+              id="select-category"
+              className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
+            >
+              <SelectValue placeholder="Choose a category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Product Selection */}
+        <div className="grid gap-3">
+          <Label 
+            htmlFor="select-product" 
+            className="text-md font-semibold text-foreground"
+          >
+            Select Product
+          </Label>
+          <Select
+            onValueChange={setSelectedProductId}
+            value={selectedProductId}
+            disabled={isSelectionLoading || products.length === 0 || !selectedCategoryId}
+          >
+            <SelectTrigger 
+              id="select-product"
+              className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
+            >
+              <SelectValue placeholder={
+                selectedCategoryId 
+                  ? isSelectionLoading 
+                    ? "Loading products..." 
+                    : "Choose a product"
+                  : "Select a category first"
+              } />
+            </SelectTrigger>
+            <SelectContent>
+              {products.map((prod) => (
+                <SelectItem key={prod.id} value={prod.id}>
+                  {prod.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Test Configuration Selection */}
+        <div className="grid gap-3">
+          <Label 
+            htmlFor="select-test-config" 
+            className="text-md font-semibold text-foreground"
+          >
+            Select Test Scenario
+          </Label>
+          <Select
+            onValueChange={setSelectedTestConfigId}
+            value={selectedTestConfigId}
+            disabled={isSelectionLoading || testConfigurations.length === 0 || !selectedProductId}
+          >
+            <SelectTrigger 
+              id="select-test-config"
+              className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
+            >
+              <SelectValue placeholder={
+                selectedProductId
+                  ? isSelectionLoading
+                    ? "Loading scenarios..."
+                    : "Choose a scenario"
+                  : "Select a product first"
+              } />
+            </SelectTrigger>
+            <SelectContent>
+              {testConfigurations.map((config) => (
+                <SelectItem key={config.id} value={config.id}>
+                  {config.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex justify-center mt-8">
+          <Button 
+            onClick={onStartSession} 
+            disabled={isStartButtonDisabled}
+            className={cn(
+              "w-full md:w-auto min-w-[200px]",
+              "bg-[#6c47ff] hover:bg-[#5a3bd8] text-white",
+              "px-8 py-3 rounded-xl",
+              "transition-all duration-300 ease-in-out",
+              "shadow-md hover:shadow-lg",
+              "transform hover:scale-[1.02]",
+              "font-semibold text-md",
+              "disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-md",
+              "focus:outline-none focus:ring-2 focus:ring-[#6c47ff]/50"
+            )}
+          >
+            {isStartButtonDisabled ? (
+              <span className="opacity-70">Start Session</span>
+            ) : (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
+              >
+                Start Session
+              </motion.span>
+            )}
+          </Button>
+        </div>
+
+        {sessionError && (
+          <div className="text-red-500 text-center mt-4">{sessionError}</div>
+        )}
       </div>
-
-      {/* Product Selection */}
-      <div className="grid gap-2">
-        <Label htmlFor="select-product" className="text-sm font-medium">
-          Select Product
-        </Label>
-        <Select
-          onValueChange={setSelectedProductId}
-          value={selectedProductId}
-          disabled={isSelectionLoading || products.length === 0 || !selectedCategoryId}
-        >
-          <SelectTrigger id="select-product">
-            <SelectValue placeholder={
-              selectedCategoryId 
-                ? isSelectionLoading 
-                  ? "Loading products..." 
-                  : "Choose a product"
-                : "Select a category first"
-            } />
-          </SelectTrigger>
-          <SelectContent>
-            {products.map((prod) => (
-              <SelectItem key={prod.id} value={prod.id}>
-                {prod.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Test Configuration Selection */}
-      <div className="grid gap-2">
-        <Label htmlFor="select-test-config" className="text-sm font-medium">
-          Select Test Scenario
-        </Label>
-        <Select
-          onValueChange={setSelectedTestConfigId}
-          value={selectedTestConfigId}
-          disabled={isSelectionLoading || testConfigurations.length === 0 || !selectedProductId}
-        >
-          <SelectTrigger id="select-test-config">
-            <SelectValue placeholder={
-              selectedProductId
-                ? isSelectionLoading
-                  ? "Loading scenarios..."
-                  : "Choose a scenario"
-                : "Select a product first"
-            } />
-          </SelectTrigger>
-          <SelectContent>
-            {testConfigurations.map((config) => (
-              <SelectItem key={config.id} value={config.id}>
-                {config.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Button 
-        onClick={onStartSession} 
-        disabled={isStartButtonDisabled}
-        className="w-full"
-      >
-        Start Session
-      </Button>
-
-      {sessionError && (
-        <div className="text-red-500">{sessionError}</div>
-      )}
     </div>
   );
 };

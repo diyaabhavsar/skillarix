@@ -1,0 +1,49 @@
+:root {
+  --background: 252 252 252;
+  --primary: 108 71 255;
+  --primary-foreground: 255 255 255;
+  --secondary: 242 240 252;
+  --secondary-foreground: 108 71 255;
+  --card: 255 255 255;
+  --muted: 242 240 252;
+}
+
+.dark {
+  --background: 18 18 24;
+  --primary: 108 71 255;
+  --primary-foreground: 255 255 255;
+  --secondary: 32 31 46;
+  --secondary-foreground: 108 71 255;
+  --card: 28 28 35;
+  --muted: 32 31 46;
+}
+
+.modal-shadow {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* Form Control Styles */
+.form-control-transition {
+  @apply transition-all duration-200;
+}
+
+.form-label {
+  @apply text-md font-semibold text-foreground;
+}
+
+.form-input {
+  @apply rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary;
+}
+
+.form-spacing {
+  @apply space-y-6;
+}
+
+/* Button Base Styles */
+.btn-primary {
+  @apply bg-[#6c47ff] text-white hover:bg-[#5a3cd9] transition-colors duration-200;
+}
+
+.btn-large {
+  @apply px-8 py-3 text-md font-semibold rounded-lg;
+}

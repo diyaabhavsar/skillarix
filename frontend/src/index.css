@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,7 +72,7 @@
     --border: 240 5% 26%;
     --input: 240 5% 26%;
     --ring: 255 70% 60%;
-    
+
     --sidebar-background: 240 10% 13%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 255 70% 60%;
@@ -83,11 +82,9 @@
     --sidebar-border: 240 5% 26%;
     --sidebar-ring: 255 70% 60%;
   }
-}
 
-@layer base {
   * {
-    @apply border-border;
+    @apply border-[#e5e7eb]; /* Replace border-border with an actual color */
   }
 
   body {
@@ -100,11 +97,11 @@
   .gradient-card {
     @apply bg-gradient-to-br from-white to-secondary/30 dark:from-card dark:to-accent/5 shadow-md hover:shadow-lg transition-shadow;
   }
-  
+
   .gradient-purple {
     @apply bg-gradient-to-r from-primary to-accent;
   }
-  
+
   .glass-panel {
     @apply backdrop-blur-sm bg-white/80 dark:bg-slate-900/80 border border-white/20 dark:border-slate-700/30 transition-all hover:bg-white/90 dark:hover:bg-slate-900/90;
   }
@@ -112,7 +109,7 @@
   .card-hover {
     @apply transition-all duration-200 hover:shadow-md hover:scale-[1.01];
   }
-  
+
   .avatar-hover {
     @apply transition-transform hover:scale-105;
   }
@@ -120,12 +117,105 @@
   .menu-item-hover {
     @apply hover:bg-muted transition-colors duration-200;
   }
-  
+
   .cta-button {
     @apply hover:bg-primary/90 hover:scale-105 transition-all duration-200;
   }
-  
+
   .dropzone-hover {
     @apply hover:bg-muted/40 border-dashed border-2 transition-all;
+  }
+
+  .modal-transition {
+    @apply transition-all duration-200;
+  }
+
+  .button-hover {
+    @apply hover:scale-[1.02] hover:shadow-lg transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-[#6c47ff] hover:bg-[#5a3bd8] text-white 
+           px-8 py-3 rounded-xl
+           transition-all duration-300 ease-in-out
+           shadow-md hover:shadow-lg
+           transform hover:scale-[1.02]
+           focus:outline-none focus:ring-2 focus:ring-[#6c47ff]/50
+           disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-md;
+  }
+
+  .btn-hover-effect {
+    @apply transition-all duration-300 ease-in-out
+           hover:scale-[1.02] hover:shadow-lg
+           active:scale-[0.98];
+  }
+
+  .button-content {
+    @apply flex items-center justify-center gap-2
+           relative z-10;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.4);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 20px;
   }
 }

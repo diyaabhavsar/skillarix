@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { 
-  SidebarContent, 
-  SidebarGroup, 
-  SidebarGroupContent, 
-  SidebarGroupLabel, 
-  SidebarMenu, 
-  SidebarMenuButton, 
-  SidebarMenuItem, 
+import {
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -25,16 +25,19 @@ interface SidebarNavProps {
 const SidebarNav = ({ isActive }: SidebarNavProps) => {
   const { user, isAdmin } = useAuth();
 
-  const DashboardItem=
-  { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" }
-  
+  const DashboardItem = {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/admin/dashboard",
+  };
+
   // Common navigation items for all users
   const commonNavItems = [
     // { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Practice", icon: MessageSquare, path: "/practice" },
     { label: "Settings", icon: Settings, path: "/settings" },
   ];
-  
+
   // Admin-specific navigation items
   const adminNavItems = [
     { label: "Manage Users", icon: Users, path: "/admin/users" },
@@ -43,32 +46,39 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
   ];
 
   // Determine which items to show based on user role
-  const navItems = isAdmin() ? [DashboardItem, ...adminNavItems, ...commonNavItems] : commonNavItems;
+  const navItems = isAdmin()
+    ? [DashboardItem, ...adminNavItems, ...commonNavItems]
+    : [DashboardItem, ...commonNavItems];
 
   return (
     <SidebarContent className="pt-4">
       <SidebarGroup>
-        <SidebarGroupLabel>{isAdmin() ? "Admin Navigation" : "Navigation"}</SidebarGroupLabel>
+        <SidebarGroupLabel>
+          {isAdmin() ? "Admin Navigation" : "Navigation"}
+        </SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton 
-                  asChild 
+                <SidebarMenuButton
+                  asChild
                   isActive={isActive(item.path)}
                   tooltip={item.label}
                 >
-                  <NavLink 
-                    to={item.path} 
-                    className={({ isActive }) => 
+                  <NavLink
+                    to={item.path}
+                    className={({ isActive }) =>
                       `flex items-center gap-2 transition-all duration-200 hover:bg-sidebar-accent/70 relative
-                      ${isActive ? 
-                        'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary before:rounded-r animate-fade-in' : 
-                        'hover:translate-x-1'
+                      ${
+                        isActive
+                          ? "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary before:rounded-r animate-fade-in"
+                          : "hover:translate-x-1"
                       }`
                     }
                   >
-                    <item.icon className={`h-4 w-4 transition-colors duration-200`} />
+                    <item.icon
+                      className={`h-4 w-4 transition-colors duration-200`}
+                    />
                     <span>{item.label}</span>
                   </NavLink>
                 </SidebarMenuButton>

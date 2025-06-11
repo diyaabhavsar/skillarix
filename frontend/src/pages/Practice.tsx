@@ -33,6 +33,8 @@ import SessionSetupForm from "@/components/practice/SessionSetupForm";
 import ChatInterface from "@/components/practice/ChatInterface";
 import { useNavigate } from "react-router-dom"; // Update import
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -214,7 +216,7 @@ const Practice = () => {
       },
       onClose: () => {
         if (isSessionActive) {
-          setSessionError("Session ended unexpectedly.");
+          // setSessionError("Session ended unexpectedly.");
         }
         setIsSessionActive(false);
         setSessionLoading(false);
@@ -307,35 +309,25 @@ const Practice = () => {
     setIsSetupOpen(false); // Close sidebar
   };
 
-  const endSession = () => {
+  const endSession = useCallback(async () => {
     try {
-      if (!websocket) {
-        throw new Error("WebSocket connection not found");
-      }
-
-      if (websocket.readyState !== WebSocket.OPEN) {
-        throw new Error("WebSocket connection is not open");
+      if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+        throw new Error("WebSocket connection not available");
       }
 
       if (!selectedProductId || !selectedTestConfigId) {
         throw new Error("Missing product or test configuration ID");
       }
-      console.log({ conversationHistory });
+
       setSessionLoading(true);
+      
+      // Prepare the final message if there's unsent input
       const finalHistory = [...conversationHistory];
+      const hasUnsentResponse = salespersonInput.trim().length > 0;
 
-      // Log current state for debugging
-      console.log("Current state:", {
-        websocketState: websocket.readyState,
-        selectedProductId,
-        selectedTestConfigId,
-        historyLength: finalHistory.length,
-        currentInput: salespersonInput,
-      });
-
-      if (salespersonInput.trim() && finalHistory.length > 0) {
-        finalHistory[finalHistory.length - 1].salesperson_text =
-          salespersonInput;
+      // Only include unsent response in history, don't send it separately
+      if (hasUnsentResponse && finalHistory.length > 0) {
+        finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
       }
 
       const payload = {
@@ -343,17 +335,15 @@ const Practice = () => {
         product_id: selectedProductId,
         test_configuration_id: selectedTestConfigId,
         last_question: currentCustomerQuestion,
-        answer: salespersonInput.trim(),
+        answer: hasUnsentResponse ? salespersonInput.trim() : "",
         history: finalHistory,
       };
 
-      console.log("Sending end session payload:", payload);
-
       websocket.send(JSON.stringify(payload));
-      console.log("End session payload sent successfully");
-
-      // Don't cleanup immediately, wait for session_complete response
-      setSessionLoading(true);
+      
+      // Clear input to prevent double send
+      setSalespersonInput("");
+      
     } catch (error) {
       console.error("Error ending session:", error);
       toast.error(
@@ -363,7 +353,14 @@ const Practice = () => {
       );
       cleanupSession();
     }
-  };
+  }, [
+    websocket,
+    selectedProductId,
+    selectedTestConfigId,
+    conversationHistory,
+    currentCustomerQuestion,
+    salespersonInput,
+  ]);
 
   const startSession = () => {
     if (!isSelectionValid) {
@@ -415,7 +412,12 @@ const Practice = () => {
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
     });
-    cleanupSession();
+
+    // Show evaluation dialog and then redirect
+    setTimeout(() => {
+      cleanupSession();
+      navigate("/practice", { replace: true });
+    }, 1000);
   };
 
   const handleError = (data: WebSocketMessage) => {
@@ -523,8 +525,19 @@ const Practice = () => {
     }
   }, [conversations, itemsPerPage]);
 
+  const handleCloseAttempt = () => {
+    if (isSessionActive) {
+      // Prompt user to end session
+      if (window.confirm("Do you want to end the current session?")) {
+        endSession();
+      }
+      return false; // Prevent closing
+    }
+    return true; // Allow closing if no active session
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#f9f9fc]">
       <main className="flex-1 container mx-auto px-4 py-8">
         <PracticeHeader onStartNewSession={() => setIsSetupOpen(true)} />
 
@@ -539,64 +552,124 @@ const Practice = () => {
           </ErrorBoundary>
         </div>
 
-        {/* Practice Session Setup Sheet */}
-        <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
-          <SheetContent
-            side="right"
-            className="w-full sm:w-[90vw] lg:w-[1400px] 2xl:w-[1600px] p-0 overflow-hidden"
-          >
-            <div className="flex h-full flex-col">
-              <SheetHeader className="px-8 py-6 border-b">
-                <SheetTitle className="text-2xl">
-                  Start Practice Session
-                </SheetTitle>
-              </SheetHeader>
+        {/* Full Screen Practice Session */}
+        <AnimatePresence mode="wait">
+          {isSetupOpen && (
+            <>
+              {/* Dark Overlay with fade */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.6 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
+                onClick={() => handleCloseAttempt() && setIsSetupOpen(false)}
+              />
 
-              <div className="flex-1 overflow-y-auto px-8 py-6">
-                {!isSessionActive ? (
-                  <SessionSetupForm
-                    categories={categories}
-                    products={products}
-                    testConfigurations={testConfigurations}
-                    selectedCategoryId={selectedCategoryId}
-                    selectedProductId={selectedProductId}
-                    selectedTestConfigId={selectedTestConfigId}
-                    isSelectionLoading={isSelectionLoading}
-                    setSelectedCategoryId={setSelectedCategoryId}
-                    setSelectedProductId={setSelectedProductId}
-                    setSelectedTestConfigId={setSelectedTestConfigId}
-                    onStartSession={startSession}
-                    isStartButtonDisabled={isStartButtonDisabled}
-                    sessionError={sessionError}
-                  />
-                ) : (
-                  <ChatInterface
-                    products={products}
-                    testConfigurations={testConfigurations}
-                    selectedProductId={selectedProductId}
-                    selectedTestConfigId={selectedTestConfigId}
-                    conversationHistory={conversationHistory}
-                    sessionLoading={sessionLoading}
-                    salespersonInput={salespersonInput}
-                    isRecording={isRecording}
-                    onSalespersonInputChange={setSalespersonInput}
-                    onVoiceInput={handleVoiceInput}
-                    onSendResponse={sendSalespersonAnswer}
-                    onEndSession={endSession}
-                  />
+              {/* Content with enhanced animations */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30,
+                }}
+                className={cn(
+                  "fixed inset-0 z-50",
+                  "bg-white",
+                  "flex flex-col",
+                  "min-h-screen",
+                  "modal-shadow"
                 )}
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
+              >
+                {/* Header with responsive padding */}
+                <div className="relative px-6 py-8 md:px-20 border-b flex justify-between items-center bg-white supports-[backdrop-filter]:bg-white/60">
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <h2 className="text-2xl font-semibold">
+                      {!isSessionActive ? (
+                        "Start Practice Session"
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span>Active Practice Session</span>
+                          <span className="text-sm text-muted-foreground">
+                            | Product:{" "}
+                            {products.find(
+                              (p) => p.id === selectedProductId
+                            )?.name}
+                            | Scenario:{" "}
+                            {testConfigurations.find(
+                              (t) => t.id === selectedTestConfigId
+                            )?.name}
+                          </span>
+                        </div>
+                      )}
+                    </h2>
+                  </div>
 
-        {/* Evaluation Results Dialog */}
+                  {/* Close button positioned absolutely */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCloseAttempt() && setIsSetupOpen(false)}
+                    className="absolute top-6 right-6 hover:bg-secondary transition-colors duration-200"
+                  >
+                    <span className="sr-only">Close</span>
+                    ✕
+                  </Button>
+                </div>
+
+                {/* Content Area with responsive padding */}
+                <div className="flex-1 overflow-y-auto bg-[#f9f9fc]">
+                  <div className="container max-w-6xl mx-auto py-12 px-6 md:px-20">
+                    {!isSessionActive ? (
+                      <SessionSetupForm
+                        categories={categories}
+                        products={products}
+                        testConfigurations={testConfigurations}
+                        selectedCategoryId={selectedCategoryId}
+                        selectedProductId={selectedProductId}
+                        selectedTestConfigId={selectedTestConfigId}
+                        isSelectionLoading={isSelectionLoading}
+                        setSelectedCategoryId={setSelectedCategoryId}
+                        setSelectedProductId={setSelectedProductId}
+                        setSelectedTestConfigId={setSelectedTestConfigId}
+                        onStartSession={startSession}
+                        isStartButtonDisabled={isStartButtonDisabled}
+                        sessionError={sessionError}
+                      />
+                    ) : (
+                      <ChatInterface
+                        products={products}
+                        testConfigurations={testConfigurations}
+                        selectedProductId={selectedProductId}
+                        selectedTestConfigId={selectedTestConfigId}
+                        conversationHistory={conversationHistory}
+                        sessionLoading={sessionLoading}
+                        salespersonInput={salespersonInput}
+                        isRecording={isRecording}
+                        onSalespersonInputChange={setSalespersonInput}
+                        onVoiceInput={handleVoiceInput}
+                        onSendResponse={sendSalespersonAnswer}
+                        onEndSession={endSession}
+                        canEndSession={!sessionLoading && conversationHistory.length > 0}
+                      />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Evaluation Results Dialog - Updated styles */}
         {evaluationResults && (
           <Dialog
             open={!!evaluationResults}
             onOpenChange={() => setEvaluationResults(null)}
           >
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-3xl bg-white modal-shadow">
               <div>
                 <h3 className="text-lg font-semibold mb-2">
                   Complete Conversation Evaluation:
