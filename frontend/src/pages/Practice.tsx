@@ -532,7 +532,7 @@ const Practice = () => {
         <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
           <SheetContent
             side="right"
-            className="w-full sm:w-[80vw] lg:w-[70vw] 2xl:w-[60vw] p-0 overflow-hidden"
+            className="w-full max-w-3xl sm:max-w-4xl md:max-w-4xl h-screen overflow-y-auto flex flex-col"
           >
             <div className="flex h-full flex-col">
               <SheetHeader className="px-8 py-6 border-b">

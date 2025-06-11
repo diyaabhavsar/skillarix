@@ -128,7 +128,7 @@ const SessionSetupForm = ({
         disabled={isStartButtonDisabled}
         className="w-full"
       >
-        Start Session
+        Create Session
       </Button>
 
       {sessionError && (

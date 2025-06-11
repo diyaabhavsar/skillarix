@@ -19,7 +19,7 @@ const PracticeHeader = ({ onStartNewSession }: PracticeHeaderProps) => {
           size="lg"
           className="px-6"
         >
-          Start New Session
+          New Session
         </Button>
       </div>
     </div>
