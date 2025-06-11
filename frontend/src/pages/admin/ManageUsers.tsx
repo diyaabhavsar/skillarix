@@ -616,23 +616,16 @@ const ManageUsers = () => {
                 </div>
               ) : viewUser ? (
                 <div className="flex-1 flex flex-col gap-6 py-4 px-1">
-                  <div>
-                    <span className="font-medium">Name:</span> {viewUser.name}
+                  <div className="flex flex-col gap-2">
+                    <span className="font-medium">Name:</span>{" "}
+                    <span>{viewUser.name}</span>
                   </div>
-                  <div>
-                    <span className="font-medium">Email:</span> {viewUser.email}
+                  <div className="flex flex-col gap-2">
+                    <span className="font-medium">Email:</span>{" "}
+                    <span>{viewUser.email}</span>
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-2">
                     <span className="font-medium">Role:</span>{" "}
-                    {/* <Badge
-                      className={
-                        viewUser.role === "admin"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700"
-                      }
-                    >
-                      {viewUser.role === "admin" ? "Admin" : "Employee"}
-                    </Badge> */}
                     <span
                       className={
                         viewUser.role === "admin"
@@ -643,7 +636,7 @@ const ManageUsers = () => {
                       {viewUser.role === "admin" ? "Admin" : "Employee"}
                     </span>
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-2">
                     <span className="font-medium">Status:</span>{" "}
                     <span
                       className={
@@ -655,13 +648,13 @@ const ManageUsers = () => {
                       {viewUser.active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-2">
                     <span className="font-medium">Sessions:</span>{" "}
-                    {viewUser.sessions}
+                    <span>{viewUser.sessions}</span>
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-2">
                     <span className="font-medium">Last Active:</span>{" "}
-                    {formatDateTime(viewUser.lastActive)}
+                    <span>{formatDateTime(viewUser.lastActive)}</span>
                   </div>
                 </div>
               ) : (

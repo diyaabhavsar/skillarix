@@ -128,6 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email,
           password,
           role,
+          active: true,
         }),
       });
       if (!res.ok) {
@@ -137,6 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       toast.success("Registration successful! Please log in.");
       // Optionally, you can auto-login or redirect here
+      navigate("/");
     } catch (error) {
       console.error("Registration failed:", error);
       toast.error("Registration failed. Please try again.");
