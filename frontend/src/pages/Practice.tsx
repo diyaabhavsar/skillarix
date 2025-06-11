@@ -455,8 +455,11 @@ const Practice = () => {
         .map((result: any) => result.transcript)
         .join(" ");
 
-      setSalespersonInput(transcript);
-    };
+    return (
+        <div className="min-h-screen flex flex-col">
+            {/* <Navbar /> */}
+            <main className="flex-1 container mx-auto px-4 py-8">
+                <SetupHeader />
 
     newRecognition.onerror = (event: any) => {
       console.error("Speech recognition error", event.error);
