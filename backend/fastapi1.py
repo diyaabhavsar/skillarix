@@ -462,9 +462,9 @@ class User:
             "role": role,
             "created_at": datetime.now(UTC), # Use timezone-aware datetime
             "updated_at": datetime.now(UTC),  # Use timezone-aware datetime
-            "last_login": None, # Initialize last_login to None
+            "last_login": datetime.now(UTC), # Initialize last_login to None
             "sessions": 0, # Initialize sessions to 0
-            "active": True # Initialize active to True
+            "active": True  # New field to track active status
         }
         self.users.insert_one(user)
         return True
