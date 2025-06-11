@@ -72,13 +72,13 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center space-x-4 mb-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={onBack} className="hover:bg-slate-100 text-sm">
           <ChevronLeft className="h-4 w-4 mr-1" />
-          Back to Sessions
+          Back
         </Button>
-        <p className="text-sm text-slate-500">{formatDate(created_at)}</p>
+        <p className="text-sm text-slate-500">{formatDate(session.created_at)}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

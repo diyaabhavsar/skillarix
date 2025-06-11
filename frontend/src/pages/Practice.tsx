@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
-import { SetupHeader } from "@/components/setup/SetupHeader";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
@@ -19,6 +17,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePracticeSession } from "@/hooks/usePracticeSession";
 import { websocketService } from "@/services/websocketService";
+import PastSessionsTable from "@/components/past-sessions/PastSessionsTable";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Mic, MicOff } from "lucide-react"; // Add this import
+import { useConversationHistory } from "@/hooks/useConversationHistory";
+import SessionsPagination from "@/components/past-sessions/SessionsPagination";
+import PracticeHeader from "@/components/practice/PracticeHeader";
+import SessionSetupForm from "@/components/practice/SessionSetupForm";
+import ChatInterface from "@/components/practice/ChatInterface";
 
 interface Category {
   id: string;
@@ -89,9 +101,29 @@ const Practice = () => {
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [evaluationResults, setEvaluationResults] =
     useState<EvaluationResults | null>(null);
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   // Add ref for scroll area
   const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Add new function to handle scrolling
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      }
+    }, 100); // Small delay to ensure DOM update
+  }, []);
+
+  // Update effect to scroll on conversation changes
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversationHistory, scrollToBottom]);
 
   // Add effect to scroll to bottom when conversation updates
   useEffect(() => {
@@ -103,6 +135,16 @@ const Practice = () => {
     }
   }, [conversationHistory]);
 
+  // Pagination states and effects
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const { conversations, fetchConversations, loading, error } =
+    useConversationHistory();
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
   useEffect(() => {
     if (!isSessionActive || !token) {
       websocketService.close();
@@ -113,7 +155,10 @@ const Practice = () => {
       debug: true,
       onOpen: () => {
         if (selectedProductId && selectedTestConfigId) {
-          websocketService.startSession(selectedProductId, selectedTestConfigId);
+          websocketService.startSession(
+            selectedProductId,
+            selectedTestConfigId
+          );
           setSessionLoading(true);
           setSessionError(null);
         } else {
@@ -186,6 +231,7 @@ const Practice = () => {
         ...prev,
         { visitor_text: data.next_question, salesperson_text: "" },
       ]);
+      scrollToBottom();
     }
   };
 
@@ -199,7 +245,17 @@ const Practice = () => {
       return;
     }
 
-    // Show answer immediately in the UI
+    // Stop recording if active
+    if (isRecording && recognition) {
+      recognition.stop();
+      setIsRecording(false);
+      setRecognition(null);
+    }
+
+    // Clear input immediately
+    setSalespersonInput("");
+
+    // Update conversation history and clear input immediately
     setConversationHistory((prev) => {
       const updated = [...prev];
       if (updated.length > 0) {
@@ -207,6 +263,7 @@ const Practice = () => {
       }
       return updated;
     });
+    scrollToBottom(); // Scroll to bottom after updating
 
     setSessionLoading(true);
     setSessionError(null);
@@ -305,219 +362,135 @@ const Practice = () => {
     setSessionLoading(false);
   };
 
+  // Updated voice input handler
+  const handleVoiceInput = () => {
+    if (!("webkitSpeechRecognition" in window)) {
+      toast.error("Speech recognition is not supported in your browser");
+      return;
+    }
+
+    if (isRecording) {
+      // Stop recording
+      recognition?.stop();
+      setRecognition(null);
+      setIsRecording(false);
+      return;
+    }
+
+    // Start new recording
+    const newRecognition = new (window as any).webkitSpeechRecognition();
+    newRecognition.continuous = true;
+    newRecognition.interimResults = true;
+
+    newRecognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    newRecognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0])
+        .map((result: any) => result.transcript)
+        .join(" ");
+
+      setSalespersonInput(transcript);
+    };
+
+    newRecognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsRecording(false);
+      setRecognition(null);
+      toast.error("Voice input error. Please try again.");
+    };
+
+    newRecognition.onend = () => {
+      setIsRecording(false);
+      setRecognition(null);
+    };
+
+    setRecognition(newRecognition);
+    newRecognition.start();
+  };
+
+  // Clean up recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognition) {
+        recognition.stop();
+        setIsRecording(false);
+        setRecognition(null);
+      }
+    };
+  }, [recognition]);
+console.log({conversations})
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <main className="flex-1 container mx-auto px-4 py-8">
-        <SetupHeader />
+        <PracticeHeader onStartNewSession={() => setIsSetupOpen(true)} />
 
-        {!isSessionActive ? (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Start Session</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-6">
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="select-category"
-                  className="text-sm font-medium"
-                >
-                  Select Category
-                </Label>
-                <Select
-                  onValueChange={setSelectedCategoryId}
-                  value={selectedCategoryId}
-                  disabled={isSelectionLoading}
-                >
-                  <SelectTrigger id="select-category">
-                    <SelectValue placeholder="Choose a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <div className="space-y-6">
+          <PastSessionsTable sessions={conversations} />
+          <SessionsPagination
+            currentPage={currentPage}
+            totalPages={Math.ceil((conversations?.length || 0) / itemsPerPage)}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+
+        <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
+          <SheetContent
+            side="right"
+            className="w-[95vw] sm:w-[800px] lg:w-[1000px] 2xl:w-[1200px] p-0 overflow-hidden"
+          >
+            <div className="flex h-full flex-col">
+              <SheetHeader className="px-8 py-6 border-b">
+                <SheetTitle className="text-2xl">Start Practice Session</SheetTitle>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto px-8 py-6">
+                {!isSessionActive ? (
+                  <SessionSetupForm
+                    categories={categories}
+                    products={products}
+                    testConfigurations={testConfigurations}
+                    selectedCategoryId={selectedCategoryId}
+                    selectedProductId={selectedProductId}
+                    selectedTestConfigId={selectedTestConfigId}
+                    isSelectionLoading={isSelectionLoading}
+                    setSelectedCategoryId={setSelectedCategoryId}
+                    setSelectedProductId={setSelectedProductId}
+                    setSelectedTestConfigId={setSelectedTestConfigId}
+                    onStartSession={startSession}
+                    isStartButtonDisabled={isStartButtonDisabled}
+                    sessionError={sessionError}
+                  />
+                ) : (
+                  <ChatInterface
+                    products={products}
+                    testConfigurations={testConfigurations}
+                    selectedProductId={selectedProductId}
+                    selectedTestConfigId={selectedTestConfigId}
+                    conversationHistory={conversationHistory}
+                    sessionLoading={sessionLoading}
+                    salespersonInput={salespersonInput}
+                    isRecording={isRecording}
+                    onSalespersonInputChange={setSalespersonInput}
+                    onVoiceInput={handleVoiceInput}
+                    onSendResponse={sendSalespersonAnswer}
+                    onEndSession={endSession}
+                  />
+                )}
               </div>
+            </div>
+          </SheetContent>
+        </Sheet>
 
-              <div className="grid gap-2">
-                <Label htmlFor="select-product" className="text-sm font-medium">
-                  Select Product
-                </Label>
-                <Select
-                  onValueChange={setSelectedProductId}
-                  value={selectedProductId}
-                  disabled={
-                    isSelectionLoading ||
-                    products.length === 0 ||
-                    !selectedCategoryId
-                  }
-                >
-                  <SelectTrigger id="select-product">
-                    <SelectValue
-                      placeholder={
-                        selectedCategoryId
-                          ? isSelectionLoading
-                            ? "Loading products..."
-                            : "Choose a product"
-                          : "Select a category first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((prod) => (
-                      <SelectItem key={prod.id} value={prod.id}>
-                        {prod.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="select-test-config"
-                  className="text-sm font-medium"
-                >
-                  Select Test Scenario
-                </Label>
-                <Select
-                  onValueChange={setSelectedTestConfigId}
-                  value={selectedTestConfigId}
-                  disabled={
-                    isSelectionLoading ||
-                    testConfigurations.length === 0 ||
-                    !selectedProductId
-                  }
-                >
-                  <SelectTrigger id="select-test-config">
-                    <SelectValue
-                      placeholder={
-                        selectedProductId
-                          ? isSelectionLoading
-                            ? "Loading scenarios..."
-                            : "Choose a scenario"
-                          : "Select a product first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {testConfigurations.map((config) => (
-                      <SelectItem key={config.id} value={config.id}>
-                        {config.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button onClick={startSession} disabled={isStartButtonDisabled}>
-                {isSessionActive ? "Session in Progress" : "Start Session"}
-              </Button>
-
-              {sessionError && (
-                <div className="text-red-500">{sessionError}</div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Practice Session</CardTitle>
-              {selectedProductId && (
-                <p className="text-sm text-muted-foreground">
-                  Product:{" "}
-                  {products.find((p) => p.id === selectedProductId)?.name ||
-                    "N/A"}{" "}
-                  | Scenario:{" "}
-                  {testConfigurations.find((c) => c.id === selectedTestConfigId)
-                    ?.name || "N/A"}
-                </p>
-              )}
-            </CardHeader>
-            <CardContent className="grid gap-6">
-              <ScrollArea
-                className="h-[400px] border rounded-md p-4"
-                ref={scrollRef}
-              >
-                <div className="space-y-4">
-                  {conversationHistory.map((pair, index) => (
-                    <div
-                      key={index}
-                      className="mb-4 p-3 rounded-lg bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-                    >
-                      <div className="flex flex-col gap-3">
-                        <div className="flex flex-col gap-1">
-                          <div className="font-semibold text-blue-600">Customer:</div>
-                          <div className="pl-2">{pair.visitor_text}</div>
-                        </div>
-                        {pair.salesperson_text && (
-                          <div className="flex flex-col gap-1">
-                            <div className="font-semibold text-green-600">
-                              Salesperson:
-                            </div>
-                            <div className="pl-2">{pair.salesperson_text}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {sessionLoading && (
-                    <div className="italic text-muted-foreground text-center py-2">
-                      AI is thinking...
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              <div className="grid gap-2">
-                <Label
-                  htmlFor="salesperson-input"
-                  className="text-sm font-medium"
-                >
-                  Your Response
-                </Label>
-                <Textarea
-                  id="salesperson-input"
-                  placeholder="Type your response here..."
-                  value={salespersonInput}
-                  onChange={(e) => setSalespersonInput(e.target.value)}
-                  disabled={sessionLoading}
-                  rows={3}
-                />
-                <Button
-                  onClick={sendSalespersonAnswer}
-                  disabled={sessionLoading || !salespersonInput.trim()}
-                >
-                  {sessionLoading ? "Sending..." : "Send Response"}
-                </Button>
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={endSession}
-                  disabled={sessionLoading}
-                >
-                  End Session & Get Evaluation
-                </Button>
-              </div>
-
-              {sessionError && (
-                <div className="text-red-500 mt-4">{sessionError}</div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
+        {/* Evaluation Results Dialog */}
         {evaluationResults && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Evaluation Results</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4">
+          <Dialog
+            open={!!evaluationResults}
+            onOpenChange={() => setEvaluationResults(null)}
+          >
+            <DialogContent className="max-w-3xl">
               <div>
                 <h3 className="text-lg font-semibold mb-2">
                   Complete Conversation Evaluation:
@@ -546,8 +519,8 @@ const Practice = () => {
                   ></div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
         )}
       </main>
     </div>

@@ -40,7 +40,19 @@ interface ApiResponse<T> {
 const handleApiError = (error: unknown): never => {
   const apiError = error as ApiError;
   const message = apiError.detail || apiError.message || "An unexpected error occurred";
-  toast.error(message);
+  
+  // Check for session expiration
+  if (apiError.status === 401) {
+    // Clear auth data
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("user");
+    // Redirect to auth page
+    window.location.href = '/auth';
+    toast.error("Session expired. Please login again.");
+  } else {
+    toast.error(message);
+  }
+  
   throw apiError;
 };
 

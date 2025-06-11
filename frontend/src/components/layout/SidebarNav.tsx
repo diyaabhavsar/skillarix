@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   FileUp,
   MessageSquare,
-  Clock,
   Settings,
   Users,
   ShieldCheck,
@@ -32,7 +31,6 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
     { label: "Setup", icon: FileUp, path: "/setup" },
     { label: "Test Setup", icon: Settings, path: "/test-setup" },
     { label: "Practice", icon: MessageSquare, path: "/practice" },
-    { label: "History", icon: Clock, path: "/past-sessions" },
     { label: "Settings", icon: Settings, path: "/settings" },
   ];
 

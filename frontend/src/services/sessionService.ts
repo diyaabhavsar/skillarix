@@ -6,6 +6,13 @@ export const sessionService = {
   lastActivity: 0,
 
   initSession() {
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.get('session') === 'expired') {
+      this.handleExpiredSession();
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     this.updateLastActivity();
     this.startSessionTimer();
     window.addEventListener('mousemove', this.updateLastActivity.bind(this));
@@ -28,6 +35,12 @@ export const sessionService = {
     localStorage.removeItem('user');
     localStorage.removeItem(env.TOKEN_KEY);
     window.location.href = '/login?session=expired';
+  },
+
+  handleExpiredSession() {
+    localStorage.removeItem(env.TOKEN_KEY);
+    localStorage.removeItem("user");
+    window.location.href = '/auth';
   },
 
   cleanup() {
