@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageCircle, Star, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ConversationEvaluation {
   _id: string;
@@ -81,8 +82,79 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
   const formatEvaluationValue = (value: any) => {
     if (!value) return '';
     if (typeof value === 'string') return value;
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      // Render as vertical table
+      return (
+        <div className="border rounded bg-slate-50 p-3 my-2">
+          <table className="w-full text-sm">
+            <tbody>
+              {Object.entries(value).map(([k, v]) => (
+                <tr key={k}>
+                  <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">{k.replace(/_/g, ' ')}:</td>
+                  <td className="py-1 text-slate-600">{typeof v === "string" ? v : JSON.stringify(v)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
     return JSON.stringify(value);
   };
+
+  const formatEvaluationData = (value): React.ReactNode => {
+  if (!value) return '';
+  let inputVal: any = value;
+  if (typeof value === 'string') {
+    try {
+      inputVal = JSON.parse(value);
+    } catch {
+      return value; // Not a valid JSON string, return as-is
+    }
+  }
+
+  if (typeof inputVal === 'string') return inputVal;
+
+  if (typeof inputVal === 'object' && !Array.isArray(inputVal)) {
+    return (
+      <div className="border rounded bg-slate-50 p-3 my-2">
+        <table className="w-full text-sm">
+          <tbody>
+            {Object.entries(inputVal).map(([k, v]) => {
+              let displayValue: React.ReactNode;
+
+              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+                displayValue = v.toString();
+              } else if (typeof v === 'object') {
+                try {
+                  displayValue = (
+                    <pre className="whitespace-pre-wrap">{JSON.stringify(v, null, 2)}</pre>
+                  );
+                } catch {
+                  displayValue = 'Unserializable object';
+                }
+              } else {
+                displayValue = String(v);
+              }
+
+              return (
+                <tr key={k}>
+                  <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
+                    {k.replace(/_/g, ' ')}:
+                  </td>
+                  <td className="py-1 text-slate-600">{displayValue}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return JSON.stringify(inputVal, null, 2);
+};
+
 
   const renderRating = (rating: any) => {
     const { score, max } = getRatingValue(rating);
@@ -111,6 +183,62 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Helper to truncate text and show tooltip/read more
+  const ReferenceAnswer: React.FC<{ text: string }> = ({ text }) => {
+    const [expanded, setExpanded] = useState(false);
+    const maxLength = 60;
+    if (!text) return null;
+
+    if (text.length <= maxLength) {
+      return <span>{text}</span>;
+    }
+
+    return (
+      <span>
+        {!expanded ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  {text.slice(0, maxLength)}...
+                  <button
+                    className="ml-1 text-xs text-blue-600 underline"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setExpanded(true);
+                    }}
+                    tabIndex={0}
+                    type="button"
+                  >
+                    Read more
+                  </button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs whitespace-pre-line">
+                {text}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <span>
+            {text}
+            <button
+              className="ml-1 text-xs text-blue-600 underline"
+              onClick={e => {
+                e.stopPropagation();
+                setExpanded(false);
+              }}
+              tabIndex={0}
+              type="button"
+            >
+              Show less
+            </button>
+          </span>
+        )}
+      </span>
+    );
   };
 
   return (
@@ -203,6 +331,12 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                         <p className="text-xs font-medium text-green-800 mb-1">Salesperson</p>
                         <p className="text-sm text-slate-700">{pair.salesperson_text}</p>
                       </div>
+                      <div className="bg-green-50/50 rounded-lg p-3">
+                        <p className="text-xs font-medium text-yellow-800 mb-1">Refrence Answer</p>
+                        <p className="text-sm text-slate-700">
+                          <ReferenceAnswer text={evaluation_data.individual_evaluations[index].reference_answer} />
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -232,7 +366,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                           ))}
                         </div>
                       </div>
-                      <p className="text-sm text-slate-600">{ind_eval.evaluation}</p>
+                      <p className="text-sm text-slate-600">{formatEvaluationData(ind_eval.evaluation)}</p>
                     </div>
                   ))}
                 </ScrollArea>
@@ -255,6 +389,29 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                       <div key={key} className="mb-4 last:mb-0">
                         <h3 className="font-medium text-sm text-slate-900 mb-1">{key.replace(/_/g, ' ')}</h3>
                         <p className="text-sm text-slate-600">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {evaluation_data.mid_evaluations && evaluation_data.mid_evaluations.length > 0 && (
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center text-lg">
+                  <Clock className="h-5 w-5 mr-2 text-orange-500" />
+                  Mid Evaluations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[200px]">
+                  <div className="p-4">
+                    {evaluation_data.mid_evaluations.map((midEval, idx) => (
+                      <div key={idx} className="mb-4 last:mb-0">
+                        <h3 className="font-medium text-sm text-slate-900 mb-1">Mid Evaluation {idx + 1}</h3>
+                        <p className="text-sm text-slate-600">{midEval}</p>
                       </div>
                     ))}
                   </div>

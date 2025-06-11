@@ -119,11 +119,11 @@ const Dashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
+        {/* <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="history">Practice History</TabsTrigger>
-        </TabsList>
+        </TabsList> */}
         
         <TabsContent value="overview" className="space-y-6">
           <MetricsOverview />
