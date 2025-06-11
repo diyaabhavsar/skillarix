@@ -32,6 +32,7 @@ import PracticeHeader from "@/components/practice/PracticeHeader";
 import SessionSetupForm from "@/components/practice/SessionSetupForm";
 import ChatInterface from "@/components/practice/ChatInterface";
 import { useNavigate } from "react-router-dom"; // Update import
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 interface Category {
   id: string;
@@ -136,10 +137,20 @@ const Practice = () => {
       });
     }
   }, [conversationHistory]);
-console.log({conversationHistory})
+  console.log({ conversationHistory });
   // Pagination states and effects
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10; // Set to match backend limit
+
+  // Add pagination data state
+  const [paginationData, setPaginationData] = useState({
+    skip: 0,
+    limit: itemsPerPage,
+    count: 0,
+    total_count: 0,
+    total_pages: 1,
+  });
+
   const { conversations, fetchConversations, loading, error } =
     useConversationHistory();
 
@@ -309,10 +320,10 @@ console.log({conversationHistory})
       if (!selectedProductId || !selectedTestConfigId) {
         throw new Error("Missing product or test configuration ID");
       }
-console.log({conversationHistory})
+      console.log({ conversationHistory });
       setSessionLoading(true);
       const finalHistory = [...conversationHistory];
-      
+
       // Log current state for debugging
       console.log("Current state:", {
         websocketState: websocket.readyState,
@@ -323,7 +334,8 @@ console.log({conversationHistory})
       });
 
       if (salespersonInput.trim() && finalHistory.length > 0) {
-        finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
+        finalHistory[finalHistory.length - 1].salesperson_text =
+          salespersonInput;
       }
 
       const payload = {
@@ -332,19 +344,23 @@ console.log({conversationHistory})
         test_configuration_id: selectedTestConfigId,
         last_question: currentCustomerQuestion,
         answer: salespersonInput.trim(),
-        history: finalHistory
+        history: finalHistory,
       };
 
       console.log("Sending end session payload:", payload);
-      
+
       websocket.send(JSON.stringify(payload));
       console.log("End session payload sent successfully");
-      
+
       // Don't cleanup immediately, wait for session_complete response
       setSessionLoading(true);
     } catch (error) {
       console.error("Error ending session:", error);
-      toast.error(`Failed to end session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(
+        `Failed to end session: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
       cleanupSession();
     }
   };
@@ -391,8 +407,9 @@ console.log({conversationHistory})
   const handleSessionComplete = (data: WebSocketMessage) => {
     console.log("Session Complete Response:", {
       evaluation: data.complete_evaluation?.substring(0, 100) + "...",
-      additionalCriteria: data.additional_criteria_evaluation?.substring(0, 100) + "...",
-      type: data.type
+      additionalCriteria:
+        data.additional_criteria_evaluation?.substring(0, 100) + "...",
+      type: data.type,
     });
     setEvaluationResults({
       complete: data.complete_evaluation || "",
@@ -467,19 +484,56 @@ console.log({conversationHistory})
       }
     };
   }, [recognition]);
-console.log({conversations})
+  console.log({ conversations });
+  // Update how we pass the conversations data
+  const processedSessions = React.useMemo(() => {
+    if (!conversations?.data) return [];
+    return conversations.data.map((session) => ({
+      ...session,
+      category_id: session.category_id || "",
+      test_name: session.test_name || "",
+      prod_name: session.prod_name || "",
+      cat_name: session.cat_name || "",
+      evaluation_data: {
+        ...session.evaluation_data,
+        complete_rating: {
+          overall_progress: { score: 0, max: 0 },
+          sales_strategy: { score: 0, max: 0 },
+          customer_journey: { score: 0, max: 0 },
+          technical_accuracy: { score: 0, max: 0 },
+          total: session.evaluation_data.complete_rating.total,
+        },
+      },
+    }));
+  }, [conversations]);
+
+  // Update pagination data when conversations change
+  useEffect(() => {
+    if (conversations) {
+      setPaginationData({
+        skip: conversations.skip || 0,
+        limit: conversations.limit || itemsPerPage,
+        count: conversations.count || 0,
+        total_count: conversations.total_count || 0,
+        total_pages: conversations.total_pages || 1,
+      });
+    }
+  }, [conversations, itemsPerPage]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 container mx-auto px-4 py-8">
         <PracticeHeader onStartNewSession={() => setIsSetupOpen(true)} />
 
         <div className="space-y-6">
-          <PastSessionsTable sessions={conversations} />
-          <SessionsPagination
-            currentPage={currentPage}
-            totalPages={Math.ceil((conversations?.length || 0) / itemsPerPage)}
-            onPageChange={setCurrentPage}
-          />
+          <ErrorBoundary>
+            <PastSessionsTable sessions={processedSessions} />
+            <SessionsPagination
+              currentPage={currentPage}
+              paginationData={paginationData}
+              onPageChange={(page) => setCurrentPage(page)}
+            />
+          </ErrorBoundary>
         </div>
 
         <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
@@ -489,7 +543,9 @@ console.log({conversations})
           >
             <div className="flex h-full flex-col">
               <SheetHeader className="px-8 py-6 border-b">
-                <SheetTitle className="text-2xl">Start Practice Session</SheetTitle>
+                <SheetTitle className="text-2xl">
+                  Start Practice Session
+                </SheetTitle>
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto px-8 py-6">

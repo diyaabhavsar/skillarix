@@ -51,7 +51,7 @@ export const sessionService = {
 
   endSession() {
     this.clearSession();
-    window.location.href = '/login?session=expired';
+    window.location.href = '/auth';
   },
 
   handleExpiredSession() {

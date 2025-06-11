@@ -1,91 +1,91 @@
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { api } from "@/utils/api";
 
-interface ConversationPair {
-  visitor_text: string;
-  salesperson_text: string;
-}
-
-interface EvaluationData {
-  current_evaluation?: string;
-  mid_evaluations?: string[];
-  complete_evaluation?: string;
-  metrics?: {
-    total_exchanges: number;
-    average_response_length: number;
-    customer_engagement_score: number;
-    [key: string]: any;
-  };
-  score?: number;
-  additional_criteria_evaluation?: string;
-}
-
-interface Conversation {
+interface ConversationEvaluation {
   _id: string;
   product_id: string;
+  category_id: string;
   user_id: string;
-  conversation_data: ConversationPair[];
-  evaluation_data: EvaluationData;
+  test_name: string;
+  prod_name: string;
+  cat_name: string;
+  conversation_data: {
+    pairs: {
+      visitor_text: string;
+      salesperson_text: string;
+    }[];
+  };
+  evaluation_data: {
+    individual_evaluations: {
+      evaluation: string;
+      rating: {
+        question_relevance: { score: number; max: number };
+        technical_accuracy: { score: number; max: number };
+        sales_effectiveness: { score: number; max: number };
+        total: { score: number; max: number };
+      };
+    }[];
+    mid_evaluations: string[];
+    complete_evaluation: {
+      Overall_Progress: string;
+      Sales_Strategy: string;
+      Customer_Journey: string;
+      Technical_Accuracy: string;
+      Key_successful_moments_in_the_conversation: string;
+      Critical_missed_opportunities: string;
+      "Pattern_analysis_of_effective/ineffective_techniques_used": string;
+      Recommendations_for_future_conversations: string;
+    };
+    complete_rating: {
+      total: { score: number; max: number };
+    };
+    is_complete: boolean;
+    additional_criteria_evaluation: {
+      distraction_handling: string;
+    };
+    test_configuration_id: string;
+  };
   created_at: string;
   updated_at: string;
 }
 
+interface ConversationsResponse {
+  data: ConversationEvaluation[];
+  skip: number;
+  limit: number;
+  count: number;
+  total_count: number;
+  total_pages: number;
+}
+
 export function useConversationHistory() {
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [currentConversation, setCurrentConversation] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-  const { token } = useAuth();
+  const [conversations, setConversations] = useState<ConversationsResponse | null>(null);
+  const [currentConversation, setCurrentConversation] = useState<ConversationEvaluation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   const fetchConversations = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const response = await fetch("http://localhost:8000/conversations", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch conversations");
-      }
-      const data = await response.json();
-      setConversations(data);
+      setLoading(true);
+      const response = await api.get<ConversationsResponse>("/conversations");
+      setConversations(response);
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast({
-        title: "Error",
-        description: "Failed to load conversation history",
-        variant: "destructive",
-      });
+      setError(err instanceof Error ? err : new Error("Failed to fetch conversations"));
     } finally {
       setLoading(false);
     }
   };
 
   const fetchConversationById = async (productId: string, conversationId: string) => {
-    setLoading(true);
-    setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/conversations/${productId}/${conversationId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch conversation");
-      }
-      const data = await response.json();
-      setCurrentConversation(data);
+      setLoading(true);
+      const response = await api.get<ConversationEvaluation>(`/conversations/${productId}/${conversationId}`);
+      setCurrentConversation(response);
+      setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
-      toast({
-        title: "Error",
-        description: "Failed to load conversation details",
-        variant: "destructive",
-      });
+      const errorMessage = err instanceof Error ? err : new Error("Failed to load conversation details");
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

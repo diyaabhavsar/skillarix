@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
@@ -72,16 +72,49 @@ interface PastSessionsTableProps {
   sessions: ConversationEvaluation[];
 }
 
-const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
-  const [selectedSession, setSelectedSession] =
-    useState<ConversationEvaluation | null>(null);
+const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) => {
+  const [selectedSession, setSelectedSession] = useState<ConversationEvaluation | null>(null);
   const viewFeedback = (session: ConversationEvaluation) =>
     setSelectedSession(session);
 
-  const sortedSessions = [...sessions].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // Remove the array check since we're providing a default value
+  const sortedSessions = React.useMemo(() => {
+    try {
+      return [...sessions].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    } catch (error) {
+      console.error('Error sorting sessions:', error);
+      return sessions;
+    }
+  }, [sessions]);
+
+  const processSessionData = (session: any) => {
+    return {
+      ...session,
+      evaluation_data: {
+        ...session.evaluation_data,
+        complete_rating: {
+          ...(session.evaluation_data.complete_rating || {}),
+          // Ensure the rating objects are properly structured
+          overall_progress: session.evaluation_data.complete_rating?.overall_progress || { score: 0, max: 0 },
+          sales_strategy: session.evaluation_data.complete_rating?.sales_strategy || { score: 0, max: 0 },
+          customer_journey: session.evaluation_data.complete_rating?.customer_journey || { score: 0, max: 0 },
+          technical_accuracy: session.evaluation_data.complete_rating?.technical_accuracy || { score: 0, max: 0 },
+          total: session.evaluation_data.complete_rating?.total || { score: 0, max: 0 },
+        },
+        complete_evaluation: session.evaluation_data.complete_evaluation || {},
+      }
+    };
+  };
+
+  if (!sortedSessions?.length) {
+    return (
+      <div className="rounded-lg border p-4 text-center text-muted-foreground">
+        No practice sessions found
+      </div>
+    );
+  }
 
   return (
     <>
@@ -193,7 +226,7 @@ const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
           {selectedSession && (
             <SessionFeedbackDisplay
-              session={selectedSession}
+              session={processSessionData(selectedSession)}
               onBack={() => setSelectedSession(null)}
             />
           )}
@@ -203,4 +236,4 @@ const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
   );
 };
 
-export default PastSessionsTable;
+export default React.memo(PastSessionsTable);

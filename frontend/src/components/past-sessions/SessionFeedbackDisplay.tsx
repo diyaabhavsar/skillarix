@@ -59,7 +59,49 @@ interface SessionFeedbackDisplayProps {
 }
 
 const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session, onBack }) => {
-  const { evaluation_data, conversation_data, product_id, created_at } = session;
+  const { evaluation_data, conversation_data, created_at } = session;
+
+  // Helper function to format rating keys for display
+  const formatRatingKey = (key: string) => {
+    return key
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Helper functions to safely get values
+  const getRatingValue = (rating: any) => {
+    if (!rating || typeof rating !== 'object') return { score: 0, max: 0 };
+    return {
+      score: rating.score || 0,
+      max: rating.max || 0
+    };
+  };
+
+  const formatEvaluationValue = (value: any) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return JSON.stringify(value);
+  };
+
+  const renderRating = (rating: any) => {
+    const { score, max } = getRatingValue(rating);
+    const percentage = max > 0 ? (score / max) * 100 : 0;
+
+    return (
+      <div className="space-y-1.5">
+        <div className="flex justify-between items-center text-sm">
+          <span className="font-medium">{score}/{max}</span>
+        </div>
+        <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div 
+            className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -91,22 +133,30 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              {evaluation_data.complete_rating && (
+              {session.evaluation_data.complete_rating && (
                 <div className="space-y-4">
-                  {Object.entries(evaluation_data.complete_rating).map(([key, value]) => (
-                    <div key={key} className="space-y-1.5">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600">{key.replace(/_/g, ' ')}</span>
-                        <span className="font-medium">{value.score}/{value.max}</span>
+                  {Object.entries(session.evaluation_data.complete_rating)
+                    .filter(([key]) => key !== 'total')
+                    .map(([key, value]) => (
+                      <div key={key} className="space-y-1.5">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-600">{formatRatingKey(key)}</span>
+                          <div className="w-1/2">
+                            {renderRating(value)}
+                          </div>
+                        </div>
                       </div>
-                      <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all"
-                          style={{ width: `${(value.score / value.max) * 100}%` }}
-                        />
+                    ))}
+                  {evaluation_data.complete_rating.total && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="flex justify-between items-center text-sm font-semibold">
+                        <span>Total Score</span>
+                        <div className="w-1/2">
+                          {renderRating(evaluation_data.complete_rating.total)}
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </CardContent>
@@ -124,7 +174,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                 {Object.entries(evaluation_data.complete_evaluation || {}).map(([key, value]) => (
                   <div key={key}>
                     <h3 className="font-medium text-slate-900 mb-2">{key.replace(/_/g, ' ')}</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">{value}</p>
+                    <p className="text-slate-600 text-sm leading-relaxed">{formatEvaluationValue(value)}</p>
                   </div>
                 ))}
               </div>
