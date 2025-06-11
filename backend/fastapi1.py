@@ -2248,6 +2248,32 @@ async def get_products_by_user(
         print(f"Error fetching products for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
+@app.get("/all-products")
+async def get_products_by_user(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all products created by the current logged-in user (irrespective of category).
+    """
+    try:
+        # Find all products where created_by matches the current user's ObjectId
+        products_cursor = db.products.find({})
+        products = list(products_cursor)
+        # Convert ObjectId fields to strings for JSON serialization
+        for prod in products:
+            if "_id" in prod:
+                prod["_id"] = str(prod["_id"])
+            if "category_id" in prod and isinstance(prod["category_id"], ObjectId):
+                prod["category_id"] = str(prod["category_id"])
+            if "created_by" in prod and isinstance(prod["created_by"], ObjectId):
+                prod["created_by"] = str(prod["created_by"])
+            if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
+                prod["updated_by"] = str(prod["updated_by"])
+        return products
+    except Exception as e:
+        print(f"Error fetching products for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch products for user")
+
 @app.delete("/products/{product_id}")
 async def delete_product(
     product_id: str,

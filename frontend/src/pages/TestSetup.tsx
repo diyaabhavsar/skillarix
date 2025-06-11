@@ -12,7 +12,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, MoreHorizontal } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +34,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import TestConfigurationForm from "@/components/setup/TestConfigurationForm";
 import TestConfigurationDetails from "@/components/setup/TestConfigurationDetails";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const TestSetup = () => {
   const {
@@ -44,12 +50,12 @@ const TestSetup = () => {
     deleteTest,
     fetchTests,
   } = useTests();
-  const { products, fetchProducts, isLoading: productsLoading } = useProducts(); // Add products from useProducts hook
+  const { products,fetchAllProducts, isLoading: productsLoading } = useProducts(); // Add products from useProducts hook
 
   // Fetch data when component mounts
   useEffect(() => {
     fetchTests();
-    fetchProducts();
+    fetchAllProducts();
   }, []);
   const [testToDelete, setTestToDelete] = useState<string | null>(null);
 
@@ -153,91 +159,113 @@ const TestSetup = () => {
                         <span className="font-medium">Goals:</span>{" "}
                         {test.visitorPersona.goals}
                       </div>
+                      <div className="line-clamp-2">
+                        <span className="font-medium">
+                          Technical Knowledge:
+                        </span>{" "}
+                        {test.visitorPersona.technical_knowledge}
+                      </div>
+                      <div className="line-clamp-2">
+                        <span className="font-medium">
+                          Previous Experience:
+                        </span>{" "}
+                        {test.visitorPersona.previous_experience}
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell>{formatDate(test.created_at)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="View Test Details"
-                          >
-                            <Eye className="h-4 w-4" />
+                  <TableCell>{formatDate(test.created_at)}</TableCell>{" "}
+                  <TableCell>
+                    <div className="flex justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
                           </Button>
-                        </SheetTrigger>
-                        <TestConfigurationDetails
-                          test={test}
-                          formatDate={formatDate}
-                        />
-                      </Sheet>
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button variant="ghost" size="icon" title="Edit Test">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </SheetTrigger>
-                        <SheetContent
-                          side="right"
-                          className="w-full sm:max-w-3xl overflow-y-auto"
-                        >
-                          <SheetHeader className="px-1">
-                            <SheetTitle>Edit Test Configuration</SheetTitle>
-                          </SheetHeader>{" "}
-                          <div className="overflow-y-auto px-1">
-                            <TestConfigurationForm
-                              initialData={{
-                                id: test._id,
-                                name: test.name,
-                                product_id: test.product_id,
-                                visitorPersona: test.visitorPersona,
-                                additionalCriteria: test.additionalCriteria,
-                              }}
-                              onSuccess={() => {
-                                fetchTests();
-                                toast.success(
-                                  "Test configuration updated successfully"
-                                );
-                              }}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <Sheet>
+                            <SheetTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View 
+                              </DropdownMenuItem>
+                            </SheetTrigger>
+                            <TestConfigurationDetails
+                              test={test}
+                              formatDate={formatDate}
                             />
-                          </div>
-                        </SheetContent>
-                      </Sheet>{" "}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setTestToDelete(test._id)}
-                            title="Delete Test"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete Test Configuration
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete this test
-                              configuration? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel
-                              onClick={() => setTestToDelete(null)}
+                          </Sheet>
+                          <Sheet>
+                            <SheetTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            </SheetTrigger>
+                            <SheetContent
+                              side="right"
+                              className="w-full sm:max-w-3xl overflow-y-auto"
                             >
-                              Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete}>
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                              <SheetHeader className="px-1">
+                                <SheetTitle>Edit Test Configuration</SheetTitle>
+                              </SheetHeader>
+                              <div className="overflow-y-auto px-1">
+                                <TestConfigurationForm
+                                  initialData={{
+                                    id: test._id,
+                                    name: test.name,
+                                    product_id: test.product_id,
+                                    visitorPersona: test.visitorPersona,
+                                    additionalCriteria: test.additionalCriteria,
+                                  }}
+                                  onSuccess={() => {
+                                    fetchTests();
+                                    toast.success(
+                                      "Test configuration updated successfully"
+                                    );
+                                  }}
+                                />
+                              </div>
+                            </SheetContent>
+                          </Sheet>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                onClick={() => setTestToDelete(test._id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete Test Configuration
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this test
+                                  configuration? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel
+                                  onClick={() => setTestToDelete(null)}
+                                >
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>

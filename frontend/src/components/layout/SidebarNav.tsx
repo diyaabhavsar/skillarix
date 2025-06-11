@@ -25,25 +25,27 @@ interface SidebarNavProps {
 
 const SidebarNav = ({ isActive }: SidebarNavProps) => {
   const { user, isAdmin } = useAuth();
+
+  const DashboardItem=
+  { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" }
   
   // Common navigation items for all users
   const commonNavItems = [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Products", icon: FileUp, path: "/setup" },
-    { label: "Test Configurations", icon: Settings, path: "/test-setup" },
+    // { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Practice", icon: MessageSquare, path: "/practice" },
     { label: "History", icon: Clock, path: "/past-sessions" },
     { label: "Settings", icon: Settings, path: "/settings" },
   ];
-
+  
   // Admin-specific navigation items
   const adminNavItems = [
-    { label: "Admin Dashboard", icon: ShieldCheck, path: "/admin/dashboard" },
     { label: "Manage Users", icon: Users, path: "/admin/users" },
+    { label: "Products", icon: FileUp, path: "/setup" },
+    { label: "Test Configurations", icon: Settings, path: "/test-setup" },
   ];
 
   // Determine which items to show based on user role
-  const navItems = isAdmin() ? [...adminNavItems, ...commonNavItems] : commonNavItems;
+  const navItems = isAdmin() ? [DashboardItem, ...adminNavItems, ...commonNavItems] : commonNavItems;
 
   return (
     <SidebarContent className="pt-4">
