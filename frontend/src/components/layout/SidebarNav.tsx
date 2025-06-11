@@ -31,7 +31,7 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
   // Common navigation items for all users
   const commonNavItems = [
     // { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Session", icon: MessageSquare, path: "/Session" },
+    { label: "Session", icon: MessageSquare, path: "/Practice" },
     { label: "Settings", icon: Settings, path: "/settings" },
   ];
   
