@@ -455,11 +455,8 @@ const Practice = () => {
         .map((result: any) => result.transcript)
         .join(" ");
 
-    return (
-        <div className="min-h-screen flex flex-col">
-            {/* <Navbar /> */}
-            <main className="flex-1 container mx-auto px-4 py-8">
-                <SetupHeader />
+      setSalespersonInput(transcript);
+    };
 
     newRecognition.onerror = (event: any) => {
       console.error("Speech recognition error", event.error);
@@ -504,7 +501,10 @@ const Practice = () => {
           sales_strategy: { score: 0, max: 0 },
           customer_journey: { score: 0, max: 0 },
           technical_accuracy: { score: 0, max: 0 },
-          total: session.evaluation_data.complete_rating.total,
+          total: session.evaluation_data.complete_rating?.total || {
+            score: 0,
+            max: 0,
+          },
         },
       },
     }));
@@ -534,11 +534,12 @@ const Practice = () => {
             <SessionsPagination
               currentPage={currentPage}
               paginationData={paginationData}
-              onPageChange={(page) => setCurrentPage(page)}
+              onPageChange={setCurrentPage}
             />
           </ErrorBoundary>
         </div>
 
+        {/* Practice Session Setup Sheet */}
         <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
           <SheetContent
             side="right"
