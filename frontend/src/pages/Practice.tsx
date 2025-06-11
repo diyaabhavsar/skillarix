@@ -297,14 +297,31 @@ console.log({conversationHistory})
   };
 
   const endSession = () => {
-    if (
-      websocket &&
-      websocket.readyState === WebSocket.OPEN &&
-      selectedProductId &&
-      selectedTestConfigId
-    ) {
+    try {
+      if (!websocket) {
+        throw new Error("WebSocket connection not found");
+      }
+
+      if (websocket.readyState !== WebSocket.OPEN) {
+        throw new Error("WebSocket connection is not open");
+      }
+
+      if (!selectedProductId || !selectedTestConfigId) {
+        throw new Error("Missing product or test configuration ID");
+      }
+console.log({conversationHistory})
       setSessionLoading(true);
       const finalHistory = [...conversationHistory];
+      
+      // Log current state for debugging
+      console.log("Current state:", {
+        websocketState: websocket.readyState,
+        selectedProductId,
+        selectedTestConfigId,
+        historyLength: finalHistory.length,
+        currentInput: salespersonInput,
+      });
+
       if (salespersonInput.trim() && finalHistory.length > 0) {
         finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
       }
@@ -318,11 +335,16 @@ console.log({conversationHistory})
         history: finalHistory
       };
 
-      console.log("Ending session with payload:", payload);
+      console.log("Sending end session payload:", payload);
+      
       websocket.send(JSON.stringify(payload));
+      console.log("End session payload sent successfully");
+      
       // Don't cleanup immediately, wait for session_complete response
       setSessionLoading(true);
-    } else {
+    } catch (error) {
+      console.error("Error ending session:", error);
+      toast.error(`Failed to end session: ${error instanceof Error ? error.message : 'Unknown error'}`);
       cleanupSession();
     }
   };
@@ -463,7 +485,7 @@ console.log({conversations})
         <Sheet open={isSetupOpen} onOpenChange={setIsSetupOpen}>
           <SheetContent
             side="right"
-            className="w-[95vw] sm:w-[800px] lg:w-[1000px] 2xl:w-[1200px] p-0 overflow-hidden"
+            className="w-full sm:w-[90vw] lg:w-[1400px] 2xl:w-[1600px] p-0 overflow-hidden"
           >
             <div className="flex h-full flex-col">
               <SheetHeader className="px-8 py-6 border-b">

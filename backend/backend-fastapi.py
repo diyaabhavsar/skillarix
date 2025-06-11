@@ -24,6 +24,7 @@ import pickle
 import asyncio
 from fastapi.websockets import WebSocketState
 import traceback
+from math import ceil
 
 # Initialize FastAPI app
 app = FastAPI(title="Sales Evaluation System API")
@@ -1953,16 +1954,33 @@ async def get_test_configurations(
 
 @app.get("/conversations")
 async def get_all_conversations_for_user(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
     current_user: User = Depends(get_current_user)
 ):
-    conversations = []
+    """
+    Get paginated conversations for the current user (admin gets all).
+    Returns total pages as well.
+    """
     if current_user.role == "admin":
-        conversations = list(db.conversations.find({}))
+        base_query = {}
     else:
-        conversations = list(db.conversations.find({"user_id": ObjectId(current_user.id)}))
-    # Convert ObjectId fields to strings
+        base_query = {"user_id": ObjectId(current_user.id)}
+
+    total_count = db.conversations.count_documents(base_query)
+    total_pages = ceil(total_count / limit) if total_count > 0 else 1
+
+    conversations_cursor = db.conversations.find(base_query).skip(skip).limit(limit)
+    conversations = list(conversations_cursor)
     conversations = convert_objectids_to_strings(conversations)
-    return conversations
+    return {
+        "data": conversations,
+        "skip": skip,
+        "limit": limit,
+        "count": len(conversations),
+        "total_count": total_count,
+        "total_pages": total_pages
+    }
 
 @app.get("/conversation/{conversation_id}")
 async def get_conversation_by_id(

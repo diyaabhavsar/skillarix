@@ -1,24 +1,29 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
+  TableCaption,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, FileText } from "lucide-react";
 import SessionFeedbackDisplay from "./SessionFeedbackDisplay";
-import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { formatDate } from "@/lib/utils";
 
 interface ConversationEvaluation {
   _id: string;
   product_id: string;
+  category_id: string;
   user_id: string;
+  test_name: string;
+  prod_name: string;
+  cat_name: string;
   conversation_data: {
     pairs: {
       visitor_text: string;
@@ -68,11 +73,15 @@ interface PastSessionsTableProps {
 }
 
 const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
-  const [selectedSession, setSelectedSession] = useState<ConversationEvaluation | null>(null);
-
-  const viewFeedback = (session: ConversationEvaluation) => {
+  const [selectedSession, setSelectedSession] =
+    useState<ConversationEvaluation | null>(null);
+  const viewFeedback = (session: ConversationEvaluation) =>
     setSelectedSession(session);
-  };
+
+  const sortedSessions = [...sessions].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return (
     <>
@@ -82,20 +91,28 @@ const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[180px]">Date & Time</TableHead>
-              <TableHead>Product File</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Product</TableHead>
+              <TableHead>Test Name</TableHead>
+              <TableHead className="text-center">Questions</TableHead>
               <TableHead className="text-center">Score</TableHead>
               <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sessions.map((session) => {
-              const totalScore = session.evaluation_data.complete_rating?.total?.score || 0;
-              const maxScore = session.evaluation_data.complete_rating?.total?.max || 100;
+            {sortedSessions.map((session) => {
+              const totalScore =
+                session.evaluation_data.complete_rating?.total?.score || 0;
+              const maxScore =
+                session.evaluation_data.complete_rating?.total?.max || 100;
               const isCompleted = session.evaluation_data.is_complete;
               const date = new Date(session.created_at);
               const formattedDate = date.toLocaleDateString();
-              const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const formattedTime = date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
 
               return (
                 <TableRow key={session._id}>
@@ -111,11 +128,18 @@ const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
                       </div>
                     </div>
                   </TableCell>
+                  <TableCell>{session.cat_name}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <span>{session.product_id}</span>
+                      <span>{session.prod_name}</span>
                     </div>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {session.test_name}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {session.conversation_data.pairs.length}
                   </TableCell>
                   <TableCell className="text-center">
                     {isCompleted ? (
@@ -162,12 +186,15 @@ const PastSessionsTable = ({ sessions }: PastSessionsTableProps) => {
         </Table>
       </div>
 
-      <Dialog open={!!selectedSession} onOpenChange={() => setSelectedSession(null)}>
+      <Dialog
+        open={!!selectedSession}
+        onOpenChange={() => setSelectedSession(null)}
+      >
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
           {selectedSession && (
-            <SessionFeedbackDisplay 
-              session={selectedSession} 
-              onBack={() => setSelectedSession(null)} 
+            <SessionFeedbackDisplay
+              session={selectedSession}
+              onBack={() => setSelectedSession(null)}
             />
           )}
         </DialogContent>
