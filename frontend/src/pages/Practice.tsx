@@ -304,7 +304,6 @@ const Practice = () => {
       selectedTestConfigId
     ) {
       setSessionLoading(true);
-      // Create updated history with the current input if it exists
       const finalHistory = [...conversationHistory];
       if (salespersonInput.trim() && finalHistory.length > 0) {
         finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
@@ -317,10 +316,19 @@ const Practice = () => {
         test_configuration_id: selectedTestConfigId,
       };
 
-      console.log("Ending session with payload:", payload);
+      console.log("Ending session with payload:", {
+        type: payload.type,
+        product_id: payload.product_id,
+        test_configuration_id: payload.test_configuration_id,
+        history: finalHistory.map(h => ({
+          visitor: h.visitor_text.substring(0, 50) + "...",
+          salesperson: h.salesperson_text.substring(0, 50) + "..."
+        }))
+      });
+
       websocket.send(JSON.stringify(payload));
-      cleanupSession();
-      navigate("/practice"); // Use navigate function instead of Navigate component
+      // Don't cleanup immediately, wait for session_complete response
+      setSessionLoading(true);
     } else {
       cleanupSession();
     }
@@ -366,7 +374,11 @@ const Practice = () => {
   };
 
   const handleSessionComplete = (data: WebSocketMessage) => {
-    console.log("Session Complete:", data);
+    console.log("Session Complete Response:", {
+      evaluation: data.complete_evaluation?.substring(0, 100) + "...",
+      additionalCriteria: data.additional_criteria_evaluation?.substring(0, 100) + "...",
+      type: data.type
+    });
     setEvaluationResults({
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
