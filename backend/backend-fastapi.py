@@ -1115,7 +1115,7 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
         conversation: List of conversation exchanges
         criteria: The selected criteria to evaluate
         context: Product context from PDF
-        persona: Customer persona details
+        persona: Customer persona details for context-aware evaluation
     
     Returns:
         str: Evaluation text
@@ -2482,4 +2482,4 @@ async def get_latest_sessions(current_user: User = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=7070, reload=True) 
+    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8070, reload=True)  # Changed port to 8070
