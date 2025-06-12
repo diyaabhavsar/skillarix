@@ -95,7 +95,7 @@ const Navbar = () => {
               <DropdownMenuItem asChild>
                 <Link to="/past-sessions" className="cursor-pointer w-full flex items-center">
                   <Clock className="mr-2 h-4 w-4" />
-                  <span>Session History</span>
+                  <span>Assesment History</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
