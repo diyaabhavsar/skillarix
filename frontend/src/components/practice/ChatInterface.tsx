@@ -3,7 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRef, useEffect, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -151,13 +151,13 @@ const ChatInterface = ({
       {/* Fixed input area */}
       <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-4xl mx-auto p-4">
-          <div className="flex gap-2">
+          <div className="relative flex items-center gap-2">
             <Textarea
               value={salespersonInput}
               onChange={(e) => onSalespersonInputChange(e.target.value)}
               placeholder="Type your response..."
               disabled={sessionLoading}
-              className="min-h-[80px] resize-none text-base"
+              className="min-h-[80px] pr-24 resize-none text-base"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -165,42 +165,47 @@ const ChatInterface = ({
                 }
               }}
             />
-
-            {/* Voice input button */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onVoiceInput}
-              className={cn(
-                "shrink-0",
-                isRecording && "bg-red-50 text-red-500 border-red-200"
-              )}
-            >
-              {isRecording ? <MicOff /> : <Mic />}
-            </Button>
+            <div className="absolute right-2 bottom-2 flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onVoiceInput}
+                className={cn(
+                  "h-8 w-8 rounded-full transition-colors",
+                  isRecording
+                    ? "bg-red-100 text-red-600 hover:bg-red-200"
+                    : "hover:bg-slate-100"
+                )}
+              >
+                {isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                size="icon"
+                onClick={onSendResponse}
+                disabled={sessionLoading || !salespersonInput.trim()}
+                className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90"
+              >
+                {sessionLoading ? (
+                  <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex justify-between mt-4">
+          <div className="mt-4">
             <Button
               variant="outline"
               onClick={() => setIsEndAlertOpen(true)}
               disabled={!canEndSession}
+              className="text-sm"
             >
               End Assessment
-            </Button>
-            <Button
-              onClick={onSendResponse}
-              disabled={sessionLoading || !salespersonInput.trim()}
-            >
-              {sessionLoading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  Sending...
-                </>
-              ) : (
-                "Send Response"
-              )}
             </Button>
           </div>
         </div>

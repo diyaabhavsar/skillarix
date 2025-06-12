@@ -76,6 +76,19 @@ interface WebSocketMessage {
   additional_criteria_evaluation?: string;
 }
 
+interface Rating {
+  score: number;
+  max: number;
+}
+
+interface CompleteRating {
+  overall_progress: Rating;
+  sales_strategy: Rating;
+  customer_journey: Rating;
+  technical_accuracy: Rating;
+  total: Rating;
+}
+
 interface IndividualEvaluation {
   evaluation: string;
   reference_answer?: string;
@@ -94,6 +107,18 @@ interface ConversationEvaluation {
     // ...rest of evaluation_data interface
   };
   // ...existing code...
+}
+
+interface ConversationSession {
+  evaluation_data: {
+    complete_rating?: Partial<CompleteRating>;
+    // ...other evaluation_data fields
+  };
+  category_id?: string;
+  test_name?: string;
+  prod_name?: string;
+  cat_name?: string;
+  // ...other session fields
 }
 
 const Practice = () => {
@@ -510,26 +535,29 @@ const Practice = () => {
   // Update how we pass the conversations data
   const processedSessions = React.useMemo(() => {
     if (!conversations?.data) return [];
-    return conversations.data.map((session) => ({
-      ...session,
-      category_id: session.category_id || "",
-      test_name: session.test_name || "",
-      prod_name: session.prod_name || "",
-      cat_name: session.cat_name || "",
-      evaluation_data: {
-        ...session.evaluation_data,
-        complete_rating: {
-          overall_progress: session.evaluation_data.complete_rating?.overall_progress || { score: 0, max: 0 },
-          sales_strategy: session.evaluation_data.complete_rating?.sales_strategy || { score: 0, max: 0 },
-          customer_journey: session.evaluation_data.complete_rating?.customer_journey || { score: 0, max: 0 },
-          technical_accuracy: session.evaluation_data.complete_rating?.technical_accuracy || { score: 0, max: 0 },
-          total: session.evaluation_data.complete_rating?.total || {
-            score: 0,
-            max: 0,
-          },
+    return conversations.data.map((session: ConversationSession) => {
+      const defaultRating: Rating = { score: 0, max: 0 };
+      
+      const complete_rating: CompleteRating = {
+        overall_progress: session.evaluation_data.complete_rating?.overall_progress || defaultRating,
+        sales_strategy: session.evaluation_data.complete_rating?.sales_strategy || defaultRating,
+        customer_journey: session.evaluation_data.complete_rating?.customer_journey || defaultRating,
+        technical_accuracy: session.evaluation_data.complete_rating?.technical_accuracy || defaultRating,
+        total: session.evaluation_data.complete_rating?.total || defaultRating,
+      };
+
+      return {
+        ...session,
+        category_id: session.category_id || "",
+        test_name: session.test_name || "",
+        prod_name: session.prod_name || "",
+        cat_name: session.cat_name || "",
+        evaluation_data: {
+          ...session.evaluation_data,
+          complete_rating,
         },
-      },
-    }));
+      };
+    });
   }, [conversations]);
 
   // Update pagination data when conversations change
@@ -544,6 +572,8 @@ const Practice = () => {
       });
     }
   }, [conversations, itemsPerPage]);
+
+  
 
   const handleCloseAttempt = () => {
     if (isSessionActive) {

@@ -157,34 +157,39 @@ class UserInDB(User):
 
 # Add Pydantic models for Test Configuration - Ensure they expect string IDs
 class VisitorPersona(BaseModel):
-    background: str
-    pain_points: str
-    goals: str
-    technical_knowledge: str
-    budget_sensitivity: str
-    decision_authority: str
-    previous_experience: str
+    product_knowledge: str  # None, Name-only, Saw ad/brochure, Peer-heard, Very familiar
+    product_familiarity: str  # Never seen, Handled briefly, Tried sample, Similar user, Loyal user
+    technical_expertise: str  # General, Basic, Moderate, Advanced, Expert
+    key_challenges: str  # Cost control, Quality/reliability, Compliance, Simplicity, Trust in vendor, Sustainability
+    buying_objective: str  # Save money, Boost quality, Meet standards, Upgrade, Future planning
+    budget_range: str  # Very low, Low, Mid, High, Very high
+    decision_authority: str  # User, Influencer, Evaluator, Approver, Final sign-off
+    exhibition_objective: str  # Info gathering, Spec comparison, Pricing talk, Terms/warranty, Partnership, Demo booking
 
 class AdditionalCriteria(BaseModel):
     distraction_handling: bool
     communication_simplicity: bool
 
 class TestConfigurationCreate(BaseModel):
-    product_id: str # Expect string ID for input
+    product_id: str  # Expect string ID for input
+    category_id: str  # Add this line
     visitorPersona: VisitorPersona
     additionalCriteria: AdditionalCriteria
     name: str
 
 class TestConfiguration(BaseModel):
-    id: str = Field(alias="_id") # Expect string ID for output
-    product_id: str # Expect string ID for output
+    id: str = Field(alias="_id")  # Expect string ID for output
+    product_id: str  # Expect string ID for output
+    category_id: str  # Add this line
     visitorPersona: Dict[str, Any]
     additionalCriteria: Dict[str, bool]
     name: str
-    created_by: str # Expect string ID for output
+    created_by: str  # Expect string ID for output
     created_at: datetime
+    is_deleted: bool = False  # Add this line
     # Assuming no updated_by for test configs based on current schema, add if needed
     # updated_by: Optional[str] = None
+
 
 # Helper functions for authentication
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -324,17 +329,29 @@ class DatabaseOperations:
         # Convert ObjectIds to strings before returning
         return convert_objectids_to_strings(categories_list)
 
-    def create_product(self, name: str, category_id: ObjectId, pdf_content: str, metadata: dict, created_by: str, description: Optional[str] = None) -> ObjectId:
+    def create_product(self, name: str, category_id: ObjectId, pdf_content: str, metadata: dict, created_by: str, description: Optional[str] = None, is_deleted: bool = False) -> ObjectId:
+        # Check if a product with the same name already exists
+        existing_product = self.products.find_one({
+            "name": name,
+            "is_deleted": False
+        })
+        if existing_product:
+            raise HTTPException(
+                status_code=400,
+                detail="A product with this name already exists"
+            )
+        
         product_data = {
             "name": name,
-            "category_id": category_id, # category_id should already be ObjectId from endpoint
+            "category_id": category_id,
             "content": pdf_content,
             "metadata": metadata,
-            "created_by": ObjectId(created_by), # Store as ObjectId
-            "created_at": datetime.now(UTC), # Use timezone-aware datetime
-            "updated_at": datetime.now(UTC), # Use timezone-aware datetime
-            "updated_by": ObjectId(created_by), # Store as ObjectId
-            "description": description
+            "created_by": ObjectId(created_by),
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
+            "updated_by": ObjectId(created_by),
+            "description": description,
+            "is_deleted": is_deleted
         }
         result = self.products.insert_one(product_data)
         return result.inserted_id
@@ -415,15 +432,18 @@ class DatabaseOperations:
     # Method to save test configuration
     def save_test_configuration(self, config_data: TestConfigurationCreate, created_by: str) -> ObjectId:
         test_config_doc = {
-            "product_id": ObjectId(config_data.product_id), # Store as ObjectId
-            "visitorPersona": config_data.visitorPersona.model_dump(), # Use model_dump()
-            "additionalCriteria": config_data.additionalCriteria.model_dump(), # Use model_dump()
+            "product_id": ObjectId(config_data.product_id),
+            "category_id": ObjectId(config_data.category_id),
+            "visitorPersona": config_data.visitorPersona.model_dump(),
+            "additionalCriteria": config_data.additionalCriteria.model_dump(),
             "name": config_data.name,
-            "created_by": ObjectId(created_by), # Store as ObjectId
-            "created_at": datetime.now(UTC), # Use timezone-aware datetime
+            "created_by": ObjectId(created_by),
+            "created_at": datetime.now(UTC),
+            "is_deleted": False  # Add this line
         }
         result = self.test_configurations.insert_one(test_config_doc)
         return result.inserted_id
+
 
     # New method to get test configurations by product ID and by current user
     # def get_test_configurations_by_product(self, product_id: ObjectId, user_id: str) -> List[Dict[str, Any]]:
@@ -443,10 +463,11 @@ class DatabaseOperations:
     # New method to get test configurations by product ID
     def get_test_configurations_by_product(self, product_id: ObjectId) -> List[Dict[str, Any]]:
         """
-        Retrieves all test configurations for a given product.
+        Retrieves all non-deleted test configurations for a given product.
         """
         configs_cursor = self.test_configurations.find({
-            "product_id": product_id
+            "product_id": product_id,
+            "is_deleted": False  # Add this line
         })
         configs_list = list(configs_cursor)
         return convert_objectids_to_strings(configs_list)
@@ -573,64 +594,6 @@ def remove_invalid_json_chars(raw_string: str) -> str:
     control_char_regex = re.compile(r'[\x00-\x07\x0B\x0C\x0E-\x1F]+')
     return control_char_regex.sub('', raw_string)
 
-def generate_customer_persona(product_context: str) -> dict:
-    """Generate a customer persona based on the product context."""
-    try:
-        prompt = f"""
-Based on the following product documentation, generate a realistic customer persona who would be interested in this product.
-
-Product Documentation:
-{product_context}
-
-Please provide a detailed persona including:
-1. Demographics (age, occupation, industry, etc.)
-2. Pain points and challenges
-3. Goals and objectives
-4. Technical expertise level
-5. Decision-making factors
-6. Budget considerations
-7. Timeline for purchase
-8. Key questions they might ask
-
-Format the response as a JSON object with these fields.
-"""
-        
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_completion_tokens=1024,
-            top_p=1,
-            stream=True,
-            stop=None,
-        )
-        
-        full_response = ""
-        for chunk in completion:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-        
-        # Parse the JSON response
-        try:
-            persona = json.loads(full_response)
-            return persona
-        except json.JSONDecodeError:
-            # If JSON parsing fails, return a structured dict
-            return {
-                "demographics": {},
-                "pain_points": [],
-                "goals": [],
-                "technical_expertise": "intermediate",
-                "decision_factors": [],
-                "budget": "medium",
-                "timeline": "1-3 months",
-                "key_questions": []
-            }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating customer persona: {str(e)}")
-
-
 def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     try:
         greeting_instruction = "Start with a warm greeting" if is_first_exchange else "Skip the greeting as this is a continuing conversation"
@@ -670,11 +633,14 @@ Guidelines for your response:
 7. Be conversational and engaging
 8. End with an open-ended question that encourages the customer to share more about their needs
 9. Tailor your response to match the customer's:
-   - Technical knowledge level
-   - Pain points and goals
-   - Budget sensitivity
-   - Decision-making authority
-   - Previous experience
+   - Product Knowledge Level
+   - Product Familiarity
+   - Technical Expertise
+   - Key Challenges
+   - Buying Objective
+   - Budget Range
+   - Decision Authority
+   - Exhibition Objective
 
 Remember:
 - Start with high-level benefits
@@ -764,16 +730,19 @@ Evaluate the salesperson's performance on:
    - {"Does it begin with an appropriate greeting?" if is_first_exchange else ""}
    - Does it reference previous exchanges appropriately? (if applicable)
    - Does it appropriately address the customer's:
-     * Technical knowledge level
-     * Pain points and goals
-     * Budget sensitivity
-     * Decision-making authority
-     * Previous experience
+     * Product Knowledge Level
+     * Product Familiarity
+     * Technical Expertise
+     * Key Challenges
+     * Buying Objective
+     * Budget Range
+     * Decision Authority
+     * Exhibition Objective
 
 Give a total score out of 10 and provide specific feedback on how they can improve their pitch and customer interaction.
 
 IMPORTANT INSTRUCTIONS:
-- Return ONLY a valid JSON object, and nothing else.
+- Return ONLY a valid JSON object, and nothing else, only single string and no new lines characters.
 - Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
 - The JSON object must have exactly two fields: "evaluation" and "rating".
 - "evaluation" should be a single string containing all your analysis, feedback, and suggestions.
@@ -856,11 +825,14 @@ Evaluate the following aspects:
    - Is the salesperson building rapport and trust?
    - Is the conversation becoming more specific/detailed?
    - Is the salesperson addressing the customer's:
-     * Technical knowledge level appropriately
-     * Pain points and goals
-     * Budget sensitivity
-     * Decision-making authority
-     * Previous experience
+     * Product Knowledge Level
+     * Product Familiarity
+     * Technical Expertise
+     * Key Challenges
+     * Buying Objective
+     * Budget Range
+     * Decision Authority
+     * Exhibition Objective
 
 Provide:
 1. Scores for each category
@@ -901,12 +873,14 @@ Customer Persona:
 {json.dumps(persona, indent=2)}
 
 Key Persona Considerations:
-- Technical Knowledge Level: {persona.get('technical_knowledge', 'Not specified')}
-- Pain Points: {persona.get('pain_points', 'Not specified')}
-- Goals: {persona.get('goals', 'Not specified')}
-- Budget Sensitivity: {persona.get('budget_sensitivity', 'Not specified')}
+- Product Knowledge: {persona.get('product_knowledge', 'Not specified')}
+- Product Familiarity: {persona.get('product_familiarity', 'Not specified')}
+- Technical Expertise: {persona.get('technical_expertise', 'Not specified')}
+- Key Challenges: {persona.get('key_challenges', 'Not specified')}
+- Buying Objective: {persona.get('buying_objective', 'Not specified')}
+- Budget Range: {persona.get('budget_range', 'Not specified')}
 - Decision Authority: {persona.get('decision_authority', 'Not specified')}
-- Previous Experience: {persona.get('previous_experience', 'Not specified')}
+- Exhibition Objective: {persona.get('exhibition_objective', 'Not specified')}
 
 Context from product documentation:
 {context}
@@ -938,7 +912,7 @@ Evaluate the following aspects:
    - Was the technical complexity matched to the customer's knowledge level?
 
 Provide:
-1. Explanation of Overall score(don't include score itself, just it's explaination) and breakdown by category (key name to be used for this point: overall_score, the response for this point must be in single string)
+1. A comprehensive explanation of the overall performance, integrating detailed insights and specific examples from the 'Overall Progress', 'Sales Strategy', 'Customer Journey', and 'Technical Accuracy' categories. This explanation should be a single, detailed string and should NOT include the numerical overall score.
 2. Key successful moments in the conversation (key name to be used: key_successful_moments, the response for this point must be in single string)
 3. Critical missed opportunities (key name to be used: critical_missed_opportunities, the response for this point must be in single string)
 4. Pattern analysis of effective/ineffective techniques used (key name to be used: pattern_analysis, the response for this point must be in single string)
@@ -950,11 +924,24 @@ IMPORTANT INSTRUCTIONS:
 - All the keys must be in lowercase and instead of space use underscore.
 - Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
 - The JSON object must have exactly two fields: "complete_evaluation" and "complete_rating".
-- "complete_evaluation" should be containing all your analysis, feedback, and suggestions as suggested in the prompt in detail. make sure to include all the details as suggested in the prompt.
+- "complete_evaluation" should be an object with the following fields, where each field contains a single string:
+   - "overall_score": "Explanation of Overall score and breakdown by category, all in a single string."
+   - "key_successful_moments": "Detailed description of key successful moments."
+   - "critical_missed_opportunities": "Detailed description of critical missed opportunities."
+   - "pattern_analysis": "Detailed analysis of effective/ineffective techniques."
+   - "recommendations": "Detailed recommendations for future conversations."
+   - "specific_analysis": "Detailed specific analysis of persona adaptation."
 - "complete_rating" should be an object with the following structure and ONLY numbers as values:
 
 {{
-  "complete_evaluation": "Your detailed feedback, analysis, and suggestions here as suggested in the prompt in detail.",
+  "complete_evaluation": {{
+    "overall_score": "Your comprehensive explanation integrating insights from Overall Progress, Sales Strategy, Customer Journey, and Technical Accuracy, all in a single string.",
+    "key_successful_moments": "Your detailed description of key successful moments here.",
+    "critical_missed_opportunities": "Your detailed description of critical missed opportunities here.",
+    "pattern_analysis": "Your detailed analysis of effective/ineffective techniques here.",
+    "recommendations": "Your detailed recommendations for future conversations here.",
+    "specific_analysis": "Your detailed specific analysis of persona adaptation here."
+  }},
   "complete_rating": {{
     "overall_progress": {{"score": <number>, "max": 3}},
     "sales_strategy": {{"score": <number>, "max": 3}},
@@ -1339,7 +1326,7 @@ async def soft_delete_category(
         raise HTTPException(status_code=404, detail="Category not found.")
 
     # Only allow the creator or admin to delete
-    if current_user.role != "admin" and str(category["created_by"]) != current_user.id:
+    if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to delete this category.")
 
     db.categories.update_one(
@@ -1356,47 +1343,34 @@ async def create_product(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    pdf_content, metadata = read_pdf(file.file)
-    
-    # Ensure category_id is ObjectId for storage
-    category_obj_id = ObjectId(category_id)
+    try:
+        pdf_content, metadata = read_pdf(file.file)
+        
+        # Ensure category_id is ObjectId for storage
+        category_obj_id = ObjectId(category_id)
 
-    # Call create_product, passing string user ID (db_ops converts it to ObjectId)
-    product_id = db_ops.create_product(
-        name=name,
-        category_id=category_obj_id,
-        pdf_content=pdf_content,
-        metadata=metadata,
-        created_by=current_user.id, # Pass string user ID
-        description=description
-    )
+        # Call create_product, passing string user ID (db_ops converts it to ObjectId)
+        product_id = db_ops.create_product(
+            name=name,
+            category_id=category_obj_id,
+            pdf_content=pdf_content,
+            metadata=metadata,
+                created_by=current_user.id,
+                description=description,
+                is_deleted=False 
+        )
 
     # Fetch the newly created product
-    # The db_ops method *should* return dict with string IDs, but let's ensure conversion here
-    created_product_dict = db.products.find_one({"_id": product_id}) # Fetch the raw document
-
-    # --- FIX START: Manually convert all known ObjectId fields to strings for the response ---
-    if created_product_dict: # Ensure product was found after insertion
-        # Convert top-level ObjectId fields
-        if '_id' in created_product_dict and isinstance(created_product_dict['_id'], ObjectId):
-             created_product_dict['_id'] = str(created_product_dict['_id'])
-        if 'category_id' in created_product_dict and isinstance(created_product_dict['category_id'], ObjectId):
-             created_product_dict['category_id'] = str(created_product_dict['category_id'])
-        if 'created_by' in created_product_dict and isinstance(created_product_dict['created_by'], ObjectId):
-             created_product_dict['created_by'] = str(created_product_dict['created_by'])
-        if 'updated_by' in created_product_dict and isinstance(created_product_dict['updated_by'], ObjectId):
-             created_product_dict['updated_by'] = str(created_product_dict['updated_by'])
-
-        # Check if metadata is a dictionary and look for ObjectIds inside it
-        if 'metadata' in created_product_dict and isinstance(created_product_dict['metadata'], dict):
-             # Assuming you don't store ObjectIds deep inside metadata.
-             # If you do, you'd need recursive conversion or specific checks here.
-             pass # Metadata fields like title, author, creation_date, total_pages are likely strings/ints
-
-    # --- FIX END ---
-
-    # Return the dictionary with ObjectIds converted to strings
-    return created_product_dict
+        created_product_dict = db.products.find_one({"_id": product_id})
+        if created_product_dict:
+            return convert_objectids_to_strings(created_product_dict)
+        raise HTTPException(status_code=500, detail="Failed to create product")
+        
+    except HTTPException as e:
+        # Re-raise HTTP exceptions (like the duplicate name error)
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create product: {str(e)}")
 
 @app.get("/products/{category_id}")
 async def get_products(category_id: str, current_user: User = Depends(get_current_user)):
@@ -1466,10 +1440,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                       # Optionally send a warning to the client if config not found
                       print(f"Warning: Test configuration {test_config_id_str} not found.")
 
+            # Combine product content and description into a single context string
+            product_content_str = product.get("content") if product.get("content") else ""
+            product_description_str = product.get("description") if product.get("description") else ""
+            
+            combined_product_context = ""
+            if product_content_str and product_description_str:
+                combined_product_context = f"Product Content: {product_content_str}\nProduct Description: {product_description_str}"
+            elif product_content_str:
+                combined_product_context = f"Product Content: {product_content_str}"
+            elif product_description_str:
+                combined_product_context = f"Product Description: {product_description_str}"
+            else:
+                combined_product_context = "" # Or None
 
             conversation_history = []
             # Generate initial customer question using the loaded persona
-            question = generate_customer_question(product["content"], conversation_history, persona)
+            question = generate_customer_question(combined_product_context, conversation_history, persona)
             await websocket.send_json({
                 "type": "question",
                 "content": question,
@@ -1495,6 +1482,20 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                 if not product:
                      await websocket.send_json({"error": "Product not found"})
                      continue # Keep the connection open? Or close? Based on desired flow.
+                
+                # Combine product content and description for ongoing context
+                product_content_str = product.get("content") if product.get("content") else ""
+                product_description_str = product.get("description") if product.get("description") else ""
+                
+                combined_product_context = ""
+                if product_content_str and product_description_str:
+                    combined_product_context = f"Product Content: {product_content_str}\nProduct Description: {product_description_str}"
+                elif product_content_str:
+                    combined_product_context = f"Product Content: {product_content_str}"
+                elif product_description_str:
+                    combined_product_context = f"Product Description: {product_description_str}"
+                else:
+                    combined_product_context = "" # Or None
 
                 conversation_history = data.get("history", [])
                 salesperson_answer = data.get("answer")
@@ -1521,7 +1522,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
 
                 # Generate next question using the persona
                 next_question = generate_customer_question(
-                    product["content"],
+                    combined_product_context,
                     conversation_history + [{
                         "visitor_text": last_question,
                         "salesperson_text": salesperson_answer
@@ -1574,11 +1575,27 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                            final_additional_criteria_config = test_config.get("additionalCriteria", None)
                       # else: Log warning
 
+                 # Combine product content and description for final context
+                 product_content_str = product.get("content") if product.get("content") else ""
+                 product_description_str = product.get("description") if product.get("description") else ""
+                 
+                 combined_product_context = ""
+                 if product_content_str and product_description_str:
+                     combined_product_context = f"Product Content: {product_content_str}\nProduct Description: {product_description_str}"
+                 elif product_content_str:
+                     combined_product_context = f"Product Content: {product_content_str}"
+                 elif product_description_str:
+                     combined_product_context = f"Product Description: {product_description_str}"
+                 else:
+                     combined_product_context = "" # Or None     
+
+                 print("combined_product_context", combined_product_context)
+
 
                  # Perform complete evaluation
                  complete_evaluation_raw = evaluate_complete_conversation(
                      conversation_history,
-                     product["content"],
+                     combined_product_context,
                      current_persona  # Add the persona parameter
                  )
 
@@ -1648,7 +1665,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                              eval_text = evaluate_additional_criteria(
                                  conversation_history,
                                  prompt_key,
-                                 product["content"],
+                                 combined_product_context,
                                  current_persona  # Add the persona parameter
                              )
                              additional_criteria_evaluation[criteria] = eval_text
@@ -1660,7 +1677,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                  individual_evaluations = []
                  for idx, exchange in enumerate(conversation_history):
                      rag_answer = generate_answer_rag(
-                         product["content"],
+                         combined_product_context,
                          exchange["visitor_text"],
                          current_persona,
                          idx == 0,
@@ -1736,7 +1753,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                  # 2. Optionally, generate mid-evaluations (e.g., every 4 exchanges)
                  mid_evaluations = []
                  for i in range(3, len(conversation_history), 4):
-                     mid_eval = evaluate_mid_conversation(conversation_history[:i+1], product["content"], current_persona)
+                     mid_eval = evaluate_mid_conversation(conversation_history[:i+1], combined_product_context, current_persona)
                      mid_evaluations.append(mid_eval)
 
                  # 3. Complete evaluation (already done)
@@ -2049,10 +2066,9 @@ async def get_all_test_configurations(
     current_user: User = Depends(get_current_user)
 ) -> List[TestConfiguration]:
     """
-    Retrieves all test configurations created by the current admin user.
+    Retrieves all non-deleted test configurations created by the current admin user.
     Only admin users are authorized to access this endpoint.
     """
-    # Check if user is admin
     if current_user.role != "admin":
         raise HTTPException(
             status_code=403,
@@ -2060,10 +2076,10 @@ async def get_all_test_configurations(
         )
     
     try:
-        # Only show test configurations created by the current admin
-        configs_cursor = db.test_configurations.find({"created_by": ObjectId(current_user.id)})
+        configs_cursor = db.test_configurations.find({
+            "is_deleted": False  # Add this line
+        })
         configs_list = list(configs_cursor)
-        # Convert ObjectIds to strings before returning
         configs_list = convert_objectids_to_strings(configs_list)
         return [TestConfiguration(**config) for config in configs_list]
     except Exception as e:
@@ -2131,7 +2147,7 @@ async def update_test_configuration(
         raise HTTPException(status_code=404, detail="Test configuration not found.")
 
     # Only allow the creator or admin to update
-    if current_user.role != "admin" or str(test_config["created_by"]) != current_user.id:
+    if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to update this test configuration.")
 
     update_data = {}
@@ -2161,15 +2177,13 @@ async def update_test_configuration(
     return updated_config
 
 @app.get("/products")
-async def get_products_by_user(
-    current_user: User = Depends(get_current_user)
-):
+async def get_products_by_user():
     """
     List all products created by the current logged-in user (irrespective of category).
     """
     try:
         # Find all products where created_by matches the current user's ObjectId
-        products_cursor = db.products.find({"created_by": ObjectId(current_user.id)})
+        products_cursor = db.products.find({"is_deleted": False})
         products = list(products_cursor)
         # Convert ObjectId fields to strings for JSON serialization
         for prod in products:
@@ -2225,7 +2239,7 @@ async def delete_product(
         raise HTTPException(status_code=404, detail="Product not found.")
 
     # Only allow the creator and admin to delete
-    if current_user.role != "admin" or str(product["created_by"]) != current_user.id:
+    if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to delete this product.")
 
     db.products.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
@@ -2243,8 +2257,7 @@ async def delete_test_configuration(
     if not test_config:
         raise HTTPException(status_code=404, detail="Test configuration not found.")
 
-    # Only allow the creator and admin to delete
-    if current_user.role != "admin" or str(test_config["created_by"]) != current_user.id:
+    if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to delete this test configuration.")
 
     db.test_configurations.update_one(
@@ -2379,89 +2392,6 @@ async def delete_user(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted"}
-
-@app.get("/api/admin/stats")
-async def get_admin_stats(current_user: User = Depends(get_current_user)):
-    """
-    Get admin dashboard stats: total users, active users, sessions completed, average score, products.
-    Admin only.
-    """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    total_users = db.users.count_documents({})
-    active_users = db.users.count_documents({"active": True})
-    total_sessions = db.conversations.count_documents({"evaluation_data.is_complete": True})
-    # Calculate average score from all conversations (if available)
-    scores = []
-    for conv in db.conversations.find({}):
-        eval_data = conv.get("evaluation_data", {})
-        # Try to get score from complete_rating or similar
-        complete_rating = eval_data.get("complete_rating", {})
-        if isinstance(complete_rating, dict):
-            total = complete_rating.get("total", {})
-            if isinstance(total, dict) and "score" in total:
-                scores.append(total["score"])
-    average_score = round(sum(scores) / len(scores), 2) if scores else 0
-    total_products = db.products.count_documents({})
-
-    return {
-        "total_users": total_users,
-        "active_users": active_users,
-        "sessions_completed": total_sessions,
-        "average_score": average_score,
-        "products": total_products,
-    }
-
-@app.get("/api/admin/latest-users")
-async def get_latest_users(current_user: User = Depends(get_current_user)):
-    """
-    Get the latest 5 registered users (admin only).
-    """
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-    users = list(db.users.find({}).sort("created_at", -1).limit(5))
-    for user in users:
-        user["_id"] = str(user["_id"])
-        user.pop("password", None)
-        user.pop("hashed_password", None)
-    return users
-
-def convert_object_ids(obj):
-    if isinstance(obj, dict):
-        return {k: convert_object_ids(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_object_ids(item) for item in obj]
-    elif isinstance(obj, ObjectId):
-        return str(obj)
-    else:
-        return obj
-    
-@app.get("/api/admin/latest-sessions")
-async def get_latest_sessions(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    sessions = list(db.conversations.find({"evaluation_data.is_complete": True}).sort("created_at", -1).limit(5))
-
-    for session in sessions:
-        # Add user info
-        user = db.users.find_one({"_id": session.get("user_id")})
-        session["user_name"] = user["username"] if user else "Unknown"
-
-        # Add product info
-        product = db.products.find_one({"_id": session.get("product_id")})
-        session["product_name"] = product["name"] if product else "Unknown"
-
-        # Add score
-        eval_data = session.get("evaluation_data", {})
-        complete_rating = eval_data.get("complete_rating", {})
-        total = complete_rating.get("total", {})
-        session["score"] = total.get("score", None) if isinstance(total, dict) else None
-
-    # ✅ Sanitize all ObjectId fields
-    return convert_object_ids(sessions)
-
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,11 +1,10 @@
-
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -42,7 +41,9 @@ const SessionHistoryTable = ({ sessions }: SessionHistoryTableProps) => {
           <TableBody>
             {sessions.map((session, i) => (
               <TableRow key={`${session.id}-${i}`}>
-                <TableCell className="font-medium">{session.productName}</TableCell>
+                <TableCell className="font-medium">
+                  {session.productName}
+                </TableCell>
                 <TableCell>{session.date}</TableCell>
                 <TableCell>{session.duration}</TableCell>
                 <TableCell>{session.questions}</TableCell>
