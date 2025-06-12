@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -55,6 +55,74 @@ import {
 } from "@/components/ui/alert-dialog";
 import { api } from "@/utils/api";
 
+// Helper functions outside component
+const formatDateTime = (dateTimeStr: string) => {
+  if (!dateTimeStr) return "";
+  const date = new Date(dateTimeStr);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${day}-${month}-${year} ${hours}:${minutes}`;
+};
+
+// Error display component
+const ErrorMessage = ({ error }: { error: string | null }) => {
+  if (!error) return null;
+  return <div className="text-red-500 text-sm">{error}</div>;
+};
+
+// Delete confirmation dialog component
+const DeleteUserDialog = ({
+  open,
+  onOpenChange,
+  user,
+  onConfirm,
+  loading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: User | null;
+  onConfirm: () => void;
+  loading: boolean;
+}) => (
+  <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Delete User</AlertDialogTitle>
+        <AlertDialogDescription>
+          Are you sure you want to delete{" "}
+          <span className="font-semibold">{user?.name}</span>? This action
+          cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          className="bg-red-600 hover:bg-red-700"
+          onClick={onConfirm}
+          disabled={loading}
+        >
+          {loading ? "Deleting..." : "Delete"}
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+);
+
+interface ApiUser {
+  _id?: string;
+  id?: string;
+  username?: string;
+  name?: string;
+  email: string;
+  role: "admin" | "employee";
+  active?: boolean;
+  sessions?: number;
+  last_login?: string;
+}
+
 type User = {
   id: string;
   name: string;
@@ -65,7 +133,13 @@ type User = {
   lastActive: string;
 };
 
-const defaultForm = { name: "", email: "", password: "", role: "employee", active: true };
+const defaultForm = {
+  name: "",
+  email: "",
+  password: "",
+  role: "employee",
+  active: true,
+};
 
 const ManageUsers = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,9 +169,9 @@ const ManageUsers = () => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const data = await api.get("/api/users");
-        const mappedUsers: User[] = data.map((u: any) => ({
-          id: u._id || u.id,
+        const data = await api.get<ApiUser[]>("/api/users");
+        const mappedUsers: User[] = data.map((u: ApiUser) => ({
+          id: u._id || u.id || "",
           name: u.username || u.name || "",
           email: u.email,
           role: u.role,
@@ -114,29 +188,21 @@ const ManageUsers = () => {
     fetchUsers();
   }, []);
 
-  // Filter users based on search query
-  const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  // Memoize filtered users
+  const filteredUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [users, searchQuery]
   );
 
-  const handleToggleUserStatus = (userId: string) => {
-    // In a real app, this would update the user's status in the database
-    console.log(`Toggle status for user: ${userId}`);
-  };
+  // Add type for GetUsersResponse
+  type GetUsersResponse = ApiUser[];
 
-  const formatDateTime = (dateTimeStr: string) => {
-    if (!dateTimeStr) return "";
-    const date = new Date(dateTimeStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day}-${month}-${year} ${hours}:${minutes}`;
-  };
-
-  // Handle create user
+  // Handle create user and reload users with proper typing
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddUserLoading(true);
@@ -152,9 +218,9 @@ const ManageUsers = () => {
       setAddUserForm({ ...defaultForm });
       setIsAddUserOpen(false);
       setLoading(true);
-      const usersData = await api.get("/api/users");
-      const mappedUsers: User[] = usersData.map((u: any) => ({
-        id: u._id || u.id,
+      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const mappedUsers: User[] = usersData.map((u) => ({
+        id: u._id || u.id || "",
         name: u.username || u.name || "",
         email: u.email,
         role: u.role,
@@ -171,26 +237,26 @@ const ManageUsers = () => {
     setAddUserLoading(false);
   };
 
-  // Handle edit user
+  // Handle edit user with proper typing
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditUserLoading(true);
     setEditUserError(null);
     try {
-      const body: any = {
+      const body = {
         username: editUserForm.name,
         email: editUserForm.email,
         role: editUserForm.role,
         active: editUserForm.active,
+        ...(editUserForm.password ? { password: editUserForm.password } : {}),
       };
-      if (editUserForm.password) body.password = editUserForm.password;
       await api.put(`/api/users/${editUserForm.id}`, body);
       setIsEditUserOpen(false);
       setEditUserForm({ ...defaultForm, id: "" });
       setLoading(true);
-      const usersData = await api.get("/api/users");
-      const mappedUsers: User[] = usersData.map((u: any) => ({
-        id: u._id || u.id,
+      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const mappedUsers: User[] = usersData.map((u) => ({
+        id: u._id || u.id || "",
         name: u.username || u.name || "",
         email: u.email,
         role: u.role,
@@ -227,9 +293,9 @@ const ManageUsers = () => {
     setViewUserLoading(true);
     setIsViewUserOpen(true);
     try {
-      const u = await api.get(`/api/users/${userId}`);
+      const u = await api.get<ApiUser>(`/api/users/${userId}`);
       setViewUser({
-        id: u._id || u.id,
+        id: u._id || u.id || "",
         name: u.username || u.name || "",
         email: u.email,
         role: u.role,
@@ -243,16 +309,16 @@ const ManageUsers = () => {
     setViewUserLoading(false);
   };
 
-  // Handle delete user
+  // Handle delete user with proper typing
   const handleDeleteUser = async (userId: string) => {
     setDeleteUserLoading(true);
     setDeleteUserError(null);
     try {
       await api.delete(`/api/users/${userId}`);
       setLoading(true);
-      const usersData = await api.get("/api/users");
-      const mappedUsers: User[] = usersData.map((u: any) => ({
-        id: u._id || u.id,
+      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const mappedUsers: User[] = usersData.map((u) => ({
+        id: u._id || u.id || "",
         name: u.username || u.name || "",
         email: u.email,
         role: u.role,
@@ -430,9 +496,7 @@ const ManageUsers = () => {
                       </span>
                     </div>
                   </div>
-                  {addUserError && (
-                    <div className="text-red-500 text-sm">{addUserError}</div>
-                  )}
+                  <ErrorMessage error={addUserError} />
                 </div>
                 <SheetFooter className="mt-auto flex gap-2">
                   <Button
@@ -580,9 +644,7 @@ const ManageUsers = () => {
                       </span>
                     </div>
                   </div>
-                  {editUserError && (
-                    <div className="text-red-500 text-sm">{editUserError}</div>
-                  )}
+                  <ErrorMessage error={editUserError} />
                 </div>
                 <SheetFooter className="mt-auto flex gap-2">
                   <Button
@@ -677,12 +739,7 @@ const ManageUsers = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>User Management</CardTitle>
-          <CardDescription>
-            Manage all users in the SalesElevate platform
-          </CardDescription>
-        </CardHeader>
+        <CardHeader></CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-6">
             <div className="relative w-full max-w-sm">
@@ -739,24 +796,6 @@ const ManageUsers = () => {
                         {formatDateTime(userData.lastActive)}
                       </TableCell>
                       <TableCell>
-                        {/* <div className="flex items-center gap-2">
-                          <Switch
-                            checked={userData.active}
-                            onCheckedChange={() =>
-                              handleToggleUserStatus(userData.id)
-                            }
-                            disabled={userData.email === user?.email}
-                          />
-                          <span
-                            className={`text-sm ${
-                              userData.active
-                                ? "text-green-500"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {userData.active ? "Active" : "Inactive"}
-                          </span>
-                        </div> */}
                         <Badge
                           className={
                             userData.active
@@ -813,35 +852,13 @@ const ManageUsers = () => {
       </Card>
 
       {/* AlertDialog for delete confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-semibold">{userToDelete?.name}</span>? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setUserToDelete(null);
-              }}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={handleDeleteConfirmed}
-              disabled={deleteUserLoading}
-            >
-              {deleteUserLoading ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteUserDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        user={userToDelete}
+        onConfirm={handleDeleteConfirmed}
+        loading={deleteUserLoading}
+      />
     </div>
   );
 };
