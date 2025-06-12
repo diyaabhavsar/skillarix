@@ -56,7 +56,7 @@ const AdminDashboard = () => {
             <Link to="/admin/users">Manage Users</Link>
           </Button>
           <Button asChild>
-            <Link to="/setup">Add Product</Link>
+            <Link to="/products">Add Product</Link>
           </Button>
         </div>
       </div>

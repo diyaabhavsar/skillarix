@@ -173,11 +173,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           onCategoryChange={setSelectedCategoryId}
-          isCreatingCategory={isCreatingCategory}
-          setIsCreatingCategory={setIsCreatingCategory}
-          newCategoryName={newCategoryName}
-          setNewCategoryName={setNewCategoryName}
-          handleCreateCategory={handleCreateCategory}
           isLoading={isLoading}
         />
 

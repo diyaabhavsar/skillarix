@@ -184,7 +184,6 @@ const Setup = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 container mx-auto px-4 py-8">
-        <ProductSetupBreadcrumb />
         <SetupHeader onProductAdded={fetchProducts} />
 
         <div className="rounded-md border">

@@ -41,7 +41,8 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
   // Admin-specific navigation items
   const adminNavItems = [
     { label: "Manage Users", icon: Users, path: "/admin/users" },
-    { label: "Products", icon: FileUp, path: "/setup" },
+    { label: "Categories", icon: ShieldCheck, path: "/categories" },
+    { label: "Products", icon: FileUp, path: "/products" },
     { label: "Test Configurations", icon: Settings, path: "/test-setup" },
   ];
 
