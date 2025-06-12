@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Dict, Optional, Union, Any
 from pydantic import BaseModel, Field
-from datetime import datetime, timedelta, UTC  # Import UTC
+from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from bson.errors import InvalidId
 from passlib.context import CryptContext
@@ -282,8 +282,8 @@ class DatabaseOperations:
         category_data = {
             "name": name,
             "created_by": ObjectId(created_by), # Store as ObjectId
-            "created_at": datetime.now(UTC), # Use timezone-aware datetime
-            "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+            "created_at": datetime.now(timezone.utc), # Use timezone-aware datetime
+            "updated_at": datetime.now(timezone.utc), # Use timezone-aware datetime
             "is_deleted": False,
             "updated_by": ObjectId(created_by) # Store as ObjectId
         }
@@ -297,7 +297,7 @@ class DatabaseOperations:
             {
                 "$set": {
                     "name": name,
-                    "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+                    "updated_at": datetime.now(timezone.utc), # Use timezone-aware datetime
                     "updated_by": ObjectId(updated_by) # Store as ObjectId
                 }
             }
@@ -313,7 +313,7 @@ class DatabaseOperations:
             {
                 "$set": {
                     "is_deleted": True,
-                    "updated_at": datetime.now(UTC), # Use timezone-aware datetime
+                    "updated_at": datetime.now(timezone.utc), # Use timezone-aware datetime
                     "updated_by": ObjectId(updated_by) # Store as ObjectId
                 }
             }
@@ -347,8 +347,8 @@ class DatabaseOperations:
             "content": pdf_content,
             "metadata": metadata,
             "created_by": ObjectId(created_by),
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
             "updated_by": ObjectId(created_by),
             "description": description,
             "is_deleted": is_deleted
@@ -394,8 +394,8 @@ class DatabaseOperations:
             "test_name": test_name,
             "prod_name": prod_name,
             "cat_name": cat_name,
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC)
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
         }
         result = self.conversations.insert_one(conversation_doc)
         return result.inserted_id
@@ -425,7 +425,7 @@ class DatabaseOperations:
          # Ensure conversation_id is an ObjectId when querying
         result = self.conversations.update_one(
             {"_id": conversation_id},
-            {"$set": {"evaluation_data": evaluation_data, "updated_at": datetime.now(UTC)}} # Use timezone-aware datetime
+            {"$set": {"evaluation_data": evaluation_data, "updated_at": datetime.now(timezone.utc)}} # Use timezone-aware datetime
         )
         return result.matched_count > 0
 
@@ -438,7 +438,7 @@ class DatabaseOperations:
             "additionalCriteria": config_data.additionalCriteria.model_dump(),
             "name": config_data.name,
             "created_by": ObjectId(created_by),
-            "created_at": datetime.now(UTC),
+            "created_at": datetime.now(timezone.utc),
             "is_deleted": False  # Add this line
         }
         result = self.test_configurations.insert_one(test_config_doc)
@@ -488,8 +488,8 @@ class User:
             "email": email,
             "password": hashed_password,
             "role": role,
-            "created_at": datetime.now(UTC), # Use timezone-aware datetime
-            "updated_at": datetime.now(UTC),  # Use timezone-aware datetime
+            "created_at": datetime.now(timezone.utc), # Use timezone-aware datetime
+            "updated_at": datetime.now(timezone.utc),  # Use timezone-aware datetime
             "last_login": None, # Initialize last_login to None
             "sessions": 0, # Initialize sessions to 0
             "active": True # Initialize active to True
@@ -511,7 +511,7 @@ class User:
         # Update last_login timestamp
         self.db.users.update_one(
             {"_id": ObjectId(user.id)}, # Use ObjectId to query by _id
-            {"$set": {"last_login": datetime.now(UTC)}}
+            {"$set": {"last_login": datetime.now(timezone.utc)}}
         )
 
         # Return dictionary representation, ensuring ObjectId _id is stringified if part of the dict
@@ -520,7 +520,7 @@ class User:
         # Remove hashed_password for security before returning
         user_dict.pop('hashed_password', None)
         # Update last_login in the returned dict to the new timestamp
-        user_dict['last_login'] = datetime.now(UTC).isoformat() # Return as ISO format string
+        user_dict['last_login'] = datetime.now(timezone.utc).isoformat() # Return as ISO format string
 
         return user_dict
 
@@ -2113,7 +2113,7 @@ async def update_product(
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
     # Always update the updated_at field
-    update_data["updated_at"] = datetime.now(UTC)
+    update_data["updated_at"] = datetime.now(timezone.utc)
 
     result = db.products.update_one(
         {"_id": ObjectId(product_id)},
@@ -2161,7 +2161,7 @@ async def update_test_configuration(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-    update_data["updated_at"] = datetime.now(UTC)
+    update_data["updated_at"] = datetime.now(timezone.utc)
 
     result = db.test_configurations.update_one(
         {"_id": ObjectId(test_config_id)},
@@ -2320,9 +2320,9 @@ async def create_user(
         "email": user.email,
         "password": hashed_password,
         "role": user.role,
-        "created_at": datetime.now(UTC),
-        "updated_at": datetime.now(UTC),
-        "last_login": datetime.now(UTC),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+        "last_login": datetime.now(timezone.utc),
         "sessions": 0,
         "active": user.active,
     }
@@ -2364,7 +2364,7 @@ async def edit_user(
         update_fields["active"] = user_update["active"]
     if not update_fields:
         raise HTTPException(status_code=400, detail="No valid fields to update")
-    update_fields["updated_at"] = datetime.now(UTC)
+    update_fields["updated_at"] = datetime.now(timezone.utc)
     result = db.users.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": update_fields}
