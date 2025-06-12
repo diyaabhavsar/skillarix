@@ -66,13 +66,11 @@ const Settings = () => {
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Profile updated:", formData);
     // Implementation would update user profile in database
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Password change requested");
     // Implementation would update password in authentication system
     setFormData((prev) => ({
       ...prev,

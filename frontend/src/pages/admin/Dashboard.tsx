@@ -6,11 +6,36 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { api } from "@/utils/api";
 
+// Add these interfaces at the top of the file
+interface DashboardUser {
+  _id: string;
+  username: string;
+  email: string;
+  active: boolean;
+  role: string;
+}
+
+interface DashboardSession {
+  _id: string;
+  user_name: string;
+  product_name: string;
+  score?: number;
+  created_at?: string;
+}
+
+// Add this interface with the other interfaces
+interface DashboardStats {
+  total_users: number;
+  active_users: number;
+  sessions_completed: number;
+  average_score: number;
+  products: number;
+}
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     total_users: 0,
     active_users: 0,
     sessions_completed: 0,
@@ -18,15 +43,18 @@ const AdminDashboard = () => {
     products: 0,
   });
 
-  const [latestUsers, setLatestUsers] = useState<any[]>([]);
-  const [latestSessions, setLatestSessions] = useState<any[]>([]);
+  // Update state definitions with proper types
+  const [latestUsers, setLatestUsers] = useState<DashboardUser[]>([]);
+  const [latestSessions, setLatestSessions] = useState<DashboardSession[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await api.get("/api/admin/stats");
+        const data = await api.get<DashboardStats>("/api/admin/stats");
         setStats(data);
-      } catch {}
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
     };
     fetchStats();
   }, []);
@@ -34,12 +62,15 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchLatest = async () => {
       try {
-        const users = await api.get("/api/admin/latest-users");
+        const users = await api.get<DashboardUser[]>("/api/admin/latest-users");
         setLatestUsers(users);
-        const sessions = await api.get("/api/admin/latest-sessions");
-        console.log("sessions", sessions);
+        const sessions = await api.get<DashboardSession[]>("/api/admin/latest-sessions");
         setLatestSessions(sessions);
-      } catch {}
+      } catch (error) {
+        console.error('Error fetching latest data:', error);
+        setLatestUsers([]);
+        setLatestSessions([]);
+      }
     };
     fetchLatest();
   }, []);

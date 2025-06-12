@@ -36,6 +36,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ConversationEvaluation, CompleteRating, Rating, IndividualEvaluation } from "@/types/conversations";
+import { capitalizeEvaluationTitle } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -150,7 +151,6 @@ const Practice = () => {
       });
     }
   }, [conversationHistory]);
-  console.log({ conversationHistory });
   // Pagination states and effects
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Set to match backend limit
@@ -196,7 +196,6 @@ const Practice = () => {
         }
       },
       onMessage: (data) => {
-        console.log("Received message:", data);
         switch (data.type) {
           case "question":
             setCurrentCustomerQuestion(data.content || "");
@@ -262,12 +261,17 @@ const Practice = () => {
   };
 
   const sendSalespersonAnswer = () => {
-    if (
-      !websocketService.isConnected() ||
-      sessionLoading ||
-      !salespersonInput.trim() ||
-      !currentCustomerQuestion
-    ) {
+    
+    // Prevent sending if already loading or no content
+    if (sessionLoading) {
+      return;
+    }
+
+    if (!websocketService.isConnected()) {
+      return;
+    }
+
+    if (!salespersonInput.trim() || !currentCustomerQuestion) {
       return;
     }
 
@@ -311,43 +315,38 @@ const Practice = () => {
     });
   };
 
-  const cleanupSession = () => {
+  const cleanupSession = useCallback(() => {
     setIsSessionActive(false);
     setConversationHistory([]);
     setCurrentCustomerQuestion("");
     setSalespersonInput("");
     setSessionLoading(false);
-    setIsSetupOpen(false); // Close sidebar
+    setIsSetupOpen(false);
 
     // Close websocket if open
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       websocket.close();
     }
-  };
+  }, [websocket]);
 
   const endSession = useCallback(async () => {
-    // Add a flag to prevent double submission
+    
+    // Prevent multiple end session attempts
     if (sessionLoading) {
       return;
     }
 
     try {
+      setSessionLoading(true);
+      
       if (!websocket || websocket.readyState !== WebSocket.OPEN) {
         throw new Error("WebSocket connection not available");
       }
 
-      if (!selectedProductId || !selectedTestConfigId) {
-        throw new Error("Missing product or test configuration ID");
-      }
-
-      setSessionLoading(true);
-      
-      // Prepare the final message if there's unsent input
       const finalHistory = [...conversationHistory];
       const hasUnsentResponse = salespersonInput.trim().length > 0;
 
-      // Only include unsent response in history, don't send it separately
-      if (hasUnsentResponse && finalHistory.length > 0) {
+      if (hasUnsentResponse) {
         finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
       }
 
@@ -359,22 +358,16 @@ const Practice = () => {
         answer: hasUnsentResponse ? salespersonInput.trim() : "",
         history: finalHistory,
       };
-
-      // Send payload and immediately cleanup
+      
+      // Send payload and await response
       websocket.send(JSON.stringify(payload));
-      websocket.close();
       
-      // Clean up the session
-      cleanupSession();
-      
-      // Refresh conversations and redirect
-      await fetchConversations();
-      
-      // Use replace to prevent back navigation to session
-      window.location.reload();
-      
+      // Don't close the websocket or cleanup here
+      // Let the handleSessionComplete function handle it
+      // when it receives the server's response
+    
     } catch (error) {
-      console.error("Error ending session:", error);
+      console.error("[DEBUG] Error ending session:", error);
       toast.error(
         `Failed to end session: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -390,7 +383,7 @@ const Practice = () => {
     currentCustomerQuestion,
     salespersonInput,
     sessionLoading,
-    fetchConversations
+    cleanupSession
   ]);
 
   const startSession = () => {
@@ -433,20 +426,17 @@ const Practice = () => {
   };
 
   const handleSessionComplete = (data: WebSocketMessage) => {
-    console.log("Session Complete Response:", {
-      evaluation: data.complete_evaluation?.substring(0, 100) + "...",
-      additionalCriteria:
-        data.additional_criteria_evaluation?.substring(0, 100) + "...",
-      type: data.type,
-    });
-    
+   
     setEvaluationResults({
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
     });
 
-    // Clean up without triggering another end session
+    // Clean up session after receiving evaluation
     cleanupSession();
+    
+    // No need to reload the page or fetch conversations
+    // The table will update on its own via the websocket response
   };
 
   const handleError = (data: WebSocketMessage) => {
@@ -515,7 +505,6 @@ const Practice = () => {
       }
     };
   }, [recognition]);
-  console.log({ conversations });
   // Update how we pass the conversations data
   const processedSessions = React.useMemo(() => {
     if (!conversations?.data) return [];
@@ -709,32 +698,31 @@ const Practice = () => {
             onOpenChange={() => setEvaluationResults(null)}
           >
             <DialogContent className="max-w-3xl bg-white modal-shadow">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">
-                  Complete Conversation Evaluation:
-                </h3>
-                <div
-                  className="prose max-w-none"
-                  dangerouslySetInnerHTML={{
-                    __html: evaluationResults.complete.replace(/\n/g, "<br/>"),
-                  }}
-                ></div>
-              </div>
-              {evaluationResults.additional && (
-                <div>
-                  <Separator className="my-4" />
+              {Object.entries(JSON.parse(evaluationResults.complete)).map(([key, value]) => (
+                <div key={key} className="mb-6 last:mb-0">
                   <h3 className="text-lg font-semibold mb-2">
-                    Additional Criteria Evaluation:
+                    {capitalizeEvaluationTitle(key)}
                   </h3>
                   <div
                     className="prose max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: evaluationResults.additional.replace(
-                        /\n/g,
-                        "<br/>"
-                      ),
+                      __html: String(value).replace(/\n/g, "<br/>"),
                     }}
-                  ></div>
+                  />
+                </div>
+              ))}
+              {evaluationResults.additional && (
+                <div>
+                  <Separator className="my-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    Additional Criteria Evaluation
+                  </h3>
+                  <div
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{
+                      __html: evaluationResults.additional.replace(/\n/g, "<br/>"),
+                    }}
+                  />
                 </div>
               )}
             </DialogContent>

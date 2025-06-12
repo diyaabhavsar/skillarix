@@ -7,6 +7,8 @@ import { ChevronLeft, MessageCircle, Star, CheckCircle, Clock, AlertCircle } fro
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { marked } from 'marked';
 import { ConversationEvaluation } from "@/types/conversations";
+import { capitalizeTitle } from "@/utils/textFormatting";
+import { EvaluationContent } from "@/components/evaluation/EvaluationContent";
 
 interface IndividualEvaluation {
   evaluation: string;
@@ -23,6 +25,14 @@ interface SessionFeedbackDisplayProps {
   session: ConversationEvaluation;
   onBack: () => void;
 }
+
+interface CriteriaValue {
+  score?: number;
+  max?: number;
+  [key: string]: any;
+}
+
+type AdditionalCriteriaValue = CriteriaValue | string | null;
 
 const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session, onBack }) => {
   const { evaluation_data, conversation_data, created_at } = session;
@@ -234,7 +244,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
             <CardHeader className="border-b">
               <CardTitle className="flex items-center text-lg">
                 <Star className="h-5 w-5 mr-2 text-yellow-500" />
-                Overall Performance
+                OVERALL PERFORMANCE
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -271,16 +281,17 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
             <CardHeader className="border-b">
               <CardTitle className="flex items-center text-lg">
                 <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-                Complete Evaluation
+                COMPLETE EVALUATION
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-6">
                 {Object.entries(evaluation_data.complete_evaluation || {}).map(([key, value]) => (
-                  <div key={key}>
-                    <h3 className="font-medium text-slate-900 mb-2">{key.replace(/_/g, ' ')}</h3>
-                    <p className="text-slate-600 text-sm leading-relaxed">{formatEvaluationValue(value)}</p>
-                  </div>
+                  <EvaluationContent 
+                    key={key}
+                    title={key}
+                    content={formatEvaluationValue(value)}
+                  />
                 ))}
               </div>
             </CardContent>
@@ -292,7 +303,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
             <CardHeader className="border-b">
               <CardTitle className="flex items-center text-lg">
                 <MessageCircle className="h-5 w-5 mr-2 text-indigo-500" />
-                Conversation
+                CONVERSATION
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -333,7 +344,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center text-lg">
                   <Clock className="h-5 w-5 mr-2 text-blue-500" />
-                  Exchange Evaluations
+                  EXCHANGE EVALUATIONS
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -363,16 +374,64 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center text-lg">
                   <AlertCircle className="h-5 w-5 mr-2 text-purple-500" />
-                  Additional Criteria
+                  ADDITIONAL CRITERIA
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-[575px]">
-                  <div className="p-4">
-                    {Object.entries(evaluation_data.additional_criteria_evaluation).map(([key, value]) => (
-                      <div key={key} className="mb-4 last:mb-0">
-                        <h3 className="font-medium text-sm text-slate-900 mb-1">{key.replace(/_/g, ' ')}</h3>
-                        <p className="text-sm text-slate-600">{formatAIGeneratedText(value)}</p>
+                  <div className="p-4 space-y-6">
+                    {Object.entries(evaluation_data.additional_criteria_evaluation || {}).map(([key, value]: [string, AdditionalCriteriaValue]) => (
+                      <div key={key} className="group rounded-xl border bg-white shadow-sm transition-all hover:shadow-md">
+                        <div className="border-b bg-gradient-to-r from-slate-50 to-white px-4 py-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="rounded-lg bg-purple-50 p-2">
+                                <AlertCircle className="h-5 w-5 text-purple-500" />
+                              </div>
+                              <h3 className="font-semibold text-slate-900">
+                                {key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                              </h3>
+                            </div>
+                            {value && typeof value === 'object' && 'score' in value && (
+                              <div className="flex items-center gap-2">
+                                <div className="text-sm text-slate-500">Score:</div>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium
+                                  ${Number(value.score) >= 7 ? 'bg-green-50 text-green-700' :
+                                    Number(value.score) >= 4 ? 'bg-yellow-50 text-yellow-700' :
+                                      'bg-red-50 text-red-700'}`}>
+                                  {value.score}
+                                  <span className="text-slate-400">/</span>
+                                  <span className="text-slate-600">{value.max || 10}</span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="divide-y divide-dashed divide-slate-100">
+                          {value && typeof value === 'object' ? (
+                            <div className="space-y-4 p-4">
+                              {Object.entries(value).map(([subKey, subValue]) => {
+                                if (subKey === 'score' || subKey === 'max') return null;
+                                return (
+                                  <div key={subKey} className="rounded-lg bg-slate-50/50 p-4">
+                                    <h4 className="mb-2 font-medium text-slate-900">
+                                      {subKey.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                    </h4>
+                                    <div className="prose prose-sm max-w-none text-slate-600">
+                                      {formatAIGeneratedText(subValue as string)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="p-4">
+                              <div className="prose prose-sm max-w-none text-slate-600">
+                                {formatAIGeneratedText(value || '')}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -386,7 +445,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center text-lg">
                   <Clock className="h-5 w-5 mr-2 text-orange-500" />
-                  Mid Evaluations
+                  MID EVALUATIONS
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">

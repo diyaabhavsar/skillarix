@@ -164,7 +164,7 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
       setIsSubmitting(false);
     }
   };
-  console.log(initialData);
+  
   return (
     <form onSubmit={handleSubmit} className="space-y-6 py-4 px-1">
       <div className="grid gap-4">

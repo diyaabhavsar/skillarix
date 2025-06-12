@@ -23,3 +23,31 @@ export const formatDate = (date: Date): string => {
   }).format(date);
 };
 
+export const capitalizeEvaluationTitle = (key: string): string => {
+  // Special cases for specific evaluation terms
+  const specialTerms: { [key: string]: string } = {
+    overall_score: "Overall Score",
+    key_successful_moments: "Key Successful Moments",
+    critical_missed_opportunities: "Critical Missed Opportunities",
+    pattern_analysis: "Pattern Analysis",
+    recommendations: "Recommendations",
+    specific_analysis: "Specific Analysis",
+    overall_progress: "Overall Progress",
+    sales_strategy: "Sales Strategy",
+    customer_journey: "Customer Journey",
+    technical_accuracy: "Technical Accuracy",
+    total: "Total Score",
+  };
+
+  // If the key exists in special terms, return that
+  if (specialTerms[key.toLowerCase()]) {
+    return specialTerms[key.toLowerCase()];
+  }
+
+  // Otherwise, capitalize each word
+  return key
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+

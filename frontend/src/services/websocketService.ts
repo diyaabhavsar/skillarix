@@ -81,7 +81,6 @@ class WebSocketService {
     try {
       this.cleanup();
       const url = new URL(`${env.WS_URL}${endpoint}`);
-      console.log({ url });
       url.searchParams.append("token", token);
 
       this.ws = new WebSocket(url.toString());
@@ -99,9 +98,7 @@ class WebSocketService {
         if (!event.wasClean && this.attempts < maxRetries) {
           this.attempts++;
           if (debug)
-            console.log(
-              `WebSocket reconnecting... Attempt ${this.attempts}/${maxRetries}`
-            );
+           
           setTimeout(
             () => this.connect(endpoint, token, config),
             retryDelay * this.attempts
@@ -133,12 +130,10 @@ class WebSocketService {
 
   send(message: Partial<WebSocketMessage>) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log("Sending message:", message);
       this.ws.send(JSON.stringify(message));
       return true;
     }
-    console.log("WebSocket not ready, message not sent");
-    return false;
+   return false;
   }
 
   sendAnswer(data: {
