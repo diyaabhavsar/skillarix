@@ -318,9 +318,19 @@ const Practice = () => {
     setSalespersonInput("");
     setSessionLoading(false);
     setIsSetupOpen(false); // Close sidebar
+
+    // Close websocket if open
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+      websocket.close();
+    }
   };
 
   const endSession = useCallback(async () => {
+    // Add a flag to prevent double submission
+    if (sessionLoading) {
+      return;
+    }
+
     try {
       if (!websocket || websocket.readyState !== WebSocket.OPEN) {
         throw new Error("WebSocket connection not available");
@@ -350,10 +360,18 @@ const Practice = () => {
         history: finalHistory,
       };
 
+      // Send payload and immediately cleanup
       websocket.send(JSON.stringify(payload));
+      websocket.close();
       
-      // Clear input to prevent double send
-      setSalespersonInput("");
+      // Clean up the session
+      cleanupSession();
+      
+      // Refresh conversations and redirect
+      await fetchConversations();
+      
+      // Use replace to prevent back navigation to session
+      window.location.reload();
       
     } catch (error) {
       console.error("Error ending session:", error);
@@ -371,6 +389,8 @@ const Practice = () => {
     conversationHistory,
     currentCustomerQuestion,
     salespersonInput,
+    sessionLoading,
+    fetchConversations
   ]);
 
   const startSession = () => {
@@ -419,16 +439,14 @@ const Practice = () => {
         data.additional_criteria_evaluation?.substring(0, 100) + "...",
       type: data.type,
     });
+    
     setEvaluationResults({
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
     });
 
-    // Show evaluation dialog and then redirect
-    setTimeout(() => {
-      cleanupSession();
-      navigate("/practice", { replace: true });
-    }, 1000);
+    // Clean up without triggering another end session
+    cleanupSession();
   };
 
   const handleError = (data: WebSocketMessage) => {
