@@ -361,7 +361,7 @@ class DatabaseOperations:
         Retrieves products for a given category, ensuring ObjectId fields are converted to strings.
         """
         # Ensure category_id is an ObjectId when querying
-        products_cursor = self.products.find({"category_id": category_id})
+        products_cursor = self.products.find({"category_id": category_id, "is_deleted": False})
         products_list = list(products_cursor)
         # Convert ObjectIds to strings before returning
         return convert_objectids_to_strings(products_list)

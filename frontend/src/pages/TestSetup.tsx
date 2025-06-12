@@ -12,7 +12,23 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Eye, MoreHorizontal } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  MoreHorizontal,
+  UserCircle,
+  User2,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -50,13 +66,18 @@ const TestSetup = () => {
     deleteTest,
     fetchTests,
   } = useTests();
-  const { products,fetchAllProducts, isLoading: productsLoading } = useProducts(); // Add products from useProducts hook
+  const {
+    products,
+    fetchAllProducts,
+    isLoading: productsLoading,
+  } = useProducts();
 
   // Fetch data when component mounts
   useEffect(() => {
     fetchTests();
     fetchAllProducts();
   }, []);
+
   const [testToDelete, setTestToDelete] = useState<string | null>(null);
 
   const handleDelete = async () => {
@@ -78,19 +99,13 @@ const TestSetup = () => {
       day: "numeric",
     });
   };
-
-  const renderPersonaDetails = (test: Test) => {
-    const persona = test.visitorPersona;
-    return (
-      <div className="space-y-1 text-sm max-w-md">
-        <div className="line-clamp-2">
-          <span className="font-medium">Background:</span> {persona.background}
-        </div>
-        <div className="line-clamp-2">
-          <span className="font-medium">Goals:</span> {persona.goals}
-        </div>
-      </div>
-    );
+  const formatValue = (value: string): string => {
+    if (!value) return "-";
+    // First replace underscores with spaces, then handle hyphens
+    return value
+      .split(/[-_]/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   // Helper function to get product name
@@ -133,47 +148,68 @@ const TestSetup = () => {
           </Sheet>
         </div>
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
+              {" "}
               <TableRow>
-                <TableHead className="w-[200px]">Name</TableHead>
-                <TableHead className="w-[200px]">Product</TableHead>
-                <TableHead>Visitor Persona</TableHead>
-                <TableHead className="w-[150px]">Created At</TableHead>
-                <TableHead className="text-right w-[100px]">Actions</TableHead>
+                <TableHead className="font-medium">Name</TableHead>
+                <TableHead className="font-medium">Product</TableHead>
+                <TableHead className="font-medium">Created At</TableHead>
+                <TableHead className="font-medium">Visitor Persona</TableHead>
+                <TableHead className="font-medium text-right w-[80px]">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tests.map((test) => (
-                <TableRow key={test._id}>
-                  <TableCell className="font-medium">{test.name}</TableCell>
-                  <TableCell>{getProductName(test.product_id)}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1 text-sm max-w-md">
-                      <div className="line-clamp-2">
-                        <span className="font-medium">Background:</span>{" "}
-                        {test.visitorPersona.background}
-                      </div>
-                      <div className="line-clamp-2">
-                        <span className="font-medium">Goals:</span>{" "}
-                        {test.visitorPersona.goals}
-                      </div>
-                      <div className="line-clamp-2">
-                        <span className="font-medium">
-                          Technical Knowledge:
-                        </span>{" "}
-                        {test.visitorPersona.technical_knowledge}
-                      </div>
-                      <div className="line-clamp-2">
-                        <span className="font-medium">
-                          Previous Experience:
-                        </span>{" "}
-                        {test.visitorPersona.previous_experience}
-                      </div>
-                    </div>
+                <TableRow key={test._id} className="hover:bg-gray-50">
+                  <TableCell className="py-3">{test.name}</TableCell>
+                  <TableCell className="py-3">
+                    {getProductName(test.product_id)}
                   </TableCell>
-                  <TableCell>{formatDate(test.created_at)}</TableCell>{" "}
+                  <TableCell className="py-3">
+                    {formatDate(test.created_at)}
+                  </TableCell>
+                  <TableCell className="py-3">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="flex items-center gap-2"
+                        >
+                          <UserCircle className="h-4 w-4" />
+                          <span>Persona</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Visitor Persona Details</DialogTitle>
+                          <DialogDescription>
+                            Detailed information about the visitor persona for
+                            this test.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          {Object.entries(test.visitorPersona).map(
+                            ([key, value]) =>
+                              key !== "category" && (
+                                <div
+                                  key={key}
+                                  className="grid grid-cols-2 items-center gap-4"
+                                >
+                                  <div className="font-medium">
+                                    {formatValue(key)}
+                                  </div>
+                                  <div>{formatValue(value as string)}</div>
+                                </div>
+                              )
+                          )}
+                        </div>{" "}
+                      </DialogContent>
+                    </Dialog>
+                  </TableCell>
                   <TableCell>
                     <div className="flex justify-end">
                       <DropdownMenu>
@@ -189,12 +225,14 @@ const TestSetup = () => {
                                 onSelect={(e) => e.preventDefault()}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
-                                View 
+                                View
                               </DropdownMenuItem>
                             </SheetTrigger>
                             <TestConfigurationDetails
                               test={test}
                               formatDate={formatDate}
+                              formatValue={formatValue}
+                              getProductName={getProductName}
                             />
                           </Sheet>
                           <Sheet>
@@ -218,6 +256,7 @@ const TestSetup = () => {
                                   initialData={{
                                     id: test._id,
                                     name: test.name,
+                                    category_id: test.category_id,
                                     product_id: test.product_id,
                                     visitorPersona: test.visitorPersona,
                                     additionalCriteria: test.additionalCriteria,

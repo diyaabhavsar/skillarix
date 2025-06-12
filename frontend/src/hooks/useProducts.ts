@@ -55,10 +55,9 @@ export const useProducts = () => {
   const fetchProducts = async () => {
     if (!token) return;
     setIsLoading(true);
-    const user_id = "68411e6491ba34cc73ccfd3e";
     try {
         
-      const data = await api.get(`/products/${user_id}`);
+      const data = await api.get("/products");
       setProducts(data);
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -133,6 +132,19 @@ export const useProducts = () => {
   const viewProductContent = (content: string) => {
     console.log("Product Content:", content);
   };
+  const fetchProductsByCategory = async (categoryId: string) => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const data = await api.get(`/products/${categoryId}`);
+      setProducts(data as Product[]);
+    } catch (error: any) {
+      console.error("Error fetching products by category:", error);
+      toast.error(`Failed to load products: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (token) {
@@ -151,10 +163,11 @@ export const useProducts = () => {
     createProduct,
     updateProduct,
     deleteProduct,
-    viewProductContent,
+    viewProductContent,    
     setCategories,
     fetchProducts,
     fetchCategories,
-    fetchAllProducts
+    fetchAllProducts,
+    fetchProductsByCategory
   };
 };

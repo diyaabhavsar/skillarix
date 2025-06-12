@@ -15,58 +15,7 @@ import { Calendar, Clock, FileText } from "lucide-react";
 import SessionFeedbackDisplay from "./SessionFeedbackDisplay";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
-
-interface ConversationEvaluation {
-  _id: string;
-  product_id: string;
-  category_id: string;
-  user_id: string;
-  test_name: string;
-  prod_name: string;
-  cat_name: string;
-  conversation_data: {
-    pairs: {
-      visitor_text: string;
-      salesperson_text: string;
-    }[];
-  };
-  evaluation_data: {
-    individual_evaluations: {
-      evaluation: string;
-      rating: {
-        question_relevance: { score: number; max: number };
-        technical_accuracy: { score: number; max: number };
-        sales_effectiveness: { score: number; max: number };
-        total: { score: number; max: number };
-      };
-    }[];
-    mid_evaluations: string[];
-    complete_evaluation: {
-      Overall_Progress: string;
-      Sales_Strategy: string;
-      Customer_Journey: string;
-      Technical_Accuracy: string;
-      Key_successful_moments_in_the_conversation: string;
-      Critical_missed_opportunities: string;
-      "Pattern_analysis_of_effective/ineffective_techniques_used": string; // Updated property name
-      Recommendations_for_future_conversations: string;
-    };
-    complete_rating: {
-      overall_progress: { score: number; max: number };
-      sales_strategy: { score: number; max: number };
-      customer_journey: { score: number; max: number };
-      technical_accuracy: { score: number; max: number };
-      total: { score: number; max: number };
-    };
-    additional_criteria_evaluation: {
-      distraction_handling: string;
-    };
-    is_complete: boolean;
-    test_configuration_id: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
+import { ConversationEvaluation } from "@/types/conversations";
 
 interface PastSessionsTableProps {
   sessions: ConversationEvaluation[];

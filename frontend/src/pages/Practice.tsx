@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom"; // Update import
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { ConversationEvaluation, CompleteRating, Rating, IndividualEvaluation } from "@/types/conversations";
 
 interface Category {
   id: string;
@@ -76,49 +77,14 @@ interface WebSocketMessage {
   additional_criteria_evaluation?: string;
 }
 
-interface Rating {
-  score: number;
-  max: number;
-}
-
-interface CompleteRating {
-  overall_progress: Rating;
-  sales_strategy: Rating;
-  customer_journey: Rating;
-  technical_accuracy: Rating;
-  total: Rating;
-}
-
-interface IndividualEvaluation {
-  evaluation: string;
-  reference_answer?: string;
-  rating: {
-    question_relevance: { score: number; max: number };
-    technical_accuracy: { score: number; max: number };
-    sales_effectiveness: { score: number; max: number };
-    total: { score: number; max: number };
-  };
-}
-
-interface ConversationEvaluation {
-  // ...existing code...
-  evaluation_data: {
-    individual_evaluations: IndividualEvaluation[];
-    // ...rest of evaluation_data interface
-  };
-  // ...existing code...
-}
-
 interface ConversationSession {
   evaluation_data: {
     complete_rating?: Partial<CompleteRating>;
-    // ...other evaluation_data fields
   };
   category_id?: string;
   test_name?: string;
   prod_name?: string;
   cat_name?: string;
-  // ...other session fields
 }
 
 const Practice = () => {
@@ -535,29 +501,34 @@ const Practice = () => {
   // Update how we pass the conversations data
   const processedSessions = React.useMemo(() => {
     if (!conversations?.data) return [];
-    return conversations.data.map((session: ConversationSession) => {
-      const defaultRating: Rating = { score: 0, max: 0 };
-      
-      const complete_rating: CompleteRating = {
-        overall_progress: session.evaluation_data.complete_rating?.overall_progress || defaultRating,
-        sales_strategy: session.evaluation_data.complete_rating?.sales_strategy || defaultRating,
-        customer_journey: session.evaluation_data.complete_rating?.customer_journey || defaultRating,
-        technical_accuracy: session.evaluation_data.complete_rating?.technical_accuracy || defaultRating,
-        total: session.evaluation_data.complete_rating?.total || defaultRating,
-      };
-
-      return {
-        ...session,
-        category_id: session.category_id || "",
-        test_name: session.test_name || "",
-        prod_name: session.prod_name || "",
-        cat_name: session.cat_name || "",
-        evaluation_data: {
-          ...session.evaluation_data,
-          complete_rating,
+    
+    return conversations.data.map((session: any) => ({
+      _id: session._id,
+      product_id: session.product_id,
+      user_id: session.user_id,
+      category_id: session.category_id || "",
+      test_name: session.test_name || "",
+      prod_name: session.prod_name || "",
+      cat_name: session.cat_name || "",
+      conversation_data: session.conversation_data || { pairs: [] },
+      evaluation_data: {
+        individual_evaluations: session.evaluation_data?.individual_evaluations || [],
+        mid_evaluations: session.evaluation_data?.mid_evaluations || [],
+        complete_evaluation: session.evaluation_data?.complete_evaluation || {},
+        complete_rating: {
+          overall_progress: session.evaluation_data?.complete_rating?.overall_progress || { score: 0, max: 0 },
+          sales_strategy: session.evaluation_data?.complete_rating?.sales_strategy || { score: 0, max: 0 },
+          customer_journey: session.evaluation_data?.complete_rating?.customer_journey || { score: 0, max: 0 },
+          technical_accuracy: session.evaluation_data?.complete_rating?.technical_accuracy || { score: 0, max: 0 },
+          total: session.evaluation_data?.complete_rating?.total || { score: 0, max: 0 }
         },
-      };
-    });
+        additional_criteria_evaluation: session.evaluation_data?.additional_criteria_evaluation || {},
+        is_complete: session.evaluation_data?.is_complete || false,
+        test_configuration_id: session.evaluation_data?.test_configuration_id || "",
+      },
+      created_at: session.created_at || new Date().toISOString(),
+      updated_at: session.updated_at || new Date().toISOString()
+    }) as ConversationEvaluation);
   }, [conversations]);
 
   // Update pagination data when conversations change

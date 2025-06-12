@@ -11,6 +11,7 @@ import FileUploadSection from "./FileUploadSection";
 import ProductInfoForm from "./ProductInfoForm";
 import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
+import { api } from "@/utils/api";
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -62,7 +63,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       [field]: value,
     }));
   };
-
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
       toast.error("Please enter a category name.");
@@ -70,24 +70,19 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/categories", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: newCategoryName }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to create category");
-      }
-      const newCat = await res.json();
+      const response = await api.post("/categories", { name: newCategoryName });
+      const newCat = response;
       const addedCat = { id: newCat._id, name: newCat.name };
-      setCategories([...categories, addedCat]);
+      // First update the categories list
+      const updatedCategories = [...categories, addedCat];
+      setCategories(updatedCategories);
+      // Then set the selected category ID to ensure the new category is selected
       setSelectedCategoryId(addedCat.id);
       setNewCategoryName("");
       setIsCreatingCategory(false);
-      toast.success(`Category "${newCategoryName}" created.`);
+      toast.success(
+        `Category "${newCategoryName}" created successfully and selected.`
+      );
     } catch (error: any) {
       console.error("Error creating category:", error);
       toast.error(`Failed to create category: ${error.message}`);
@@ -120,6 +115,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       formDataPayload.append("file", file);
     }
 
+    setIsLoading(true);
     try {
       if (initialData) {
         // For update, we need the product ID
@@ -143,6 +139,8 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       toast.error(
         `${initialData ? "Update" : "Upload"} failed: ${err.message}`
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -184,13 +182,14 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         />
 
         <SheetFooter>
+          {" "}
           <Button
             onClick={handleSubmit}
             disabled={isLoading}
             className="w-full"
           >
             {isLoading
-              ? "Saving..."
+              ? "Processing..."
               : isEditMode
               ? "Save Changes"
               : "Save Product"}

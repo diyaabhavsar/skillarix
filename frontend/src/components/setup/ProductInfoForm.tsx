@@ -1,14 +1,23 @@
 import React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export interface ProductInfoFormProps {
-  productInfo: { productName: string; description: string; };
-  onProductInfoChange: (field: "productName" | "description", value: string) => void;
-  categories: { id: string; name: string; }[];
+  productInfo: { productName: string; description: string };
+  onProductInfoChange: (
+    field: "productName" | "description",
+    value: string
+  ) => void;
+  categories: { id: string; name: string }[];
   selectedCategoryId: string;
   onCategoryChange: (categoryId: string) => void;
   isCreatingCategory: boolean;
@@ -44,7 +53,7 @@ const ProductInfoForm = ({
             id="product-name"
             placeholder="Enter product name"
             value={productInfo.productName}
-            onChange={e => onProductInfoChange("productName", e.target.value)}
+            onChange={(e) => onProductInfoChange("productName", e.target.value)}
             disabled={isLoading}
           />
         </div>
@@ -60,14 +69,36 @@ const ProductInfoForm = ({
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 disabled={isLoading}
               />
-              <Button type="button" onClick={handleCreateCategory} disabled={isLoading}>Create</Button>
-              <Button type="button" variant="outline" onClick={() => setIsCreatingCategory(false)} disabled={isLoading}>Cancel</Button>
+              <Button
+                type="button"
+                onClick={handleCreateCategory}
+                disabled={isLoading}
+              >
+                Create
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreatingCategory(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
             </div>
           ) : (
             <div className="flex gap-2">
-              <Select onValueChange={onCategoryChange} value={selectedCategoryId} disabled={isLoading}>
+              <Select
+                onValueChange={onCategoryChange}
+                value={selectedCategoryId}
+                disabled={isLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select category">
+                    {
+                      categories.find((cat) => cat.id === selectedCategoryId)
+                        ?.name
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -77,7 +108,13 @@ const ProductInfoForm = ({
                   ))}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" onClick={() => setIsCreatingCategory(true)} disabled={isLoading}>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreatingCategory(true)}
+                disabled={isLoading}
+              >
                 New
               </Button>
             </div>
@@ -92,7 +129,7 @@ const ProductInfoForm = ({
           id="product-description"
           placeholder="Enter product description"
           value={productInfo.description}
-          onChange={e => onProductInfoChange("description", e.target.value)}
+          onChange={(e) => onProductInfoChange("description", e.target.value)}
           disabled={isLoading}
           rows={4}
         />
