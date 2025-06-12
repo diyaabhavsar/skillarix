@@ -223,7 +223,8 @@ const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) 
         open={!!selectedSession}
         onOpenChange={() => setSelectedSession(null)}
       >
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+        {/* <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto"> */}
+        <DialogContent className="w-full h-[90vh] max-w-none max-h-[90vh] overflow-auto">
           {selectedSession && (
             <SessionFeedbackDisplay
               session={processSessionData(selectedSession)}

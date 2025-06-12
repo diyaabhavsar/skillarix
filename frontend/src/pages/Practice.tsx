@@ -519,10 +519,10 @@ const Practice = () => {
       evaluation_data: {
         ...session.evaluation_data,
         complete_rating: {
-          overall_progress: { score: 0, max: 0 },
-          sales_strategy: { score: 0, max: 0 },
-          customer_journey: { score: 0, max: 0 },
-          technical_accuracy: { score: 0, max: 0 },
+          overall_progress: session.evaluation_data.complete_rating?.overall_progress || { score: 0, max: 0 },
+          sales_strategy: session.evaluation_data.complete_rating?.sales_strategy || { score: 0, max: 0 },
+          customer_journey: session.evaluation_data.complete_rating?.customer_journey || { score: 0, max: 0 },
+          technical_accuracy: session.evaluation_data.complete_rating?.technical_accuracy || { score: 0, max: 0 },
           total: session.evaluation_data.complete_rating?.total || {
             score: 0,
             max: 0,

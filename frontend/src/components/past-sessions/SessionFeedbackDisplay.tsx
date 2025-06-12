@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, MessageCircle, Star, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { marked } from 'marked';
 
 interface ConversationEvaluation {
   _id: string;
@@ -106,59 +107,71 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
   };
 
   const formatEvaluationData = (value): React.ReactNode => {
-  if (!value) return '';
-  let inputVal: any = value;
-  if (typeof value === 'string') {
-    try {
-      inputVal = JSON.parse(value);
-    } catch {
-      return value; // Not a valid JSON string, return as-is
+    if (!value) return "";
+    let inputVal: any = value;
+    if (typeof value === "string") {
+      try {
+        inputVal = JSON.parse(value);
+      } catch {
+        return value; // Not a valid JSON string, return as-is
+      }
     }
-  }
 
-  if (typeof inputVal === 'string') return inputVal;
+    if (typeof inputVal === "string") return inputVal;
 
-  if (typeof inputVal === 'object' && !Array.isArray(inputVal)) {
-    return (
-      <div className="border rounded bg-slate-50 p-3 my-2">
-        <table className="w-full text-sm">
-          <tbody>
-            {Object.entries(inputVal).map(([k, v]) => {
-              let displayValue: React.ReactNode;
+    if (typeof inputVal === "object" && !Array.isArray(inputVal)) {
+      return (
+        <div className="border rounded bg-slate-50 p-3 my-2">
+          <table className="w-full text-sm">
+            <tbody>
+              {Object.entries(inputVal).map(([k, v]) => {
+                let displayValue: React.ReactNode;
 
-              if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-                displayValue = v.toString();
-              } else if (typeof v === 'object') {
-                try {
-                  displayValue = (
-                    <pre className="whitespace-pre-wrap">{JSON.stringify(v, null, 2)}</pre>
-                  );
-                } catch {
-                  displayValue = 'Unserializable object';
+                if (
+                  typeof v === "string" ||
+                  typeof v === "number" ||
+                  typeof v === "boolean"
+                ) {
+                  displayValue = v.toString();
+                } else if (typeof v === "object") {
+                  try {
+                    displayValue = (
+                      <pre className="whitespace-pre-wrap">
+                        {JSON.stringify(v, null, 2)}
+                      </pre>
+                    );
+                  } catch {
+                    displayValue = "Unserializable object";
+                  }
+                } else {
+                  displayValue = String(v);
                 }
-              } else {
-                displayValue = String(v);
-              }
 
-              return (
-                <tr key={k}>
-                  <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
-                    {k.replace(/_/g, ' ')}:
-                  </td>
-                  <td className="py-1 text-slate-600">{displayValue}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
+                return (
+                  <tr key={k}>
+                    <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
+                      {k.replace(/_/g, " ")}:
+                    </td>
+                    <td className="py-1 text-slate-600">{displayValue}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
 
-  return JSON.stringify(inputVal, null, 2);
-};
+    return JSON.stringify(inputVal, null, 2);
+  };
 
+  const formatAIGeneratedText = (text) => {
+    if (!text) return '';
+    const cleanHTML = marked.parse(text); // Converts Markdown to HTML
+    return <div dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+  };
 
+  // Render rating as a progress bar with score and max
   const renderRating = (rating: any) => {
     const { score, max } = getRatingValue(rating);
     const percentage = max > 0 ? (score / max) * 100 : 0;
@@ -398,7 +411,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                     {Object.entries(evaluation_data.additional_criteria_evaluation).map(([key, value]) => (
                       <div key={key} className="mb-4 last:mb-0">
                         <h3 className="font-medium text-sm text-slate-900 mb-1">{key.replace(/_/g, ' ')}</h3>
-                        <p className="text-sm text-slate-600">{value}</p>
+                        <p className="text-sm text-slate-600">{formatAIGeneratedText(value)}</p>
                       </div>
                     ))}
                   </div>
@@ -421,7 +434,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({ session
                     {evaluation_data.mid_evaluations.map((midEval, idx) => (
                       <div key={idx} className="mb-4 last:mb-0">
                         <h3 className="font-medium text-sm text-slate-900 mb-1">Mid Evaluation {idx + 1}</h3>
-                        <p className="text-sm text-slate-600">{midEval}</p>
+                        <p className="text-sm text-slate-600">{formatAIGeneratedText(midEval)}</p>
                       </div>
                     ))}
                   </div>
