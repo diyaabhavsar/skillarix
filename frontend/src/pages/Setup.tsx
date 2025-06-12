@@ -91,7 +91,7 @@ const Setup = () => {
     }
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/categories", {
+      const res = await fetch("http://localhost:7070/categories", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

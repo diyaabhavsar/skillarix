@@ -2482,4 +2482,4 @@ async def get_latest_sessions(current_user: User = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=7070, reload=True) 

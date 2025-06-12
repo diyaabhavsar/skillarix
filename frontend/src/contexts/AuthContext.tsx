@@ -149,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/register", {
+      const res = await fetch("http://localhost:7070/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
