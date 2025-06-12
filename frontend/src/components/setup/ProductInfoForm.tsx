@@ -20,11 +20,6 @@ export interface ProductInfoFormProps {
   categories: { id: string; name: string }[];
   selectedCategoryId: string;
   onCategoryChange: (categoryId: string) => void;
-  isCreatingCategory: boolean;
-  setIsCreatingCategory: (isCreating: boolean) => void;
-  newCategoryName: string;
-  setNewCategoryName: (name: string) => void;
-  handleCreateCategory: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -34,11 +29,6 @@ const ProductInfoForm = ({
   categories,
   selectedCategoryId,
   onCategoryChange,
-  isCreatingCategory,
-  setIsCreatingCategory,
-  newCategoryName,
-  setNewCategoryName,
-  handleCreateCategory,
   isLoading,
 }: ProductInfoFormProps) => {
   return (
@@ -58,67 +48,33 @@ const ProductInfoForm = ({
           />
         </div>
         <div className="grid gap-2">
+          {" "}
           <Label htmlFor="product-category" className="text-sm font-medium">
             Category
           </Label>
-          {isCreatingCategory ? (
-            <div className="flex gap-2">
-              <Input
-                placeholder="New Category Name"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                disabled={isLoading}
-              />
-              <Button
-                type="button"
-                onClick={handleCreateCategory}
-                disabled={isLoading}
-              >
-                Create
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsCreatingCategory(false)}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Select
-                onValueChange={onCategoryChange}
-                value={selectedCategoryId}
-                disabled={isLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category">
-                    {
-                      categories.find((cat) => cat.id === selectedCategoryId)
-                        ?.name
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsCreatingCategory(true)}
-                disabled={isLoading}
-              >
-                New
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <Select
+              onValueChange={onCategoryChange}
+              value={selectedCategoryId}
+              disabled={isLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select category">
+                  {
+                    categories.find((cat) => cat.id === selectedCategoryId)
+                      ?.name
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
       <div className="grid gap-2">

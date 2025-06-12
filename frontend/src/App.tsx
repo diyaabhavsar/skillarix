@@ -23,6 +23,7 @@ import ManageUsers from "./pages/admin/ManageUsers";
 
 // Import the new TestSetup page component
 import TestSetup from "./pages/TestSetup";
+import Categories from "./pages/Categories";
 
 const queryClient = new QueryClient();
 
@@ -37,149 +38,161 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              
+
               {/* Regular user routes */}
-              <Route 
-                path="/dashboard" 
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <AppLayout>
                       <Dashboard />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/setup" 
+              <Route
+                path="/categories"
                 element={
                   <ProtectedRoute>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
-                        { label: "Dashboard", path: "/dashboard" },
-                        { label: "Setup", path: "/setup" }
+                        { label: "Categories", path: "/categories" },
                       ]}
+                    >
+                      <Categories />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout
+                      showBreadcrumbs={true}
+                      breadcrumbs={[{ label: "Products", path: "/products" }]}
                     >
                       <Setup />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/test-setup" 
+              <Route
+                path="/test-setup"
                 element={
                   <ProtectedRoute>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
                         { label: "Dashboard", path: "/dashboard" },
-                        { label: "Test Setup", path: "/test-setup" }
+                        { label: "Test Setup", path: "/test-setup" },
                       ]}
                     >
                       <TestSetup />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/practice" 
+              <Route
+                path="/practice"
                 element={
                   <ProtectedRoute>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
                         { label: "Dashboard", path: "/dashboard" },
-                        { label: "Practice", path: "/practice" }
+                        { label: "Practice", path: "/practice" },
                       ]}
                     >
                       <Practice />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/practice-session" 
+              <Route
+                path="/practice-session"
                 element={
                   <ProtectedRoute>
                     <PracticeSessionPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/final-session" 
+              <Route
+                path="/final-session"
                 element={
                   <ProtectedRoute>
                     <PracticeSessionPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/feedback/:sessionId" 
+              <Route
+                path="/feedback/:sessionId"
                 element={
                   <ProtectedRoute>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
                         { label: "Dashboard", path: "/dashboard" },
                         { label: "History", path: "/past-sessions" },
-                        { label: "Feedback", path: "" }
+                        { label: "Feedback", path: "" },
                       ]}
                     >
                       <FeedbackViewer />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/settings" 
+              <Route
+                path="/settings"
                 element={
                   <ProtectedRoute>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
                         { label: "Dashboard", path: "/dashboard" },
-                        { label: "Settings", path: "/settings" }
+                        { label: "Settings", path: "/settings" },
                       ]}
                     >
                       <Settings />
                     </AppLayout>
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
               {/* Admin-only routes */}
-              <Route 
-                path="/admin/dashboard" 
+              <Route
+                path="/admin/dashboard"
                 element={
                   <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
-                        { label: "Admin Dashboard", path: "/admin/dashboard" }
+                        { label: "Admin Dashboard", path: "/admin/dashboard" },
                       ]}
                     >
                       <AdminDashboard />
                     </AppLayout>
                   </RoleProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/users" 
+              <Route
+                path="/admin/users"
                 element={
                   <RoleProtectedRoute allowedRoles={["admin"]}>
-                    <AppLayout 
+                    <AppLayout
                       showBreadcrumbs={true}
                       breadcrumbs={[
                         { label: "Admin Dashboard", path: "/admin/dashboard" },
-                        { label: "Manage Users", path: "/admin/users" }
+                        { label: "Manage Users", path: "/admin/users" },
                       ]}
                     >
                       <ManageUsers />
                     </AppLayout>
                   </RoleProtectedRoute>
-                } 
+                }
               />
-              
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

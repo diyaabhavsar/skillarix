@@ -19,7 +19,8 @@ const Navbar = () => {
 
   const navItems = [
     { title: "Dashboard", href: "/dashboard" },
-    { title: "Setup", href: "/setup" },
+    { title: "Products", href: "/products" },
+    { title: "Categories", href: "/categories" },
     { title: "Practice", href: "/practice" },
     { title: "History", href: "/past-sessions" },
     { title: "Test Setup", href: "/test-setup" },

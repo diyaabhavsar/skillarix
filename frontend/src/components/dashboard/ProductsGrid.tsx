@@ -35,7 +35,7 @@ const ProductsGrid = ({ products }: ProductsGridProps) => {
         </div>
         <p className="text-muted-foreground text-sm mb-4">Add a new product</p>
         <Button size="sm" variant="outline" asChild>
-          <Link to="/setup">Upload Product</Link>
+          <Link to="/products">Upload Product</Link>
         </Button>
       </Card>
     </div>
