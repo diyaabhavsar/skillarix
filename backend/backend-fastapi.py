@@ -25,6 +25,10 @@ import asyncio
 from fastapi.websockets import WebSocketState
 import traceback
 from math import ceil
+from dotenv import load_dotenv
+
+# Load environment variables from a .env file
+load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(title="Sales Evaluation System API")
@@ -32,19 +36,19 @@ app = FastAPI(title="Sales Evaluation System API")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],  # In production, replace with specific origins
+    allow_origins=[os.getenv('FRONTEND_URL')],  # In production, replace with specific origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Security configurations
-SECRET_KEY = "556227afb81a8b6e8b8d15355b4eb04fdbd23e0d8ab770dd09585a4c7bf027a2"  # Change this in production
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = os.getenv('SECRET_KEY')  # Change this in production
+ALGORITHM = os.getenv('ALGORITHM')
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
 
 # Initialize Groq Client
-client = Groq(api_key="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")
+client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -54,8 +58,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 def setup_mongodb():
     # client = MongoClient("mongodb://localhost:27017/")
     # db = client["sales_evaluation_db"]
-    client = MongoClient('mongodb+srv://chinmaypatel2024:chinmay%402024@cluster0.hf0wpbs.mongodb.net/')
-    db = client['sales']
+    client = MongoClient(os.getenv('DATABASE_URL'))
+    db = client[os.getenv('DATABASE_NAME')]
     # Access the new collection
     test_configurations_collection = db["test_configurations"]
     return db, gridfs.GridFS(db)
