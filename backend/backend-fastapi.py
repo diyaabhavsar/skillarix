@@ -1245,6 +1245,17 @@ def export_evaluation_report(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating evaluation report: {str(e)}")
 
+
+def convert_object_ids(obj):
+    if isinstance(obj, dict):
+        return {k: convert_object_ids(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_object_ids(item) for item in obj]
+    elif isinstance(obj, ObjectId):
+        return str(obj)
+    else:
+        return obj
+
 # FastAPI endpoints
 @app.post("/api/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -2285,7 +2296,7 @@ async def get_users_list(current_user: User = Depends(get_current_user)):
         user["_id"] = str(user["_id"])
         user.pop("password", None)
         user.pop("hashed_password", None)
-    return users
+    return convert_object_ids(users)
 
 # Get a specific user (admin only)
 @app.get("/api/users/{user_id}")
@@ -2304,7 +2315,7 @@ async def get_user_by_id(
     user["_id"] = str(user["_id"])
     user.pop("password", None)
     user.pop("hashed_password", None)
-    return user
+    return convert_object_ids(user)
 
 # Create a new user (admin only)
 @app.post("/api/users")
@@ -2380,7 +2391,7 @@ async def edit_user(
     user["_id"] = str(user["_id"])
     user.pop("password", None)
     user.pop("hashed_password", None)
-    return user
+    return convert_object_ids(user)
 
 # Delete a user (admin only)
 @app.delete("/api/users/{user_id}")
@@ -2445,20 +2456,9 @@ async def get_latest_users(current_user: User = Depends(get_current_user)):
         user["_id"] = str(user["_id"])
         user.pop("password", None)
         user.pop("hashed_password", None)
-    return users
+    return convert_object_ids(users)
 
 # Endpoint to get the latest 5 completed sessions (admin only)
-def convert_object_ids(obj):
-    if isinstance(obj, dict):
-        return {k: convert_object_ids(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_object_ids(item) for item in obj]
-    elif isinstance(obj, ObjectId):
-        return str(obj)
-    else:
-        return obj
-
-# Endpoint to get the latest 5 completed sessions with user and product info (admin only)
 @app.get("/api/admin/latest-sessions")
 async def get_latest_sessions(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":

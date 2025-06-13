@@ -9,15 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
   Search,
   UserPlus,
   MoreHorizontal,
@@ -25,17 +16,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -53,7 +34,11 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import SideSheet from "@/components/SideSheet";
+import DataTable from "@/components/DataTable";
 import { api } from "@/utils/api";
+import { User, ApiUser } from "@/types/users";
+import ManageUserForm from "@/components/manageUser/ManageUserForm";
 
 // Helper functions outside component
 const formatDateTime = (dateTimeStr: string) => {
@@ -111,33 +96,11 @@ const DeleteUserDialog = ({
   </AlertDialog>
 );
 
-interface ApiUser {
-  _id?: string;
-  id?: string;
-  username?: string;
-  name?: string;
-  email: string;
-  role: "admin" | "employee";
-  active?: boolean;
-  sessions?: number;
-  last_login?: string;
-}
-
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "employee";
-  active: true | false;
-  sessions: number;
-  lastActive: string;
-};
-
 const defaultForm = {
   name: "",
   email: "",
   password: "",
-  role: "employee",
+  role: "employee" as "admin" | "employee",
   active: true,
 };
 
@@ -274,14 +237,14 @@ const ManageUsers = () => {
   };
 
   // Open edit sheet and populate form
-  const openEditUser = (u: User) => {
+  const openEditUser = (user: User) => {
     setEditUserForm({
-      id: u.id,
-      name: u.name,
-      email: u.email,
+      id: user.id,
+      name: user.name,
+      email: user.email,
       password: "",
-      role: u.role,
-      active: u.active,
+      role: user.role === "admin" ? "admin" : "employee",
+      active: user.active,
     });
     setShowEditPassword(false);
     setEditUserError(null);
@@ -293,15 +256,15 @@ const ManageUsers = () => {
     setViewUserLoading(true);
     setIsViewUserOpen(true);
     try {
-      const u = await api.get<ApiUser>(`/api/users/${userId}`);
+      const user = await api.get<ApiUser>(`/users/${userId}`);
       setViewUser({
-        id: u._id || u.id || "",
-        name: u.username || u.name || "",
-        email: u.email,
-        role: u.role,
-        active: u.active ?? true,
-        sessions: u.sessions || 0,
-        lastActive: u.last_login || "Unknown",
+        id: user._id || user.id || "",
+        name: user.username || user.name || "",
+        email: user.email,
+        role: user.role,
+        active: user.active ?? true,
+        sessions: user.sessions || 0,
+        lastActive: user.last_login || "Unknown",
       });
     } catch {
       setViewUser(null);
@@ -363,378 +326,113 @@ const ManageUsers = () => {
             Refresh
           </Button>
           {/* Add User Sheet */}
-          <Sheet open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-            <SheetTrigger asChild>
+          <SideSheet
+            open={isAddUserOpen}
+            onOpenChange={setIsAddUserOpen}
+            title="Add New User"
+            description="Create a new user account. An invitation email will be sent to the provided address."
+            trigger={
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add User
               </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-full max-w-md sm:max-w-lg md:max-w-xl h-screen overflow-y-auto flex flex-col"
-            >
-              <SheetHeader>
-                <SheetTitle>Add New User</SheetTitle>
-                <SheetDescription>
-                  Create a new user account. An invitation email will be sent to
-                  the provided address.
-                </SheetDescription>
-              </SheetHeader>
-              <form
-                className="flex-1 flex flex-col justify-start"
-                onSubmit={handleAddUser}
-              >
-                <div className="flex flex-col gap-6 py-4 px-1">
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="name" className="font-medium">
-                      Name
-                    </label>
-                    <Input
-                      id="name"
-                      value={addUserForm.name}
-                      onChange={(e) =>
-                        setAddUserForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="email" className="font-medium">
-                      Email
-                    </label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={addUserForm.email}
-                      onChange={(e) =>
-                        setAddUserForm((f) => ({ ...f, email: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2 relative">
-                    <label htmlFor="password" className="font-medium">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={addUserForm.password}
-                        onChange={(e) =>
-                          setAddUserForm((f) => ({
-                            ...f,
-                            password: e.target.value,
-                          }))
-                        }
-                        required
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        tabIndex={-1}
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={
-                          showPassword ? "Hide password" : "Show password"
-                        }
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="font-medium">Role</label>
-                    <div className="flex gap-6">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="employee"
-                          name="role"
-                          value="employee"
-                          checked={addUserForm.role === "employee"}
-                          onChange={() =>
-                            setAddUserForm((f) => ({ ...f, role: "employee" }))
-                          }
-                        />
-                        Employee
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="admin"
-                          name="role"
-                          value="admin"
-                          checked={addUserForm.role === "admin"}
-                          onChange={() =>
-                            setAddUserForm((f) => ({ ...f, role: "admin" }))
-                          }
-                        />
-                        Admin
-                      </label>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="font-medium" htmlFor="active-switch">
-                      Active
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        id="active-switch"
-                        checked={addUserForm.active ?? true}
-                        onCheckedChange={(checked) =>
-                          setAddUserForm((f) => ({ ...f, active: checked }))
-                        }
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {addUserForm.active ?? true ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-                  <ErrorMessage error={addUserError} />
-                </div>
-                <SheetFooter className="mt-auto flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddUserOpen(false)}
-                    disabled={addUserLoading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={addUserLoading}>
-                    {addUserLoading ? "Adding..." : "Add User"}
-                  </Button>
-                </SheetFooter>
-              </form>
-            </SheetContent>
-          </Sheet>
+            }
+          >
+            <ManageUserForm
+              form={addUserForm}
+              setForm={setAddUserForm}
+              loading={addUserLoading}
+              error={addUserError}
+              onSubmit={handleAddUser}
+              onCancel={() => setIsAddUserOpen(false)}
+            />
+          </SideSheet>
           {/* Edit User Sheet */}
-          <Sheet open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-            <SheetContent
-              side="right"
-              className="w-full max-w-md sm:max-w-lg md:max-w-xl h-screen overflow-y-auto flex flex-col"
-            >
-              <SheetHeader>
-                <SheetTitle>Edit User</SheetTitle>
-                <SheetDescription>
-                  Update user details. Leave password blank to keep unchanged.
-                </SheetDescription>
-              </SheetHeader>
-              <form
-                className="flex-1 flex flex-col justify-start"
-                onSubmit={handleEditUser}
-              >
-                <div className="flex flex-col gap-6 py-4 px-1">
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="edit-name" className="font-medium">
-                      Name
-                    </label>
-                    <Input
-                      id="edit-name"
-                      value={editUserForm.name}
-                      onChange={(e) =>
-                        setEditUserForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="edit-email" className="font-medium">
-                      Email
-                    </label>
-                    <Input
-                      id="edit-email"
-                      type="email"
-                      value={editUserForm.email}
-                      onChange={(e) =>
-                        setEditUserForm((f) => ({
-                          ...f,
-                          email: e.target.value,
-                        }))
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2 relative">
-                    <label htmlFor="edit-password" className="font-medium">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="edit-password"
-                        type={showEditPassword ? "text" : "password"}
-                        value={editUserForm.password}
-                        onChange={(e) =>
-                          setEditUserForm((f) => ({
-                            ...f,
-                            password: e.target.value,
-                          }))
-                        }
-                        className="pr-10"
-                        placeholder="Leave blank to keep unchanged"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        tabIndex={-1}
-                        onClick={() => setShowEditPassword((v) => !v)}
-                        aria-label={
-                          showEditPassword ? "Hide password" : "Show password"
-                        }
-                      >
-                        {showEditPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="font-medium">Role</label>
-                    <div className="flex gap-6">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="edit-employee"
-                          name="edit-role"
-                          value="employee"
-                          checked={editUserForm.role === "employee"}
-                          onChange={() =>
-                            setEditUserForm((f) => ({ ...f, role: "employee" }))
-                          }
-                        />
-                        Employee
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          id="edit-admin"
-                          name="edit-role"
-                          value="admin"
-                          checked={editUserForm.role === "admin"}
-                          onChange={() =>
-                            setEditUserForm((f) => ({ ...f, role: "admin" }))
-                          }
-                        />
-                        Admin
-                      </label>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="font-medium" htmlFor="edit-active-switch">
-                      Active
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        id="edit-active-switch"
-                        checked={editUserForm.active ?? true}
-                        onCheckedChange={(checked) =>
-                          setEditUserForm((f) => ({ ...f, active: checked }))
-                        }
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {editUserForm.active ?? true ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  </div>
-                  <ErrorMessage error={editUserError} />
-                </div>
-                <SheetFooter className="mt-auto flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsEditUserOpen(false)}
-                    disabled={editUserLoading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={editUserLoading}>
-                    {editUserLoading ? "Saving..." : "Save Changes"}
-                  </Button>
-                </SheetFooter>
-              </form>
-            </SheetContent>
-          </Sheet>
+          <SideSheet
+            open={isEditUserOpen}
+            onOpenChange={setIsEditUserOpen}
+            title="Edit User"
+            description="Update user information."
+          >
+            <ManageUserForm
+              form={editUserForm}
+              setForm={setEditUserForm}
+              loading={editUserLoading}
+              error={editUserError}
+              onSubmit={handleEditUser}
+              isEdit
+              onCancel={() => setIsEditUserOpen(false)}
+            />
+          </SideSheet>
           {/* View User Sheet */}
-          <Sheet open={isViewUserOpen} onOpenChange={setIsViewUserOpen}>
-            <SheetContent
-              side="right"
-              className="w-full max-w-md sm:max-w-lg md:max-w-xl h-screen overflow-y-auto flex flex-col"
-            >
-              <SheetHeader>
-                <SheetTitle>User Information</SheetTitle>
-                <SheetDescription>View user details.</SheetDescription>
-              </SheetHeader>
-              {viewUserLoading ? (
-                <div className="flex-1 flex items-center justify-center">
-                  Loading...
+          <SideSheet
+            open={isViewUserOpen}
+            onOpenChange={setIsViewUserOpen}
+            title="View User"
+            description="View user details and activity."
+            footer={
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsViewUserOpen(false)}
+              >
+                Close
+              </Button>
+            }
+          >
+            {viewUserLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                Loading...
+              </div>
+            ) : viewUser ? (
+              <div className="flex-1 flex flex-col gap-6 py-4 px-1">
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Name:</span>{" "}
+                  <span>{viewUser.name}</span>
                 </div>
-              ) : viewUser ? (
-                <div className="flex-1 flex flex-col gap-6 py-4 px-1">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Name:</span>{" "}
-                    <span>{viewUser.name}</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Email:</span>{" "}
-                    <span>{viewUser.email}</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Role:</span>{" "}
-                    <span
-                      className={
-                        viewUser.role === "admin"
-                          ? "text-blue-500"
-                          : "text-gray-500"
-                      }
-                    >
-                      {viewUser.role === "admin" ? "Admin" : "Employee"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Status:</span>{" "}
-                    <span
-                      className={
-                        viewUser.active
-                          ? "text-green-500"
-                          : "text-muted-foreground"
-                      }
-                    >
-                      {viewUser.active ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Sessions:</span>{" "}
-                    <span>{viewUser.sessions}</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="font-medium">Last Active:</span>{" "}
-                    <span>{formatDateTime(viewUser.lastActive)}</span>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Email:</span>{" "}
+                  <span>{viewUser.email}</span>
                 </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-red-500">
-                  Failed to load user info.
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Role:</span>{" "}
+                  <span
+                    className={
+                      viewUser.role === "admin"
+                        ? "text-blue-500"
+                        : "text-gray-500"
+                    }
+                  >
+                    {viewUser.role === "admin" ? "Admin" : "Employee"}
+                  </span>
                 </div>
-              )}
-              <SheetFooter className="mt-auto flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsViewUserOpen(false)}
-                >
-                  Close
-                </Button>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Status:</span>{" "}
+                  <span
+                    className={
+                      viewUser.active
+                        ? "text-green-500"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    {viewUser.active ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Sessions:</span>{" "}
+                  <span>{viewUser.sessions}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium">Last Active:</span>{" "}
+                  <span>{formatDateTime(viewUser.lastActive)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-red-500">
+                Failed to load user info.
+              </div>
+            )}
+          </SideSheet>
         </div>
       </div>
 
@@ -754,99 +452,52 @@ const ManageUsers = () => {
           </div>
 
           <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Sessions</TableHead>
-                  <TableHead>Last Active</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">
-                      Loading users...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredUsers.length > 0 ? (
-                  filteredUsers.map((userData) => (
-                    <TableRow key={userData.id}>
-                      <TableCell className="font-medium">
-                        {userData.name}
-                      </TableCell>
-                      <TableCell>{userData.email}</TableCell>
-                      <TableCell className="flex items-center">
-                        <Badge
-                          className={
-                            userData.role === "admin"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-700"
-                          }
+            <DataTable
+              columns={[
+                { key: "name", label: "Name" },
+                { key: "email", label: "Email" },
+                { key: "role", label: "Role" },
+                { key: "sessions", label: "Sessions" },
+                { key: "lastActive", label: "Last Active" },
+                { key: "status", label: "Status" },
+                { key: "actions", label: "Actions", className: "w-[80px]" },
+              ]}
+              data={filteredUsers.map((userData) => ({
+                ...userData,
+                lastActive: formatDateTime(userData.lastActive),
+                status: userData.active ? "Active" : "Inactive",
+                actions: (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">More options</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => openViewUser(userData.id)}
+                      >
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEditUser(userData)}>
+                        Edit
+                      </DropdownMenuItem>
+                      {userData.email !== user?.email && (
+                        <DropdownMenuItem
+                          className="text-red-500"
+                          onClick={() => confirmDeleteUser(userData)}
                         >
-                          {userData.role === "admin" ? "Admin" : "Employee"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{userData.sessions}</TableCell>
-                      <TableCell>
-                        {formatDateTime(userData.lastActive)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={
-                            userData.active
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }
-                        >
-                          {userData.active ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">More options</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => openViewUser(userData.id)}
-                            >
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openEditUser(userData)}
-                            >
-                              Edit
-                            </DropdownMenuItem>
-                            {userData.email !== user?.email && (
-                              <DropdownMenuItem
-                                className="text-red-500"
-                                onClick={() => confirmDeleteUser(userData)}
-                              >
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">
-                      No users found matching your search criteria.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                          Delete
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ),
+              }))}
+              loading={loading}
+              emptyMessage="No users found matching your search criteria."
+            />
           </div>
         </CardContent>
       </Card>

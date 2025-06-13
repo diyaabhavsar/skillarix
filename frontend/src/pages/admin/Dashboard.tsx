@@ -5,32 +5,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { api } from "@/utils/api";
-
-// Add these interfaces at the top of the file
-interface DashboardUser {
-  _id: string;
-  username: string;
-  email: string;
-  active: boolean;
-  role: string;
-}
-
-interface DashboardSession {
-  _id: string;
-  user_name: string;
-  product_name: string;
-  score?: number;
-  created_at?: string;
-}
-
-// Add this interface with the other interfaces
-interface DashboardStats {
-  total_users: number;
-  active_users: number;
-  sessions_completed: number;
-  average_score: number;
-  products: number;
-}
+import { DashboardStats, DashboardUser, DashboardSession } from "@/types/dashboard";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -99,9 +74,6 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.total_users}</div>
-            {/* <p className="text-xs text-muted-foreground mt-1">
-              {stats.active_users} active users
-            </p> */}
           </CardContent>
         </Card>
         
@@ -111,7 +83,6 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.sessions_completed}</div>
-            {/* <p className="text-xs text-green-500 mt-1">+24 this week</p> */}
           </CardContent>
         </Card>
         
@@ -121,7 +92,6 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.average_score}%</div>
-            {/* <p className="text-xs text-green-500 mt-1">+3% from last month</p> */}
           </CardContent>
         </Card>
         
