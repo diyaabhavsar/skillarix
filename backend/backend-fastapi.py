@@ -1246,7 +1246,7 @@ def export_evaluation_report(
         raise HTTPException(status_code=500, detail=f"Error generating evaluation report: {str(e)}")
 
 # FastAPI endpoints
-@app.post("/token")
+@app.post("/api/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = user_manager.login(form_data.username, form_data.password)
     if not user:
@@ -1267,13 +1267,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         "last_login": user.get("last_login") # Include last_login here
     }
 
-@app.post("/register")
+@app.post("/api/register")
 async def register_user(user: UserCreate):
     if user_manager.register(user.username, user.email, user.password, user.role):
         return {"message": "User registered successfully"}
     raise HTTPException(status_code=400, detail="Username or email already exists")
 
-@app.post("/categories")
+@app.post("/api/categories")
 async def create_category(category: CategoryCreate, current_user: User = Depends(get_current_user)):
     # Check if a category with the same name already exists and is not deleted
     # Use the db object directly or add a method to DatabaseOperations
@@ -1290,7 +1290,7 @@ async def create_category(category: CategoryCreate, current_user: User = Depends
     # For now, let's keep the original return structure
     return {"id": str(category_id), "name": category.name}
 
-@app.get("/categories")
+@app.get("/api/categories")
 async def get_categories(current_user: User = Depends(get_current_user)):
     categories = db_ops.get_categories(current_user.id)
     
@@ -1304,7 +1304,7 @@ async def get_categories(current_user: User = Depends(get_current_user)):
 
     return categories # Return the list with _id converted to string
 
-@app.put("/categories/{category_id}")
+@app.put("/api/categories/{category_id}")
 async def update_category(
     category_id: str,
     category: CategoryCreate,
@@ -1316,7 +1316,7 @@ async def update_category(
     return {"message": "Category updated successfully"}
 
 
-@app.delete("/categories/{category_id}")
+@app.delete("/api/categories/{category_id}")
 async def soft_delete_category(
     category_id: str,
     current_user: User = Depends(get_current_user)
@@ -1339,7 +1339,7 @@ async def soft_delete_category(
     )
     return {"message": "Category soft deleted successfully."}
 
-@app.post("/products")
+@app.post("/api/products")
 async def create_product(
     name: str = Form(...),
     category_id: str = Form(...),
@@ -1376,7 +1376,7 @@ async def create_product(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create product: {str(e)}")
 
-@app.get("/products/{category_id}")
+@app.get("/api/products/{category_id}")
 async def get_products(category_id: str, current_user: User = Depends(get_current_user)):
     """
     Retrieves products for a category, authenticated.
@@ -1393,7 +1393,7 @@ async def get_products(category_id: str, current_user: User = Depends(get_curren
         traceback.print_exc() # Print full traceback for debugging
         raise HTTPException(status_code=500, detail="Failed to fetch products")
 
-@app.websocket("/ws/chat")
+@app.websocket("/api/ws/chat")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
     # print("connected")
     await websocket.accept()
@@ -1897,7 +1897,7 @@ def extract_score(evaluation_text: str) -> float:
         return 0.0
 
 
-@app.post("/export-report")
+@app.post("/api/export-report")
 async def export_report(
     conversation: List[ConversationPair],
     current_eval: str,
@@ -1909,7 +1909,7 @@ async def export_report(
     return {"report": report}
 
 # Add new endpoint to get conversation history with evaluations
-@app.get("/conversations/{product_id}")
+@app.get("/api/conversations/{product_id}")
 async def get_conversation_history(
     product_id: str,
     current_user: User = Depends(get_current_user)
@@ -1917,7 +1917,7 @@ async def get_conversation_history(
     conversations = db_ops.get_conversations_by_product(ObjectId(product_id), current_user.id)
     return conversations
 
-@app.get("/conversations/{product_id}/{conversation_id}")
+@app.get("/api/conversations/{product_id}/{conversation_id}")
 async def get_conversation_details(
     product_id: str,
     conversation_id: str,
@@ -1943,7 +1943,7 @@ async def get_conversation_details(
     return conversation
 
 # Endpoint to save test configurations
-@app.post("/test-configurations")
+@app.post("/api/test-configurations")
 async def create_test_configuration(
     config_data: TestConfigurationCreate,
     current_user: User = Depends(get_current_user) # Requires authentication
@@ -1959,7 +1959,7 @@ async def create_test_configuration(
         print(f"Error saving test configuration: {e}")
         raise HTTPException(status_code=500, detail="Failed to save test configuration")
 
-@app.get("/test-configurations/{product_id}")
+@app.get("/api/test-configurations/{product_id}")
 async def get_test_configurations(
     product_id: str,
 ) -> List[TestConfiguration]:
@@ -1974,7 +1974,7 @@ async def get_test_configurations(
         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
 
 
-@app.get("/conversations")
+@app.get("/api/conversations")
 async def get_all_conversations_for_user(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
@@ -2004,7 +2004,7 @@ async def get_all_conversations_for_user(
         "total_pages": total_pages
     }
 
-@app.get("/conversation/{conversation_id}")
+@app.get("/api/conversation/{conversation_id}")
 async def get_conversation_by_id(
     conversation_id: str,
     current_user: User = Depends(get_current_user)
@@ -2065,7 +2065,7 @@ async def get_conversation_by_id(
 
 
 
-@app.get("/test-configurations")
+@app.get("/api/test-configurations")
 async def get_all_test_configurations(
     current_user: User = Depends(get_current_user)
 ) -> List[TestConfiguration]:
@@ -2090,7 +2090,7 @@ async def get_all_test_configurations(
         print(f"Error fetching test configurations for admin {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
 
-@app.put("/products/{product_id}")
+@app.put("/api/products/{product_id}")
 async def update_product(
     product_id: str,
     name: str = Form(None),
@@ -2133,7 +2133,7 @@ async def update_product(
         updated_product = convert_objectids_to_strings(updated_product)
     return updated_product
 
-@app.put("/test-configurations/{test_config_id}")
+@app.put("/api/test-configurations/{test_config_id}")
 async def update_test_configuration(
     test_config_id: str,
     name: str = Body(None),
@@ -2180,7 +2180,7 @@ async def update_test_configuration(
     updated_config = convert_objectids_to_strings(updated_config)
     return updated_config
 
-@app.get("/products")
+@app.get("/api/products")
 async def get_products_by_user():
     """
     List all products created by the current logged-in user (irrespective of category).
@@ -2204,7 +2204,7 @@ async def get_products_by_user():
         print(f"Error fetching products for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
-@app.get("/all-products")
+@app.get("/api/all-products")
 async def get_products_by_user(
     current_user: User = Depends(get_current_user)
 ):
@@ -2230,7 +2230,7 @@ async def get_products_by_user(
         print(f"Error fetching products for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
-@app.delete("/products/{product_id}")
+@app.delete("/api/products/{product_id}")
 async def delete_product(
     product_id: str,
     current_user: User = Depends(get_current_user)
@@ -2249,7 +2249,7 @@ async def delete_product(
     db.products.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
     return {"message": "Product deleted successfully."}
 
-@app.delete("/test-configurations/{test_config_id}")
+@app.delete("/api/test-configurations/{test_config_id}")
 async def delete_test_configuration(
     test_config_id: str,
     current_user: User = Depends(get_current_user)

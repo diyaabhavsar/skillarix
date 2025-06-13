@@ -169,7 +169,7 @@ const ManageUsers = () => {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const data = await api.get<ApiUser[]>("/api/users");
+        const data = await api.get<ApiUser[]>("/users");
         const mappedUsers: User[] = data.map((u: ApiUser) => ({
           id: u._id || u.id || "",
           name: u.username || u.name || "",
@@ -208,7 +208,7 @@ const ManageUsers = () => {
     setAddUserLoading(true);
     setAddUserError(null);
     try {
-      await api.post("/api/users", {
+      await api.post("/users", {
         username: addUserForm.name,
         email: addUserForm.email,
         password: addUserForm.password,
@@ -218,7 +218,7 @@ const ManageUsers = () => {
       setAddUserForm({ ...defaultForm });
       setIsAddUserOpen(false);
       setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const usersData = await api.get<GetUsersResponse>("/users");
       const mappedUsers: User[] = usersData.map((u) => ({
         id: u._id || u.id || "",
         name: u.username || u.name || "",
@@ -254,7 +254,7 @@ const ManageUsers = () => {
       setIsEditUserOpen(false);
       setEditUserForm({ ...defaultForm, id: "" });
       setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const usersData = await api.get<GetUsersResponse>("/users");
       const mappedUsers: User[] = usersData.map((u) => ({
         id: u._id || u.id || "",
         name: u.username || u.name || "",
@@ -316,7 +316,7 @@ const ManageUsers = () => {
     try {
       await api.delete(`/api/users/${userId}`);
       setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/api/users");
+      const usersData = await api.get<GetUsersResponse>("/users");
       const mappedUsers: User[] = usersData.map((u) => ({
         id: u._id || u.id || "",
         name: u.username || u.name || "",
