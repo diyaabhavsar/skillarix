@@ -13,9 +13,8 @@
 # CSS/SCSS files
 *.css text eol=lf
 *.scss text eol=lf
-
 # HTML files
 *.html text eol=lf
-
 # Documentation
 *.md text eol=lf
+
