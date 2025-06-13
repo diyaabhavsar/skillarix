@@ -50,7 +50,7 @@ const Settings = () => {
   const [formData, setFormData] = useState({
     name: user?.name || "John Doe",
     email: user?.email || "john@example.com",
-    role: "Sales Representative",
+    role: user?.role || "Sales Representative",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",

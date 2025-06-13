@@ -30,7 +30,7 @@ export const authService = {
         access_token: response.access_token,
         user: {
           id: response.id,
-          email: response.username,
+          email: response.email,
           name: response.username,
           role: response.role
         }
