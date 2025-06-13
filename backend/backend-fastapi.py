@@ -2486,4 +2486,4 @@ async def get_latest_sessions(current_user: User = Depends(get_current_user)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8070, reload=True)  # Changed port to 8070
+    uvicorn.run("backend-fastapi:app", host="0.0.0.0", port=8070, reload=True)  

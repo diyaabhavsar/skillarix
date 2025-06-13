@@ -45,6 +45,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { env } from "@/config/env";
 
 const Setup = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -55,7 +56,6 @@ const Setup = () => {
     description: "",
   });
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-
   const {
     products,
     categories,
@@ -91,7 +91,7 @@ const Setup = () => {
     }
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:7070/categories", {
+      const res = await fetch(`${env.API_URL}/categories`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

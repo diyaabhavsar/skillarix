@@ -183,6 +183,7 @@ export const api = {
   // Add new method for URL-encoded form submissions
   submitUrlEncodedForm: async (endpoint: string, formData: URLSearchParams) => {
     const token = api.getToken();
+    console.log({token})
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
