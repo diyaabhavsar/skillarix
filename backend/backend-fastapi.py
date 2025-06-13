@@ -1264,6 +1264,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         "token_type": "bearer",
         "role": user["role"],
         "username": user["username"],
+        "email": user["email"],
         "last_login": user.get("last_login") # Include last_login here
     }
 
