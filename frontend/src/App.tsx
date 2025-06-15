@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
-import Setup from "./pages/Setup";
+import Products from "./pages/Products";
 import Practice from "./pages/Practice";
 import PracticeSessionPage from "./pages/PracticeSession";
 import FeedbackViewer from "./pages/FeedbackViewer";
@@ -73,7 +73,7 @@ const App = () => {
                       showBreadcrumbs={true}
                       breadcrumbs={[{ label: "Products", path: "/products" }]}
                     >
-                      <Setup />
+                      <Products />
                     </AppLayout>
                   </ProtectedRoute>
                 }
