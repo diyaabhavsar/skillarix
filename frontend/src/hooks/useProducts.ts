@@ -3,41 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { api } from '@/utils/api';
 import { env } from '@/config/env';
-
-interface Product {
-  _id: string;
-  name: string;
-  category_id: string;
-  content: string;
-  metadata: {
-    title: string;
-    author: string;
-    creation_date: string;
-    total_pages: number;
-  };
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  updated_by: string;
-  description: string | null;
-}
-
-interface Category {
-  id: string;
-  name: string;
-  created_by?: string;
-  created_at?: string;
-}
-
-interface CategoryResponse {
-  _id: string;
-  name: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_deleted: boolean;
-  updated_by: string;
-}
+import { Product } from '@/types/products';
+import { Category } from '@/types/categories';
+import { CategoryResponse } from '@/types/categories';
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,6 +13,7 @@ export const useProducts = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const { token } = useAuth();
+  
   const fetchCategories = async () => {
     if (!token) return;
     try {
@@ -71,7 +40,7 @@ export const useProducts = () => {
     try {
         
       const data = await api.get("/products");
-      setProducts(data);
+      setProducts(data as Product[]);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
@@ -86,7 +55,7 @@ export const useProducts = () => {
     try {
         
       const data = await api.get(`/all-products`);
-      setProducts(data);
+      setProducts(data as Product[]);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
@@ -99,7 +68,7 @@ export const useProducts = () => {
     if (!token) throw new Error("Not authenticated");
     try {
       const newProduct = await api.submitForm("/products", formData);
-      setProducts(prev => [...prev, newProduct]);
+      setProducts(prev => [...prev, newProduct as Product]);
       return newProduct;
     } catch (error: any) {
       console.error("Error creating product:", error);
@@ -119,7 +88,7 @@ export const useProducts = () => {
         },
         body: formData,
       });
-      const updatedProduct = await api.handleResponse(response);
+      const updatedProduct = await api.handleResponse(response) as Product;
       setProducts(prev => prev.map(p => p._id === productId ? updatedProduct : p));
       return updatedProduct;
     } catch (error: any) {
@@ -161,7 +130,7 @@ export const useProducts = () => {
   const createCategory = async (name: string) => {
     if (!token) throw new Error("Not authenticated");
     try {
-      const newCategory: CategoryResponse = await api.post('/categories', { name });
+      const newCategory = await api.post('/categories', { name }) as CategoryResponse;
       const formattedCategory: Category = { 
         id: newCategory._id, 
         name: newCategory.name,
