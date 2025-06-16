@@ -17,7 +17,6 @@ export interface DashboardSession {
 // Add this interface with the other interfaces
 export interface DashboardStats {
   total_users: number;
-  active_users: number;
   sessions_completed: number;
   average_score: number;
   products: number;

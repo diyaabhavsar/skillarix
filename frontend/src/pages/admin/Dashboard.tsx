@@ -6,13 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { api } from "@/utils/api";
 import { DashboardStats, DashboardUser, DashboardSession } from "@/types/dashboard";
+import AppCard from "@/components/AppCard";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [stats, setStats] = useState<DashboardStats>({
     total_users: 0,
-    active_users: 0,
     sessions_completed: 0,
     average_score: 0,
     products: 0,
@@ -68,56 +68,31 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Total Users</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.total_users}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Sessions Completed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.sessions_completed}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Average Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.average_score}%</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.products}</div>
-            {/* <p className="text-xs text-muted-foreground mt-1">Active training products</p> */}
-          </CardContent>
-        </Card>
+        {Object.entries(stats).map(([key, value]) => (
+          <Card key={key}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium capitalize">{key.replace(/_/g, ' ')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {key === "average_score" ? `${value}%` : value}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="mb-8">
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Latest Users */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Latest Users</CardTitle>
-                <CardDescription>Newest registered users</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {latestUsers.map(u => (
+            <AppCard
+              title="Latest Users"
+              description="Newest registered users"
+              className="h-full"
+            >
+              <div className="space-y-4">
+                {latestUsers.map(u => (
                     <div key={u._id} className="flex items-center justify-between pb-4 border-b">
                       <div>
                         <p className="font-medium">{u.username}</p>
@@ -133,21 +108,20 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-                <Button variant="ghost" className="w-full mt-4" asChild>
-                  <Link to="/admin/users">View All Users</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <Button variant="ghost" className="w-full mt-4" asChild>
+                <Link to="/admin/users">View All Users</Link>
+              </Button>
+            </AppCard>
+
             {/* Latest Sessions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Latest Sessions</CardTitle>
-                <CardDescription>Most recent completed sessions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {latestSessions.map(s => (
+            <AppCard
+              title="Latest Sessions"
+              description="Most recent completed sessions"
+              className="h-full"
+            >
+              <div className="space-y-4">
+                {latestSessions.map(s => (
                     <div key={s._id} className="flex items-center justify-between pb-4 border-b">
                       <div>
                         <p className="font-medium">{s.user_name}</p>
@@ -167,12 +141,11 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-                <Button variant="ghost" className="w-full mt-4" asChild>
-                  <Link to="/Practice">View All Sessions</Link>
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <Button variant="ghost" className="w-full mt-4" asChild>
+                <Link to="/Practice">View All Sessions</Link>
+              </Button>
+            </AppCard>
           </div>
         </TabsContent>
       </Tabs>
