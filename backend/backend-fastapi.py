@@ -2437,7 +2437,6 @@ async def get_admin_stats(current_user: User = Depends(get_current_user)):
 
     return {
         "total_users": total_users,
-        "active_users": active_users,
         "sessions_completed": total_sessions,
         "average_score": average_score,
         "products": total_products,
