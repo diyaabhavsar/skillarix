@@ -11,6 +11,7 @@ import FileUploadSection from "./FileUploadSection";
 import ProductInfoForm from "./ProductInfoForm";
 import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
+import { api } from '@/utils/api';
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -24,6 +25,10 @@ interface ProductFormProps {
 
 const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
   const [file, setFile] = useState<File | null>(null);
+  const [uploadFile, setUploadFile] = useState({
+    filename: "",
+    url: "",
+  });
   const [productInfo, setProductInfo] = useState({
     productName: initialData?.productName || "",
     description: initialData?.description || "",
@@ -46,8 +51,16 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
   }, [initialData?.categoryId]);
 
-  const handleFileChange = (uploadedFile: File | null) => {
+  const handleFileChange = async (uploadedFile: File | null) => {
     setFile(uploadedFile);
+    const uploadFile = await api.upload("/file-upload/upload-file", uploadedFile, "products");
+    if (uploadFile) {
+      setUploadFile(uploadFile);
+      toast.success("File uploaded successfully");
+    }
+    else {
+      toast.error("File upload failed");
+    }
   };
 
   const handleProductInfoChange = (
@@ -83,6 +96,10 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
     if (file) {
       formDataPayload.append("file", file);
+    }
+    if (uploadFile.filename && uploadFile.url) {
+      formDataPayload.append("file_name", uploadFile.filename);
+      formDataPayload.append("file_url", uploadFile.url);
     }
 
     setIsLoading(true);
@@ -135,6 +152,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
             file={file}
             onFileChange={handleFileChange}
             isLoading={isLoading}
+            fileUrl={uploadFile.url}
           />
         )}
         <ProductInfoForm

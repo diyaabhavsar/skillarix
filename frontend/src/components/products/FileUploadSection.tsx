@@ -9,11 +9,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { api } from "@/utils/api";
 
 export interface FileUploadSectionProps {
   file: File | null;
   onFileChange: (uploadedFile: File | null) => void;
   isLoading: boolean;
+  fileUrl?: string;
 }
 
 type DisplayedFileStatus = {
@@ -22,7 +24,7 @@ type DisplayedFileStatus = {
   size: number;
 };
 
-const FileUploadSection: React.FC<FileUploadSectionProps> = ({ file, onFileChange, isLoading }) => {
+const FileUploadSection: React.FC<FileUploadSectionProps> = ({ file, onFileChange, isLoading, fileUrl }) => {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
 
@@ -87,11 +89,12 @@ const FileUploadSection: React.FC<FileUploadSectionProps> = ({ file, onFileChang
     }
   };
 
-  const removeFile = () => {
+  const removeFile = async () => {
     onFileChange(null);
-     toast({
-        title: "File removed",
-        description: `${file?.name} has been removed.`,
+    await api.deleteFile("/file-upload/delete-uploaded-file", fileUrl);
+    toast({
+      title: "File removed",
+      description: `${file?.name} has been removed.`,
      });
   };
 

@@ -67,9 +67,11 @@ async def create_product(
     category_id: str = Form(...),
     description: Optional[str] = Form(None),
     file: UploadFile = File(...),
+    file_name: str = Form(...),
+    file_url: str = Form(...),
     token = Depends(verify_bearer_token)):
         pdf_content, metadata = read_pdf(file.file)
-        created_product = create_product_process(name, category_id, pdf_content, metadata, token, description)
+        created_product = create_product_process(name, category_id, pdf_content, metadata, token, description, file_name, file_url)
         return {"message":"Products Added Successfully", "new_product": created_product}
 
 @router.get("/{category_id}")
