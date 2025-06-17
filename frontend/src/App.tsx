@@ -8,7 +8,6 @@ import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Practice from "./pages/Practice";
 import PracticeSessionPage from "./pages/PracticeSession";
-import FeedbackViewer from "./pages/FeedbackViewer";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -123,23 +122,6 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <PracticeSessionPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/feedback/:sessionId"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout
-                      showBreadcrumbs={true}
-                      breadcrumbs={[
-                        { label: "Dashboard", path: "/dashboard" },
-                        { label: "History", path: "/past-sessions" },
-                        { label: "Feedback", path: "" },
-                      ]}
-                    >
-                      <FeedbackViewer />
-                    </AppLayout>
                   </ProtectedRoute>
                 }
               />
