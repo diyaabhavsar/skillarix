@@ -80,7 +80,7 @@ export function useConversationHistory() {
   const fetchConversationById = async (productId: string, conversationId: string) => {
     try {
       setLoading(true);
-      const response = await api.get<ConversationEvaluation>(`/conversations/${productId}/${conversationId}`);
+      const response = await api.get<ConversationEvaluation>(`/conversations/details/${productId}/`);
       setCurrentConversation(response);
       setError(null);
     } catch (err) {

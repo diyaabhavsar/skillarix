@@ -213,7 +213,7 @@ const ManageUsers = () => {
         active: editUserForm.active,
         ...(editUserForm.password ? { password: editUserForm.password } : {}),
       };
-      await api.put(`/api/users/${editUserForm.id}`, body);
+      await api.put(`/users/${editUserForm.id}`, body);
       setIsEditUserOpen(false);
       setEditUserForm({ ...defaultForm, id: "" });
       setLoading(true);
@@ -277,7 +277,7 @@ const ManageUsers = () => {
     setDeleteUserLoading(true);
     setDeleteUserError(null);
     try {
-      await api.delete(`/api/users/${userId}`);
+      await api.delete(`/users/${userId}`);
       setLoading(true);
       const usersData = await api.get<GetUsersResponse>("/users");
       const mappedUsers: User[] = usersData.map((u) => ({

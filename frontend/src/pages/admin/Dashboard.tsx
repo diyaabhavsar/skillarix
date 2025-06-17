@@ -25,7 +25,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await api.get<DashboardStats>("/admin/stats");
+        const data = await api.get<DashboardStats>("/users/admin/stats");
         setStats(data);
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -37,9 +37,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchLatest = async () => {
       try {
-        const users = await api.get<DashboardUser[]>("/admin/latest-users");
+        const users = await api.get<DashboardUser[]>("/users/admin/latest-users");
         setLatestUsers(users);
-        const sessions = await api.get<DashboardSession[]>("/admin/latest-sessions");
+        const sessions = await api.get<DashboardSession[]>("/users/admin/latest-sessions");
         setLatestSessions(sessions);
       } catch (error) {
         console.error('Error fetching latest data:', error);
