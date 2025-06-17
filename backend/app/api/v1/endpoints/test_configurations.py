@@ -1,0 +1,138 @@
+from fastapi import APIRouter, HTTPException, Depends, Body
+from ....schemas.test_configuration import TestConfigurationCreate, TestConfiguration
+from ....services.test_configuration import save_test_configuration, get_test_configurations_by_product, convert_objectids_to_strings
+from ....services.auth import verify_bearer_token
+from typing import List
+from bson import ObjectId
+from ....database import db
+from datetime import datetime, UTC
+
+test_configurations_collection = db["test_configurations"]
+
+router = APIRouter()
+
+
+@router.post("")
+async def create_test_configuration(
+    config_data: TestConfigurationCreate,
+    token = Depends(verify_bearer_token)
+):
+    """
+    Saves a new test configuration to the database.
+    """
+    try:
+        inserted_id = save_test_configuration(config_data, token)
+        return {"id": str(inserted_id), "message": "Test configuration saved successfully"}
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error saving test configuration: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save test configuration")
+
+@router.get("/{product_id}")
+async def get_test_configurations(
+    product_id: str,
+    token = Depends(verify_bearer_token)
+) -> List[TestConfiguration]:
+    """
+    Retrieves test configurations for a given product.
+    """
+    try:
+        configs = get_test_configurations_by_product(ObjectId(product_id))
+        return [TestConfiguration(**config) for config in configs]
+    except Exception as e:
+        print(f"Error fetching test configurations for product {product_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+@router.get("")
+async def get_all_test_configurations(
+    token = Depends(verify_bearer_token)
+):
+    """
+    Retrieves all non-deleted test configurations created by the current admin user.
+    Only admin users are authorized to access this endpoint.
+    """
+    if token["role"] != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized. Only admin users can access their test configurations."
+        )
+    
+    try:
+        configs_cursor = test_configurations_collection.find({
+            "is_deleted": False  # Add this line
+        })
+        configs_list = list(configs_cursor)
+        configs_list = convert_objectids_to_strings(configs_list)
+        return configs_list
+    except Exception as e:
+        print(f"Error fetching test configurations for admin {token["id"]}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
+
+@router.put("/{test_config_id}")
+async def update_test_configuration(
+    test_config_id: str,
+    name: str = Body(None),
+    visitorPersona: dict = Body(None),
+    additionalCriteria: dict = Body(None),
+    token = Depends(verify_bearer_token)
+):
+    """
+    Update name, visitorPersona, and additionalCriteria for a test configuration.
+    Only the creator (or admin) can update.
+    """
+    # Fetch the test config
+    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    if not test_config:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    # Only allow the creator or admin to update
+    if token["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to update this test configuration.")
+
+    update_data = {}
+    if name is not None:
+        update_data["name"] = name
+    if visitorPersona is not None:
+        update_data["visitorPersona"] = visitorPersona
+    if additionalCriteria is not None:
+        update_data["additionalCriteria"] = additionalCriteria
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields provided for update.")
+
+    update_data["updated_at"] = datetime.now(UTC)
+    update_data["updated_by"] = token["id"]
+
+    result = test_configurations_collection.update_one(
+        {"_id": ObjectId(test_config_id)},
+        {"$set": update_data}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    # Return the updated test configuration
+    updated_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    updated_config = convert_objectids_to_strings(updated_config)
+    return updated_config
+
+@router.delete("/{test_config_id}")
+async def delete_test_configuration(
+    test_config_id: str,
+    token = Depends(verify_bearer_token)
+):
+    """
+    Soft delete a test configuration by its ID (set is_deleted=True).
+    """
+    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    if not test_config:
+        raise HTTPException(status_code=404, detail="Test configuration not found.")
+
+    if token["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to delete this test configuration.")
+
+    test_configurations_collection.update_one(
+        {"_id": ObjectId(test_config_id)},
+        {"$set": {"is_deleted": True}}
+    )
+    return {"message": "Test configuration soft deleted successfully."}

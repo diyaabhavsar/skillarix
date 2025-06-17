@@ -24,7 +24,7 @@ export const authService = {
     try {
       const formData = new URLSearchParams({ username: email, password });
         console.log({formData})
-      const response = await api.submitUrlEncodedForm('/token', formData);
+      const response = await api.submitUrlEncodedForm('/auth/login', formData);
       console.log({response})
       return {
         access_token: response.access_token,
@@ -42,7 +42,7 @@ export const authService = {
 
   async register(data: RegisterData): Promise<void> {
     try {
-      await api.post('/register', data);
+      await api.post('/users', data);
     } catch (error: any) {
       throw new Error(error.detail || "Registration failed");
     }

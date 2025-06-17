@@ -54,7 +54,7 @@ export const useProducts = () => {
     setIsLoading(true);
     try {
         
-      const data = await api.get(`/all-products`);
+      const data = await api.get(`/products/all`);
       setProducts(data as Product[]);
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -131,7 +131,7 @@ export const useProducts = () => {
     if (!token) throw new Error("Not authenticated");
     try {
       const newCategory = await api.post('/categories', { name }) as CategoryResponse;
-      const formattedCategory: Category = { 
+const formattedCategory = {
         id: newCategory._id, 
         name: newCategory.name,
         created_at: newCategory.created_at,
@@ -141,7 +141,9 @@ export const useProducts = () => {
       toast.success('Category created successfully');
       return formattedCategory;
     } catch (error) {
-      // Error toast is handled by api utility
+      // Error toast is handled by api utility 
+      console.error("Error creating product:", error);
+      toast.error(`Failed to create product: ${error.message}`);
       throw error;
     }
   };
@@ -162,7 +164,8 @@ export const useProducts = () => {
       toast.success('Category updated successfully');
       return formattedCategory;
     } catch (error) {
-      // Error toast is handled by api utility
+      console.error("Error editing product:", error);
+      toast.error(`Failed to edit product: ${error.message}`);
       throw error;
     }
   };
@@ -174,7 +177,8 @@ export const useProducts = () => {
       setCategories(prev => prev.filter(cat => cat.id !== categoryId));
       toast.success('Category deleted successfully');
     } catch (error) {
-      // Error toast is handled by api utility
+      console.error("Error deleting category:", error);
+      toast.error(`Failed to delete category: ${error.message}`);
       throw error;
     }
   };
