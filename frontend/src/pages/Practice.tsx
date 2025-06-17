@@ -476,6 +476,7 @@ const Practice = () => {
         .map((result: any) => result.transcript)
         .join(" ");
 
+      // Enhanced transcript will be processed through the ChatInterface
       setSalespersonInput(transcript);
     };
 

@@ -1,12 +1,16 @@
 import { Product, TestConfiguration, ConversationPair } from "@/types/practice";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Mic, MicOff, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useCallback, useState, memo } from "react";
 import { cn } from "@/lib/utils";
+import { Message } from "@/components/chat/Message";
+import { LoadingIndicator } from "@/components/chat/LoadingIndicator";
+import { TimerDisplay } from "@/components/chat/TimerDisplay";
+import { useVoiceInput } from "@/hooks/chat/useVoiceInput";
+import { useTextInput } from "@/hooks/chat/useTextInput";
+import { useAssessmentTimer } from "@/hooks/chat/useAssessmentTimer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+
+const ASSESSMENT_DURATION = 300; // 5 minutes in seconds
 
 interface ChatInterfaceProps {
   products: Product[];
@@ -50,36 +56,105 @@ const ChatInterface = ({
   onEndSession,
 }: ChatInterfaceProps) => {
   const [isEndAlertOpen, setIsEndAlertOpen] = useState(false);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [cursorPosition, setCursorPosition] = useState<number>(0);
 
-  // Improved scroll handler with smooth behavior
-  const scrollToBottom = useCallback((smooth = true) => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({
-        behavior: smooth ? "smooth" : "auto",
-        block: "end",
-      });
-    }
+  // Use custom hooks
+  const {
+    textareaRef,
+    handleInput,
+    handleKeyDown,
+    animateTextareaScroll,
+  } = useTextInput({
+    onSalespersonInputChange,
+    onSendResponse,
+    salespersonInput,
+  });
+
+  const { handleVoiceInput } = useVoiceInput({
+    onSalespersonInputChange,
+    onVoiceInput,
+    cursorPosition,
+    currentText: salespersonInput,
+  });
+
+  // Handle timer end
+  const handleTimeEnd = useCallback(() => {
+    setIsEndAlertOpen(true);
+    setTimeout(() => {
+      handleEndConfirm();
+    }, 3000); // Auto end after 3 seconds
   }, []);
 
-  // Scroll on new messages or loading state changes
+  // Initialize timer
+  const {
+    timeLeft,
+    formattedTime,
+    isActive,
+    startTimer,
+    stopTimer,
+  } = useAssessmentTimer({
+    duration: ASSESSMENT_DURATION,
+    onTimeEnd: handleTimeEnd,
+  });
+
+  // Start timer when conversation starts
+  useEffect(() => {
+    if (conversationHistory.length > 0 && !isActive) {
+      startTimer();
+    }
+  }, [conversationHistory.length, isActive, startTimer]);
+
+  // Stop timer when session ends
+  useEffect(() => {
+    if (!canEndSession) {
+      stopTimer();
+    }
+  }, [canEndSession, stopTimer]);
+
+  // Handle cursor position
+  const handleCursorChange = useCallback(() => {
+    if (textareaRef.current) {
+      setCursorPosition(textareaRef.current.selectionStart);
+    }
+  }, [textareaRef]);
+
+  // Handle end session
+  const handleEndConfirm = useCallback(() => {
+    setIsEndAlertOpen(false);
+    stopTimer();
+    onEndSession();
+  }, [onEndSession, stopTimer]);
+
+  // Scroll to bottom
+  const scrollToBottom = useCallback((smooth = true) => {
+    bottomRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+      block: "end",
+    });
+  }, []);
+
+  // Scroll effects
   useEffect(() => {
     scrollToBottom();
   }, [conversationHistory, sessionLoading, scrollToBottom]);
 
-  // Initial scroll without animation
   useEffect(() => {
     scrollToBottom(false);
   }, []);
 
-  const handleEndConfirm = () => {
-    setIsEndAlertOpen(false);
-    onEndSession();
-  };
-
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] bg-background overflow-hidden">
+      {/* Timer Display */}
+      <div className="absolute top-4 right-4 z-50">
+        <TimerDisplay
+          time={formattedTime}
+          isActive={isActive}
+          timeLeft={timeLeft}
+          totalTime={ASSESSMENT_DURATION}
+        />
+      </div>
+
       {/* Chat messages area */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto px-4 py-4 custom-scrollbar">
@@ -93,83 +168,45 @@ const ChatInterface = ({
                   exit={{ opacity: 0 }}
                   className="space-y-4"
                 >
-                  {/* Customer Message */}
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 max-w-[90%] md:max-w-[85%]">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-blue-600 px-2">
-                          Customer
-                        </span>
-                        <div className="bg-white rounded-2xl rounded-tl-none px-6 py-4 shadow-sm">
-                          {pair.visitor_text}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Salesperson Message */}
+                  <Message text={pair.visitor_text} isCustomer={true} />
                   {pair.salesperson_text && (
-                    <div className="flex items-start justify-end gap-2">
-                      <div className="flex-1 max-w-[90%] md:max-w-[85%]">
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="text-sm font-medium text-green-600 px-2">
-                            You
-                          </span>
-                          <div className="bg-green-50 rounded-2xl rounded-tr-none px-6 py-4 shadow-sm">
-                            {pair.salesperson_text}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <Message text={pair.salesperson_text} isCustomer={false} />
                   )}
                 </motion.div>
               ))}
             </AnimatePresence>
 
-            {/* Loading indicator */}
-            {sessionLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-center"
-              >
-                <div className="bg-muted px-4 py-2 rounded-full">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
+            {sessionLoading && <LoadingIndicator />}
             <div ref={bottomRef} />
           </div>
         </div>
       </div>
 
-      {/* Fixed input area */}
+      {/* Input area */}
       <div className="flex-none border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-4xl mx-auto p-4">
           <div className="relative flex items-center gap-2">
             <Textarea
+              ref={textareaRef}
               value={salespersonInput}
-              onChange={(e) => onSalespersonInputChange(e.target.value)}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              onSelect={handleCursorChange}
+              onMouseUp={handleCursorChange}
+              onFocus={handleCursorChange}
               placeholder="Type your response..."
               disabled={sessionLoading}
-              className="min-h-[80px] pr-24 resize-none text-base"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (salespersonInput.trim()) onSendResponse();
-                }
+              className="min-h-[80px] pr-24 resize-none text-base custom-scrollbar"
+              style={{
+                overflowY: 'auto',
+                maxHeight: '200px',
               }}
             />
             <div className="absolute right-2 bottom-2 flex gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onVoiceInput}
+                onClick={handleVoiceInput}
                 className={cn(
                   "h-8 w-8 rounded-full transition-colors",
                   isRecording
@@ -211,20 +248,34 @@ const ChatInterface = ({
         </div>
       </div>
 
-      {/* End session confirmation dialog */}
-      <AlertDialog open={isEndAlertOpen} onOpenChange={setIsEndAlertOpen}>
+      {/* End session dialog */}
+      <AlertDialog
+        open={isEndAlertOpen}
+        onOpenChange={(open) => {
+          // Only allow closing if timer hasn't ended
+          if (timeLeft > 0) {
+            setIsEndAlertOpen(open);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>End Assessment?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {timeLeft === 0 ? "Time's Up!" : "End Assessment?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to end this assessment? You will receive your
-              final evaluation results.
+              {timeLeft === 0
+                ? "Your assessment time has ended. Your responses will be submitted automatically."
+                : "Are you sure you want to end this assessment? You will receive your final evaluation results."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleEndConfirm}>
-              End Assessment
+            {timeLeft > 0 && <AlertDialogCancel>Cancel</AlertDialogCancel>}
+            <AlertDialogAction 
+              onClick={handleEndConfirm}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {timeLeft === 0 ? "Submit Assessment" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -233,4 +284,4 @@ const ChatInterface = ({
   );
 };
 
-export default ChatInterface;
+export default memo(ChatInterface);
