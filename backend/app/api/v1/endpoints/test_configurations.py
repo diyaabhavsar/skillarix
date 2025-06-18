@@ -65,7 +65,7 @@ async def get_all_test_configurations(
         configs_list = convert_objectids_to_strings(configs_list)
         return configs_list
     except Exception as e:
-        print(f"Error fetching test configurations for admin {token["id"]}: {e}")
+        print(f"Error fetching test configurations for admin {token['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch test configurations")
 
 @router.put("/{test_config_id}")
