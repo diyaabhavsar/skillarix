@@ -55,12 +55,11 @@ const ChatInterface = ({
   const [isEndingAssessment, setIsEndingAssessment] = useState(false);
 
   // Use custom hooks
-  const { textareaRef, handleInput, handleKeyDown } =
-    useTextInput({
-      onSalespersonInputChange,
-      onSendResponse,
-      salespersonInput,
-    });
+  const { textareaRef, handleInput, handleKeyDown } = useTextInput({
+    onSalespersonInputChange,
+    onSendResponse,
+    salespersonInput,
+  });
 
   const { handleVoiceInput } = useVoiceInput({
     onSalespersonInputChange,
@@ -107,7 +106,7 @@ const ChatInterface = ({
 
   // Handle end session
   const handleEndConfirm = useCallback(() => {
-    console.log('[ChatInterface] Starting end assessment process...');
+    console.log("[ChatInterface] Starting end assessment process...");
     setIsEndingAssessment(true); // Set this before closing dialog
     setIsEndAlertOpen(false);
     stopTimer();
@@ -115,16 +114,20 @@ const ChatInterface = ({
   }, [onEndSession, stopTimer]);
 
   // Handle dialog close
-  const handleDialogClose = useCallback((open: boolean) => {
-    if (!open && !isEndingAssessment) { // Only allow closing if not in the process of ending
-      console.log('[ChatInterface] Cancelling end assessment dialog');
-      setIsEndAlertOpen(false);
-    }
-  }, [isEndingAssessment]);
+  const handleDialogClose = useCallback(
+    (open: boolean) => {
+      if (!open && !isEndingAssessment) {
+        // Only allow closing if not in the process of ending
+        console.log("[ChatInterface] Cancelling end assessment dialog");
+        setIsEndAlertOpen(false);
+      }
+    },
+    [isEndingAssessment]
+  );
 
   // Handle dialog open
   const handleEndDialogOpen = useCallback(() => {
-    console.log('[End Assessment] Opening confirmation dialog...');
+    console.log("[End Assessment] Opening confirmation dialog...");
     setIsEndAlertOpen(true);
   }, []);
 
@@ -144,35 +147,6 @@ const ChatInterface = ({
   useEffect(() => {
     scrollToBottom(false);
   }, []);
-
-  // Add these logs for dialog state
-  const handleEndAssessment = useCallback(() => {
-    console.log('[ChatInterface] Opening end assessment dialog');
-    setIsEndAlertOpen(true);
-  }, []);
-
-  const handleEndAssessmentConfirm = useCallback(() => {
-    console.log('[ChatInterface] End assessment confirmed, sending end_session request');
-    setIsEndAlertOpen(false);
-    onEndSession();
-  }, [onEndSession]);
-
-  const handleEndAssessmentCancel = useCallback(() => {
-    console.log('[ChatInterface] End assessment cancelled');
-    setIsEndAlertOpen(false);
-  }, []);
-
-  // Update the existing onSendResponse to include logging
-  const handleSubmit = useCallback(() => {
-    if (isEndAlertOpen) {
-      console.log('[ChatInterface] Send button clicked while end dialog is open, ignoring');
-      return;
-    }
-    if (!salespersonInput.trim()) return;
-    
-    console.log('[ChatInterface] Sending response:', salespersonInput);
-    onSendResponse();
-  }, [isEndAlertOpen, salespersonInput, onSendResponse]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] bg-background overflow-hidden">
@@ -254,10 +228,15 @@ const ChatInterface = ({
               <Button
                 size="icon"
                 onClick={onSendResponse}
-                disabled={sessionLoading || !salespersonInput.trim() || isEndAlertOpen || isEndingAssessment}
+                disabled={
+                  sessionLoading ||
+                  !salespersonInput.trim() ||
+                  isEndAlertOpen ||
+                  isEndingAssessment
+                }
                 className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90"
               >
-                {(sessionLoading || isEndingAssessment) ? (
+                {sessionLoading || isEndingAssessment ? (
                   <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Send className="h-4 w-4" />
@@ -280,10 +259,7 @@ const ChatInterface = ({
       </div>
 
       {/* End session dialog */}
-      <AlertDialog 
-        open={isEndAlertOpen}
-        onOpenChange={handleDialogClose}
-      >
+      <AlertDialog open={isEndAlertOpen} onOpenChange={handleDialogClose}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -297,9 +273,9 @@ const ChatInterface = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             {!isEndingAssessment && timeLeft > 0 && (
-              <AlertDialogCancel 
+              <AlertDialogCancel
                 onClick={() => {
-                  console.log('[ChatInterface] Cancelling end assessment');
+                  console.log("[ChatInterface] Cancelling end assessment");
                   setIsEndAlertOpen(false);
                 }}
               >
@@ -319,8 +295,10 @@ const ChatInterface = ({
                   <span className="h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   Processing...
                 </span>
+              ) : timeLeft === 0 ? (
+                "Submit Assessment"
               ) : (
-                timeLeft === 0 ? "Submit Assessment" : "Confirm"
+                "Confirm"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
