@@ -64,10 +64,10 @@ function DataTable<T extends { id: string | number } = any>({
                       ) : col.key === "status" ? (
                         <Badge
                           className={
-                            row[col.key] ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                            row[col.key] === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                           }
                         >
-                          {row[col.key] ? "Active" : "Inactive"}
+                          {row[col.key]}
                         </Badge>
                       ) : (
                         row[col.key]

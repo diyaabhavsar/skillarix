@@ -1,0 +1,10 @@
+fastapi
+pydantic>=2.0  # Required by FastAPI, and you're using V2 features like model_dump()
+uvicorn        # To run the FastAPI server
+python-jose[cryptography] # For JWT handling
+passlib[bcrypt] # For password hashing (bcrypt scheme)
+pymongo        # For MongoDB interaction
+groq           # For interacting with the Groq API
+PyPDF2         # For reading PDF files
+transformers   # For using transformer models (e.g., pipelines)
+torch          # A common dependency for the transformers library, assuming you're using a PyTorch backend for the pipeline. You might swap this for tensorflow if preferred
