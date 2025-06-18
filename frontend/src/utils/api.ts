@@ -144,10 +144,11 @@ export const api = {
   },
 
   // File upload method
-  upload: async (endpoint: string, file: File) => {
+  upload: async (endpoint: string, file: File, subfolder: string) => {
     const token = api.getToken();
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("subfolder", subfolder);
 
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method: "POST",
@@ -159,6 +160,26 @@ export const api = {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || "Upload failed");
+    }
+    return response.json();
+  },
+
+  deleteFile: async (endpoint: string, fileUrl: string) => {
+    const token = api.getToken();
+    const formData = new FormData();
+    formData.append("file_url", fileUrl);
+
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Delete failed");
     }
     return response.json();
   },

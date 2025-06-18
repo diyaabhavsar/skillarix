@@ -25,6 +25,7 @@ wheels/
 .env
 .env.local
 .env.*
+backend/uploads/
 
 # Python Testing/Coverage
 htmlcov/

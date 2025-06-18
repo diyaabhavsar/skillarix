@@ -25,7 +25,7 @@ def read_pdf(pdf_file):
     
     return text.strip(), metadata
 
-def create_product_process(name: str, category_id: ObjectId, pdf_content: str, metadata: dict,token, description: Optional[str] = None):
+def create_product_process(name: str, category_id: ObjectId, pdf_content: str, metadata: dict,token, description: Optional[str] = None, file_name: Optional[str] = None, file_url: Optional[str] = None):
     if product_collection.find_one({"name":name}):
         raise HTTPException(status_code=409, detail= "Product with same name exist")
     product = {
@@ -34,6 +34,8 @@ def create_product_process(name: str, category_id: ObjectId, pdf_content: str, m
         "content": pdf_content,
         "metadata": metadata,
         "description": description,
+        "file_name": file_name,
+        "file_url": file_url,
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "created_by": token["id"],

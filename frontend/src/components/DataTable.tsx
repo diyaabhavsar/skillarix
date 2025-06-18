@@ -59,7 +59,7 @@ function DataTable<T extends { id: string | number } = any>({
                                 : "bg-gray-100 text-gray-700"
                             }
                         >
-                          {row[col.key]}
+                          {row[col.key] === "admin" ? "Admin" : "Employee"}
                         </Badge>
                       ) : col.key === "status" ? (
                         <Badge
