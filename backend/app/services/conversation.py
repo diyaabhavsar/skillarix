@@ -5,13 +5,14 @@ import re
 from datetime import datetime, timezone
 from bson import ObjectId
 from ..database import db
+import json
 
 conversation_collection = db["conversations"]
 
 # Initialize Groq Client
 client = Groq(api_key="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")
 
-def generate_answer_rag(context: str, question: str, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
+def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     try:
         greeting_instruction = "Start with a warm greeting" if is_first_exchange else "Skip the greeting as this is a continuing conversation"
         
@@ -26,6 +27,9 @@ Continue the conversation naturally, referring back to previous exchanges when r
         
         prompt = f"""
 You are a friendly and knowledgeable sales representative at a product expo. Your goal is to engage customers and help them understand the product's value, focusing on their needs and interests.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
 
 Context from product documentation:
 {context}
@@ -46,6 +50,15 @@ Guidelines for your response:
 6. Connect features to customer benefits and real-world applications
 7. Be conversational and engaging
 8. End with an open-ended question that encourages the customer to share more about their needs
+9. Tailor your response to match the customer's:
+   - Product Knowledge Level
+   - Product Familiarity
+   - Technical Expertise
+   - Key Challenges
+   - Buying Objective
+   - Budget Range
+   - Decision Authority
+   - Exhibition Objective
 
 Remember:
 - Start with high-level benefits
@@ -78,7 +91,10 @@ Your response:
         return full_response.strip()
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+        # Use HTTPException only in API endpoints, not here.
+        # Re-raise the exception or handle it appropriately.
+        print(f"Error generating RAG answer: {str(e)}")
+        raise # Re-raise the exception
 
 def format_conversation_history(history: List[dict]):
     formatted = []
@@ -89,7 +105,7 @@ def format_conversation_history(history: List[dict]):
         formatted.append("")
     return "\n".join(formatted)
 
-def evaluate_individual_answer(rag_answer: str, salesperson_answer: str, customer_question: str, is_first_exchange: bool = False, conversation_history: List[dict] = None):
+def evaluate_individual_answer(rag_answer: str, salesperson_answer: str, customer_question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     """Evaluate salesperson's answer against RAG answer."""
     greeting_instruction = "For the first interaction, check if the salesperson starts with an appropriate greeting" if is_first_exchange else "A greeting is not necessary since this is not the first interaction"
     
@@ -105,6 +121,9 @@ Take into account the conversation flow and whether the salesperson maintains co
     
     prompt = f"""
 You are an experienced sales trainer evaluating a salesperson's performance at a product expo. Compare the salesperson's answer to both the customer's question and the reference answer, focusing on both technical accuracy and sales effectiveness.
+
+Customer Persona:
+{json.dumps(persona, indent=2)}
 
 {conversation_context}
 
@@ -137,10 +156,34 @@ Evaluate the salesperson's performance on:
    - Does it engage the customer and encourage further interaction?
    - {"Does it begin with an appropriate greeting?" if is_first_exchange else ""}
    - Does it reference previous exchanges appropriately? (if applicable)
+   - Does it appropriately address the customer's:
+     * Product Knowledge Level
+     * Product Familiarity
+     * Technical Expertise
+     * Key Challenges
+     * Buying Objective
+     * Budget Range
+     * Decision Authority
+     * Exhibition Objective
 
 Give a total score out of 10 and provide specific feedback on how they can improve their pitch and customer interaction.
 
-Your evaluation:
+IMPORTANT INSTRUCTIONS:
+- Return ONLY a valid JSON object, and nothing else, only single string and no new lines characters.
+- Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
+- The JSON object must have exactly two fields: "evaluation" and "rating".
+- "evaluation" should be a single string containing all your analysis, feedback, and suggestions.
+- "rating" should be an object with the following structure and ONLY numbers as values:
+
+{{
+  "evaluation": "Your detailed feedback, analysis, and suggestions here.",
+  "rating": {{
+    "question_relevance": {{"score": 2, "max": 3}},
+    "technical_accuracy": {{"score": 1, "max": 3}},
+    "sales_effectiveness": {{"score": 3, "max": 4}},
+    "total": {{"score": 6, "max": 10}}
+  }}
+}}
 """
 
     completion = client.chat.completions.create(
@@ -445,7 +488,6 @@ def save_conversation(product_id: ObjectId, conversation_data: dict, evaluation_
     return conversation
 
 def save_conversation(
-    self,
     product_id: ObjectId,
     category_id: ObjectId,
     conversation_data: dict,

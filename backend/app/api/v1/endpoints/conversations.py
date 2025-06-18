@@ -223,7 +223,7 @@ async def get_all_conversations_for_user(
 
     total_count = conversation_collection.count_documents(base_query)
     total_pages = ceil(total_count / limit) if total_count > 0 else 1
-    conversations_cursor = conversation_collection.find(base_query).skip(skip).limit(limit)
+    conversations_cursor = conversation_collection.find(base_query).sort("created_at", -1).skip(skip).limit(limit)
     conversations = list(conversations_cursor)
     conversations = convert_objectids_to_strings(conversations)
 
