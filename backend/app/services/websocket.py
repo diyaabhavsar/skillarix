@@ -3,91 +3,87 @@ from typing import List
 import json
 from fastapi import HTTPException
 import re
-def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict, salesperson_last_response: str = None):
-    """
-    Generate a customer question based on the product context, persona, and conversation history.
-    Can generate both initial questions and follow-up questions based on the salesperson's response.
-    
-    Args:
-        product_context: The product documentation context
-        conversation_history: List of previous conversation exchanges
-        persona: Customer persona details
-        salesperson_last_response: The salesperson's last response (optional, for follow-up questions)
-    
-    Returns:
-        str: Generated customer question
-    """
-    try:
-        conversation_context = ""
-        if conversation_history:
-            conversation_context = f"""
+
+def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
+    conversation_context = ""
+    if conversation_history:
+        conversation_context = f"""
 Previous conversation:
 {format_conversation_history(conversation_history)}
 """
-        
-        # Determine if this is a follow-up question
-        is_follow_up = salesperson_last_response is not None
-        
-        # Base prompt for customer persona and context
-        base_prompt = f"""
-You are a customer with the following persona:
+    is_follow_up = len(conversation_history) > 0
+    # Base prompt for customer persona and context
+    # This part will be the common system objective and guidelines
+    base_system_prompt = f"""
+System Objective:
+You are an intelligent AI simulation system for exhibition training. Your role is to play the part of a potential visitor at a booth. Your job is to simulate realistic buyer conversations to assess the sales representative's readiness, product knowledge, and soft skills.
+You will use the provided customer persona, product context, and conversation history to ask either:
+- An initial greeting and question (first interaction), or
+- A follow-up question based on the salesperson's last response.
+Tone and complexity should match the persona and evolve during the conversation.
+Guidelines for All Output:
+- Be natural and human in tone
+- Align closely with the visitor persona
+- Do not repeat prior questions unless requested
+- Progressively deepen the conversation
+- Use the salesperson's last response to guide your next message
+Optional Persona Attributes (to vary behavior):
+- Tone: polite | skeptical | rushed | confident | shy
+- Industry knowledge: novice | intermediate | expert
+- Interest level: browsing | serious | ready to buy
+- Behavioral quirks: interrupting | multi-tasking | short-tempered
+Customer Persona:
 {json.dumps(persona, indent=2)}
-
 Product Documentation:
 {product_context}
-
 {conversation_context}
 """
-        
-        # Add specific instructions based on whether it's a follow-up question
-        if is_follow_up:
-            prompt = f"""{base_prompt}
-Salesperson's last response:
-{salesperson_last_response}
-
-Generate a realistic follow-up question that this customer would ask based on the salesperson's response. The question should:
-1. Be relevant to the previous exchange and salesperson's response
-2. Show appropriate level of technical understanding
-3. Reflect the customer's stage in the buying process
-4. Be natural and conversational
-5. Not be too specific or technical unless the persona suggests it
-6. Show engagement with the salesperson's points
-7. Move the conversation forward
-
-Your follow-up question:
+    if is_follow_up:
+        prompt = f"""{base_system_prompt}
+Modules:
+2. Generate a realistic follow-up question based on the salesperson's last response. Ensure it:
+   - Follows logically from the last exchange
+   - Reflects increasing depth as the conversation progresses
+   - Can express confusion, curiosity, objections, or enthusiasm
+   - Matches the buyer's tone and intent
+   - If the salesperson asks to repeat the last question, repeat it verbatim
+   - If the salesperson asks for information or requirements, provide a relevant answer based on the persona, instead of just asking another question.
+   Constraints:
+   - Ask only one question
+   - Do not break character
+   - Output only the visitor's message
+Your follow-up question or response:
 """
-        else:
-            prompt = f"""{base_prompt}
-Generate a realistic initial question that this customer would ask about the product. The question should:
-1. Be relevant to the customer's persona and needs
-2. Show appropriate level of technical understanding
-3. Reflect the customer's stage in the buying process
-4. Be natural and conversational
-5. Not be too specific or technical unless the persona suggests it
-6. Set a good foundation for the conversation
-
-Your question:
+    else:
+        prompt = f"""{base_system_prompt}
+Modules:
+1. Generate a natural, conversational opening greeting and a relevant first question that:
+   - Aligns with the visitor persona (intent, behavior, and knowledge level)
+   - Reflects early-stage buyer curiosity
+   - Avoids technical jargon unless the persona expects it
+   - Opens the door to deeper discussion
+   - If the salesperson asks for information or requirements, provide a relevant answer based on the persona, instead of just asking another question.
+   Constraints:
+   - Ask only one question
+   - Be polite, engaging, and human-like
+   - Do not mention being an AI or simulator
+   - Output only the visitor's message
+Your initial question or greeting:
 """
-        
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_completion_tokens=1024,
-            top_p=1,
-            stream=True,
-            stop=None,
-        )
-        
-        full_response = ""
-        for chunk in completion:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-        
-        return full_response.strip()
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating customer question: {str(e)}")
+    completion = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_completion_tokens=1024,
+        top_p=1,
+        stream=True,
+        stop=None,
+    )
+    full_response = ""
+    for chunk in completion:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+    return full_response.strip()
 
 def evaluate_complete_conversation(full_conversation: List[dict], context: str, persona: dict) -> str:
     """

@@ -12,7 +12,7 @@ from ....database import db
 import json
 import traceback
 
-test_configurations_collection = db["conversations"]
+test_configurations_collection = db["test_configurations"]
 product_collection = db["products"]
 category_collection = db["categories"]
 
