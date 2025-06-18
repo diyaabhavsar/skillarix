@@ -33,7 +33,7 @@ async def get_products_by_user(token = Depends(verify_bearer_token)):
                 prod["updated_by"] = str(prod["updated_by"])
         return products
     except Exception as e:
-        print(f"Error fetching products for user {token["id"]}: {e}")
+        print(f"Error fetching products for user {token['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
 @router.get("/all")
@@ -59,7 +59,7 @@ async def get_products_by_user(
                 prod["updated_by"] = str(prod["updated_by"])
         return products
     except Exception as e:
-        print(f"Error fetching products for user {token["id"]}: {e}")
+        print(f"Error fetching products for user {token['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 @router.post("")
 async def create_product(
