@@ -68,6 +68,7 @@ export function useConversationHistory() {
     try {
       setLoading(true);
       const response = await api.get<ConversationsResponse>("/conversations");
+      console.log({response})
       setConversations(response);
       setError(null);
     } catch (err) {

@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, FileText } from "lucide-react";
 import SessionFeedbackDisplay from "./SessionFeedbackDisplay";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { formatDate } from "@/lib/utils";
 import { ConversationEvaluation } from "@/types/conversations";
 
 interface PastSessionsTableProps {
@@ -26,17 +25,44 @@ const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) 
   const viewFeedback = (session: ConversationEvaluation) =>
     setSelectedSession(session);
 
-  // Remove the array check since we're providing a default value
+  // Enhanced sorting for newest to oldest (descending order)
   const sortedSessions = React.useMemo(() => {
     try {
-      return [...sessions].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      // Make sure we have sessions to sort
+      if (!sessions || sessions.length === 0) {
+        return [];
+      }
+      
+      // Sort by created_at date in descending order (newest first)
+      return [...sessions].sort((a, b) => {
+        // Handle nullish values
+        if (!a.created_at) return 1;  // Move items without dates to the end
+        if (!b.created_at) return -1;
+        
+        // Parse dates and compare timestamps
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        
+        // Sort in descending order (newest first)
+        return dateB - dateA;
+      });
     } catch (error) {
       console.error('Error sorting sessions:', error);
-      return sessions;
+      return sessions; // Return original array in case of error
     }
   }, [sessions]);
+
+  // Log the sorted order to verify it's working correctly
+  React.useEffect(() => {
+    if (sortedSessions.length > 0) {
+      console.log(`Sessions sorted, displaying ${sortedSessions.length} items from newest to oldest`);
+      
+      // Log first and last dates to confirm sorting
+      const firstDate = new Date(sortedSessions[0]?.created_at).toLocaleString();
+      const lastDate = new Date(sortedSessions[sortedSessions.length-1]?.created_at).toLocaleString();
+      console.log(`First (newest): ${firstDate}, Last (oldest): ${lastDate}`);
+    }
+  }, [sortedSessions]);
 
   const processSessionData = (session: any) => {
     return {
@@ -72,7 +98,12 @@ const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) 
           <TableCaption>A list of your past practice sessions</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[180px]">Date & Time</TableHead>
+              <TableHead className="w-[180px]">
+                Date & Time
+                <span className="ml-1 inline-block text-xs text-muted-foreground">
+                  (newest first)
+                </span>
+              </TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Test Name</TableHead>
@@ -84,6 +115,7 @@ const PastSessionsTable: React.FC<PastSessionsTableProps> = ({ sessions = [] }) 
           </TableHeader>
           <TableBody>
             {sortedSessions.map((session) => {
+      
               const totalScore =
                 session.evaluation_data.complete_rating?.total?.score || 0;
               const maxScore =

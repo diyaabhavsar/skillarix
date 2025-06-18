@@ -1,63 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePracticeSession } from "@/hooks/usePracticeSession";
 import { websocketService } from "@/services/websocketService";
 import PastSessionsTable from "@/components/past-sessions/PastSessionsTable";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Mic, MicOff } from "lucide-react"; // Add this import
 import { useConversationHistory } from "@/hooks/useConversationHistory";
 import SessionsPagination from "@/components/past-sessions/SessionsPagination";
 import PracticeHeader from "@/components/practice/PracticeHeader";
 import SessionSetupForm from "@/components/practice/SessionSetupForm";
 import ChatInterface from "@/components/practice/ChatInterface";
-import { useNavigate } from "react-router-dom"; // Update import
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { ConversationEvaluation, CompleteRating, Rating, IndividualEvaluation } from "@/types/conversations";
+import { ConversationEvaluation } from "@/types/conversations";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
-
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  category_id: string;
-}
-
-interface TestConfiguration {
-  id: string;
-  name: string;
-  product_id: string;
-  visitorPersona: { [key: string]: any };
-  additionalCriteria: { [key: string]: boolean };
-  created_at: string;
-}
 
 interface ConversationPair {
   visitor_text: string;
@@ -78,18 +37,7 @@ interface WebSocketMessage {
   additional_criteria_evaluation?: string;
 }
 
-interface ConversationSession {
-  evaluation_data: {
-    complete_rating?: Partial<CompleteRating>;
-  };
-  category_id?: string;
-  test_name?: string;
-  prod_name?: string;
-  cat_name?: string;
-}
-
 const Practice = () => {
-  const navigate = useNavigate(); // Add hook
   const { token } = useAuth();
   const {
     categories,
@@ -99,7 +47,6 @@ const Practice = () => {
     selectedProductId,
     selectedTestConfigId,
     isLoading: isSelectionLoading,
-    error: selectionError,
     setSelectedCategoryId,
     setSelectedProductId,
     setSelectedTestConfigId,
@@ -121,7 +68,6 @@ const Practice = () => {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
-
   // Add ref for scroll area
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -164,7 +110,7 @@ const Practice = () => {
     total_pages: 1,
   });
 
-  const { conversations, fetchConversations, loading, error } =
+  const { conversations, fetchConversations } =
     useConversationHistory();
 
   useEffect(() => {
@@ -196,9 +142,10 @@ const Practice = () => {
         }
       },
       onMessage: (data) => {
+
         switch (data.type) {
           case "question":
-            setCurrentCustomerQuestion(data.content || "");
+                setCurrentCustomerQuestion(data.content || "");
             setConversationHistory((prev) => [
               ...prev,
               { visitor_text: data.content || "", salesperson_text: "" },
@@ -261,7 +208,6 @@ const Practice = () => {
   };
 
   const sendSalespersonAnswer = () => {
-    
     // Prevent sending if already loading or no content
     if (sessionLoading) {
       return;
@@ -330,24 +276,28 @@ const Practice = () => {
   }, [websocket]);
 
   const endSession = useCallback(async () => {
-    
-    // Prevent multiple end session attempts
     if (sessionLoading) {
+      console.log('[Practice] Session already ending, preventing duplicate request');
       return;
     }
 
     try {
       setSessionLoading(true);
-      
+      console.log('[Practice] Starting end session process...');
+
       if (!websocket || websocket.readyState !== WebSocket.OPEN) {
-        throw new Error("WebSocket connection not available");
+        throw new Error('WebSocket connection is not open');
       }
 
+      // Prepare final history including any unsent response
       const finalHistory = [...conversationHistory];
       const hasUnsentResponse = salespersonInput.trim().length > 0;
 
       if (hasUnsentResponse) {
-        finalHistory[finalHistory.length - 1].salesperson_text = salespersonInput;
+        const lastPair = finalHistory[finalHistory.length - 1];
+        if (lastPair && !lastPair.salesperson_text) {
+          lastPair.salesperson_text = salespersonInput.trim();
+        }
       }
 
       const payload = {
@@ -358,22 +308,20 @@ const Practice = () => {
         answer: hasUnsentResponse ? salespersonInput.trim() : "",
         history: finalHistory,
       };
-      
-      // Send payload and await response
+
+      console.log('[Practice] Sending end session payload:', payload);
       websocket.send(JSON.stringify(payload));
-      
-      // Don't close the websocket or cleanup here
-      // Let the handleSessionComplete function handle it
-      // when it receives the server's response
-    
+
     } catch (error) {
-      console.error("[DEBUG] Error ending session:", error);
+      console.error('[Practice] End session error:', error);
       toast.error(
         `Failed to end session: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
       cleanupSession();
+      // Navigate to practice page on error
+      window.location.href = '/practice';
     }
   }, [
     websocket,
@@ -383,7 +331,7 @@ const Practice = () => {
     currentCustomerQuestion,
     salespersonInput,
     sessionLoading,
-    cleanupSession
+    cleanupSession,
   ]);
 
   const startSession = () => {
@@ -415,6 +363,7 @@ const Practice = () => {
     setSalespersonInput("");
     setTimeout(() => {
       if (data.next_question) {
+
         setCurrentCustomerQuestion(data.next_question);
         setConversationHistory((prev) => [
           ...prev,
@@ -426,27 +375,32 @@ const Practice = () => {
   };
 
   const handleSessionComplete = (data: WebSocketMessage) => {
-   
+    console.log('[Practice] Session complete response received:', data);
+    
+    // Set evaluation results first
     setEvaluationResults({
       complete: data.complete_evaluation || "",
       additional: data.additional_criteria_evaluation,
     });
 
-    // Clean up session after receiving evaluation
+    // Clean up session
     cleanupSession();
-    
-    // No need to reload the page or fetch conversations
-    // The table will update on its own via the websocket response
+
+    // Small delay to ensure state updates are processed
+    setTimeout(() => {
+      console.log('[Practice] Redirecting to practice page...');
+      // Navigate to practice page and force a reload
+      window.location.href = '/practice';
+    }, 500);
   };
 
   const handleError = (data: WebSocketMessage) => {
-    console.error("WebSocket Error from server:", data.content);
     setSessionError(data.content || "An error occurred during the session.");
     setIsSessionActive(false);
     setSessionLoading(false);
   };
 
-  // Updated voice input handler
+  // Enhanced voice input handler with ChatGPT-style features
   const handleVoiceInput = () => {
     if (!("webkitSpeechRecognition" in window)) {
       toast.error("Speech recognition is not supported in your browser");
@@ -461,27 +415,44 @@ const Practice = () => {
       return;
     }
 
-    // Start new recording
+    // Start new recording with enhanced features
     const newRecognition = new (window as any).webkitSpeechRecognition();
-    newRecognition.continuous = true;
-    newRecognition.interimResults = true;
+    newRecognition.continuous = true; // Enable continuous recording
+    newRecognition.interimResults = true; // Enable interim results for real-time feedback
 
     newRecognition.onstart = () => {
       setIsRecording(true);
     };
 
     newRecognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((result: any) => result[0])
-        .map((result: any) => result.transcript)
-        .join(" ");
+      const results = Array.from(event.results) as Array<{
+        0: { transcript: string };
+        isFinal: boolean;
+      }>;
+      let finalTranscript = "";
+      let interimTranscript = "";
 
-      // Enhanced transcript will be processed through the ChatInterface
-      setSalespersonInput(transcript);
+      for (let i = event.resultIndex; i < results.length; i++) {
+        const transcript = results[i][0].transcript;
+        if (results[i].isFinal) {
+          // Format final results with proper punctuation
+          const formattedText = formatText(transcript);
+          finalTranscript += formattedText;
+
+          // Append to existing text with proper spacing
+          const currentText = salespersonInput.trim();
+          const spaced = currentText
+            ? currentText + " " + formattedText
+            : formattedText;
+
+          setSalespersonInput(spaced);
+        } else {
+          interimTranscript += transcript;
+        }
+      }
     };
 
     newRecognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
       setIsRecording(false);
       setRecognition(null);
       toast.error("Voice input error. Please try again.");
@@ -496,6 +467,34 @@ const Practice = () => {
     newRecognition.start();
   };
 
+  // Helper function to format text with proper capitalization and punctuation
+  const formatText = (text: string) => {
+    // Split into sentences and process each one
+    const sentences = text.trim().split(/(?<=[.!?])\s+/);
+    return sentences
+      .map((sentence) => {
+        sentence = sentence.trim();
+        // Capitalize first letter
+        sentence =
+          sentence.charAt(0).toUpperCase() + sentence.slice(1).toLowerCase();
+
+        // Add appropriate punctuation if missing
+        if (!/[.!?]$/.test(sentence)) {
+          if (
+            /^(can|do|is|are|should|would|how|what|when|why|will|could)/i.test(
+              sentence
+            )
+          ) {
+            sentence += "?";
+          } else {
+            sentence += ".";
+          }
+        }
+        return sentence;
+      })
+      .join(" ");
+  };
+
   // Clean up recognition on unmount
   useEffect(() => {
     return () => {
@@ -508,35 +507,50 @@ const Practice = () => {
   }, [recognition]);
   // Update how we pass the conversations data
   const processedSessions = React.useMemo(() => {
+    console.log(conversations?.data)
     if (!conversations?.data) return [];
-    
-    return conversations.data.map((session: any) => ({
-      _id: session._id,
-      product_id: session.product_id,
-      user_id: session.user_id,
-      category_id: session.category_id || "",
-      test_name: session.test_name || "",
-      prod_name: session.prod_name || "",
-      cat_name: session.cat_name || "",
-      conversation_data: session.conversation_data || { pairs: [] },
-      evaluation_data: {
-        individual_evaluations: session.evaluation_data?.individual_evaluations || [],
-        mid_evaluations: session.evaluation_data?.mid_evaluations || [],
-        complete_evaluation: session.evaluation_data?.complete_evaluation || {},
-        complete_rating: {
-          overall_progress: session.evaluation_data?.complete_rating?.overall_progress || { score: 0, max: 0 },
-          sales_strategy: session.evaluation_data?.complete_rating?.sales_strategy || { score: 0, max: 0 },
-          customer_journey: session.evaluation_data?.complete_rating?.customer_journey || { score: 0, max: 0 },
-          technical_accuracy: session.evaluation_data?.complete_rating?.technical_accuracy || { score: 0, max: 0 },
-          total: session.evaluation_data?.complete_rating?.total || { score: 0, max: 0 }
-        },
-        additional_criteria_evaluation: session.evaluation_data?.additional_criteria_evaluation || {},
-        is_complete: session.evaluation_data?.is_complete || false,
-        test_configuration_id: session.evaluation_data?.test_configuration_id || "",
-      },
-      created_at: session.created_at || new Date().toISOString(),
-      updated_at: session.updated_at || new Date().toISOString()
-    }) as ConversationEvaluation);
+
+    return conversations.data.map(
+      (session: any) =>
+        ({
+          _id: session._id,
+          product_id: session.product_id,
+          user_id: session.user_id,
+          category_id: session.category_id || "",
+          test_name: session.test_name || "",
+          prod_name: session.prod_name || "",
+          cat_name: session.cat_name || "",
+          conversation_data: session.conversation_data || { pairs: [] },
+          evaluation_data: {
+            individual_evaluations:
+              session.evaluation_data?.individual_evaluations || [],
+            mid_evaluations: session.evaluation_data?.mid_evaluations || [],
+            complete_evaluation:
+              session.evaluation_data?.complete_evaluation || {},
+            complete_rating: {
+              overall_progress: session.evaluation_data?.complete_rating
+                ?.overall_progress || { score: 0, max: 0 },
+              sales_strategy: session.evaluation_data?.complete_rating
+                ?.sales_strategy || { score: 0, max: 0 },
+              customer_journey: session.evaluation_data?.complete_rating
+                ?.customer_journey || { score: 0, max: 0 },
+              technical_accuracy: session.evaluation_data?.complete_rating
+                ?.technical_accuracy || { score: 0, max: 0 },
+              total: session.evaluation_data?.complete_rating?.total || {
+                score: 0,
+                max: 0,
+              },
+            },
+            additional_criteria_evaluation:
+              session.evaluation_data?.additional_criteria_evaluation || {},
+            is_complete: session.evaluation_data?.is_complete || false,
+            test_configuration_id:
+              session.evaluation_data?.test_configuration_id || "",
+          },
+          created_at: session.created_at || new Date().toISOString(),
+          updated_at: session.updated_at || new Date().toISOString(),
+        } as ConversationEvaluation)
+    );
   }, [conversations]);
 
   // Update pagination data when conversations change
@@ -551,8 +565,6 @@ const Practice = () => {
       });
     }
   }, [conversations, itemsPerPage]);
-
-  
 
   const handleCloseAttempt = () => {
     if (isSessionActive) {
@@ -623,12 +635,15 @@ const Practice = () => {
                         <div className="flex items-center">
                           <span>Active Practice Assessment</span>
                           <span className="text-sm text-muted-foreground ml-2">
-                            {products.find(
-                              (p) => p.id === selectedProductId
-                            )?.name}{" "}
-                            {testConfigurations.find(
-                              (t) => t.id === selectedTestConfigId
-                            )?.name}
+                            {
+                              products.find((p) => p.id === selectedProductId)
+                                ?.name
+                            }{" "}
+                            {
+                              testConfigurations.find(
+                                (t) => t.id === selectedTestConfigId
+                              )?.name
+                            }
                           </span>
                         </div>
                       )}
@@ -639,11 +654,12 @@ const Practice = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleCloseAttempt() && setIsSetupOpen(false)}
+                    onClick={() =>
+                      handleCloseAttempt() && setIsSetupOpen(false)
+                    }
                     className="absolute top-4 right-4 hover:bg-secondary transition-colors duration-200"
                   >
-                    <span className="sr-only">Close</span>
-                    ✕
+                    <span className="sr-only">Close</span>✕
                   </Button>
                 </div>
 
@@ -670,10 +686,6 @@ const Practice = () => {
                       </div>
                     ) : (
                       <ChatInterface
-                        products={products}
-                        testConfigurations={testConfigurations}
-                        selectedProductId={selectedProductId}
-                        selectedTestConfigId={selectedTestConfigId}
                         conversationHistory={conversationHistory}
                         sessionLoading={sessionLoading}
                         salespersonInput={salespersonInput}
@@ -699,19 +711,21 @@ const Practice = () => {
             onOpenChange={() => setEvaluationResults(null)}
           >
             <DialogContent className="max-w-3xl bg-white modal-shadow">
-              {Object.entries(JSON.parse(evaluationResults.complete)).map(([key, value]) => (
-                <div key={key} className="mb-6 last:mb-0">
-                  <h3 className="text-lg font-semibold mb-2">
-                    {capitalizeEvaluationTitle(key)}
-                  </h3>
-                  <div
-                    className="prose max-w-none"
-                    dangerouslySetInnerHTML={{
-                      __html: String(value).replace(/\n/g, "<br/>"),
-                    }}
-                  />
-                </div>
-              ))}
+              {Object.entries(JSON.parse(evaluationResults.complete)).map(
+                ([key, value]) => (
+                  <div key={key} className="mb-6 last:mb-0">
+                    <h3 className="text-lg font-semibold mb-2">
+                      {capitalizeEvaluationTitle(key)}
+                    </h3>
+                    <div
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{
+                        __html: String(value).replace(/\n/g, "<br/>"),
+                      }}
+                    />
+                  </div>
+                )
+              )}
               {evaluationResults.additional && (
                 <div>
                   <Separator className="my-4" />
@@ -721,7 +735,10 @@ const Practice = () => {
                   <div
                     className="prose max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: evaluationResults.additional.replace(/\n/g, "<br/>"),
+                      __html: evaluationResults.additional.replace(
+                        /\n/g,
+                        "<br/>"
+                      ),
                     }}
                   />
                 </div>
@@ -729,7 +746,7 @@ const Practice = () => {
             </DialogContent>
           </Dialog>
         )}
-      </main>
+      </main> 
     </div>
   );
 };
