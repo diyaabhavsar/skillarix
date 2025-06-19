@@ -20,6 +20,8 @@ interface ProductFormProps {
     productName: string;
     description: string;
     categoryId: string;
+    filename?: string;
+    fileUrl?: string;
   };
 }
 
@@ -32,6 +34,8 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
   const [productInfo, setProductInfo] = useState({
     productName: initialData?.productName || "",
     description: initialData?.description || "",
+    filename: initialData?.filename || "",
+    fileUrl: initialData?.fileUrl || "",
   });
 
   const {
@@ -53,14 +57,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
 
   const handleFileChange = async (uploadedFile: File | null) => {
     setFile(uploadedFile);
-    const uploadFile = await api.upload("/file-upload/upload-file", uploadedFile, "products");
-    if (uploadFile) {
-      setUploadFile(uploadFile);
-      toast.success("File uploaded successfully");
-    }
-    else {
-      toast.error("File upload failed");
-    }
   };
 
   const handleProductInfoChange = (
@@ -96,10 +92,10 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
     if (file) {
       formDataPayload.append("file", file);
-    }
-    if (uploadFile.filename && uploadFile.url) {
-      formDataPayload.append("file_name", uploadFile.filename);
-      formDataPayload.append("file_url", uploadFile.url);
+      const uploadFile = await api.upload("/file-upload/upload-file", file, "products");
+      setUploadFile(uploadFile);
+      formDataPayload.append("file_name", uploadFile.filename || productInfo.filename);
+      formDataPayload.append("file_url", uploadFile.url || productInfo.fileUrl);
     }
 
     setIsLoading(true);
@@ -112,7 +108,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         await createProduct(formDataPayload);
         // Reset form only for create operation
         setFile(null);
-        setProductInfo({ productName: "", description: "" });
+        setProductInfo({ productName: "", description: "", filename: "", fileUrl: "" });
         setSelectedCategoryId("");
       }
       onSuccess?.();
@@ -162,6 +158,8 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
           selectedCategoryId={selectedCategoryId}
           onCategoryChange={setSelectedCategoryId}
           isLoading={isLoading}
+          isEditingMode={isEditMode}
+          onFileChange={handleFileChange} // Pass the file change handler
         />
 
         <SheetFooter>

@@ -199,6 +199,8 @@ const Products = () => {
                               productName: product.name,
                               description: product.description || "",
                               categoryId: product.category_id,
+                              filename: product.file_name || "",
+                              fileUrl: product.file_url || "",
                             }}
                           />
                         </Sheet>
