@@ -9,9 +9,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Paperclip, FileDown, X } from "lucide-react";
 
 export interface ProductInfoFormProps {
-  productInfo: { productName: string; description: string };
+  productInfo: { productName: string; description: string; filename: string; fileUrl: string };
   onProductInfoChange: (
     field: "productName" | "description",
     value: string
@@ -20,6 +21,8 @@ export interface ProductInfoFormProps {
   selectedCategoryId: string;
   onCategoryChange: (categoryId: string) => void;
   isLoading: boolean;
+  onFileChange?: (file: File | null) => void; // <-- Add this prop
+  isEditingMode?: boolean; // Optional prop to indicate if the form is in edit mode
 }
 
 const ProductInfoForm = ({
@@ -29,6 +32,8 @@ const ProductInfoForm = ({
   selectedCategoryId,
   onCategoryChange,
   isLoading,
+  onFileChange, // <-- Use this prop
+  isEditingMode = false, // Default to false if not provided
 }: ProductInfoFormProps) => {
   return (
     <div className="grid gap-4">
@@ -47,7 +52,6 @@ const ProductInfoForm = ({
           />
         </div>
         <div className="grid gap-2">
-          {" "}
           <Label htmlFor="product-category" className="text-sm font-medium">
             Category
           </Label>
@@ -89,6 +93,40 @@ const ProductInfoForm = ({
           rows={4}
         />
       </div>
+      {/* File section */}
+      {isEditingMode && (
+      <div className="grid gap-2">
+        <Label className="text-sm font-medium flex items-center gap-2">
+          <Paperclip className="w-4 h-4" />
+          Attachment (optional)
+        </Label>
+        {productInfo.fileUrl && productInfo.filename ? (
+          <div className="flex items-center gap-3 bg-slate-50 border rounded px-3 py-2 mb-2">
+            <FileDown className="w-5 h-5 text-blue-600" />
+            <a
+              href={productInfo.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-700 underline text-sm break-all"
+              download={productInfo.filename}
+            >
+              {productInfo.filename}
+            </a>
+          </div>
+        ) : null}
+        <input
+          type="file"
+          id="product-file"
+          className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          onChange={(e) => {
+            if (onFileChange) {
+              onFileChange(e.target.files?.[0] || null);
+            }
+          }}
+          disabled={isLoading}
+        />
+      </div>
+      )}
     </div>
   );
 };
