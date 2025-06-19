@@ -1,6 +1,5 @@
-import { env } from '@/config/env';
-import { User, UserRole } from '@/types/session';
-import { api } from '@/utils/api';
+import { UserRole } from "@/types/session";
+import { api } from "@/utils/api";
 
 interface LoginResponse {
   access_token: string;
@@ -23,17 +22,17 @@ export const authService = {
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
       const formData = new URLSearchParams({ username: email, password });
-        console.log({formData})
-      const response = await api.submitUrlEncodedForm('/auth/login', formData);
-      console.log({response})
+      console.log({ formData });
+      const response = await api.submitUrlEncodedForm("/auth/login", formData);
+      console.log({ response });
       return {
         access_token: response.access_token,
         user: {
           id: response.id,
           email: response.email,
           name: response.username,
-          role: response.role
-        }
+          role: response.role,
+        },
       };
     } catch (error: any) {
       throw new Error(error.detail || "Login failed");
@@ -42,9 +41,9 @@ export const authService = {
 
   async register(data: RegisterData): Promise<void> {
     try {
-      await api.post('/users', data);
+      await api.post("/users", data);
     } catch (error: any) {
       throw new Error(error.detail || "Registration failed");
     }
-  }
+  },
 };

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRef, useEffect, useCallback, useState, memo } from "react";
+import { useRef, useEffect, useCallback, useState, memo, forwardRef, ForwardRefRenderFunction } from "react";
 import { cn } from "@/lib/utils";
 import { Message } from "@/components/chat/Message";
 import { LoadingIndicator } from "@/components/chat/LoadingIndicator";
@@ -32,11 +32,12 @@ interface ChatInterfaceProps {
   onSalespersonInputChange: (value: string) => void;
   onVoiceInput: () => void;
   onSendResponse: () => void;
+  onEndSession: () => void;
   canEndSession: boolean;
-  onEndSession: () => Promise<void>;
+  className?: string;
 }
 
-const ChatInterface = ({
+const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps> = ({
   conversationHistory,
   sessionLoading,
   salespersonInput,
@@ -44,15 +45,35 @@ const ChatInterface = ({
   onSalespersonInputChange,
   onVoiceInput,
   onSendResponse,
-  canEndSession,
   onEndSession,
-}: ChatInterfaceProps) => {
+  canEndSession,
+  className
+}, ref) => {
   const [isEndAlertOpen, setIsEndAlertOpen] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [isEndingAssessment, setIsEndingAssessment] = useState(false);
+  const messageContainerRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [cursorPosition, setCursorPosition] = useState<number>(0);
 
-  // Separate state for handling end assessment confirmation
-  const [isEndingAssessment, setIsEndingAssessment] = useState(false);
+  // Enhanced scroll to bottom function
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (lastMessageRef.current && autoScroll) {
+      lastMessageRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+    }
+  }, [autoScroll]);
+
+  // Handle scroll events to determine if auto-scroll should be enabled
+  const handleScroll = useCallback(() => {
+    if (messageContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messageContainerRef.current;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100; // Within 100px of bottom
+      setAutoScroll(isAtBottom);
+    }
+  }, []);
 
   // Use custom hooks
   const { textareaRef, handleInput, handleKeyDown } = useTextInput({
@@ -68,10 +89,45 @@ const ChatInterface = ({
     currentText: salespersonInput,
   });
 
+  // Timer hook
+  const { timeLeft, formattedTime, isActive, startTimer, stopTimer } = useAssessmentTimer({
+    duration: ASSESSMENT_DURATION,
+    onTimeEnd: () => {
+      setIsEndAlertOpen(true);
+      setTimeout(async () => {
+        console.log("[ChatInterface] Auto-ending session due to time up");
+        setIsEndingAssessment(true);
+        setIsEndAlertOpen(false);
+        stopTimer();
+        await onEndSession();
+      }, 3000);
+    },
+  });
 
+  // Scroll to bottom when conversation updates
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversationHistory, scrollToBottom]);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const container = messageContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  // Force scroll to bottom when sending a message
+  useEffect(() => {
+    if (sessionLoading) {
+      setAutoScroll(true);
+      scrollToBottom(false);
+    }
+  }, [sessionLoading, scrollToBottom]);
 
   // Initialize timer and session control
-  const { timeLeft, formattedTime, isActive, startTimer, stopTimer } =
+  const { timeLeft: timerTimeLeft, formattedTime: timerFormattedTime, isActive: timerIsActive, startTimer: timerStart, stopTimer: timerStop } =
     useAssessmentTimer({
       duration: ASSESSMENT_DURATION,
       onTimeEnd: () => {
@@ -81,7 +137,7 @@ const ChatInterface = ({
           console.log("[ChatInterface] Auto-ending session due to time up");
           setIsEndingAssessment(true);
           setIsEndAlertOpen(false);
-          stopTimer();
+          timerStop();
           try {
             await onEndSession();
           } catch (error) {
@@ -94,17 +150,17 @@ const ChatInterface = ({
 
   // Start timer when conversation starts
   useEffect(() => {
-    if (conversationHistory.length > 0 && !isActive) {
-      startTimer();
+    if (conversationHistory.length > 0 && !timerIsActive) {
+      timerStart();
     }
-  }, [conversationHistory.length, isActive, startTimer]);
+  }, [conversationHistory.length, timerIsActive, timerStart]);
 
   // Stop timer when session ends
   useEffect(() => {
     if (!canEndSession) {
-      stopTimer();
+      timerStop();
     }
-  }, [canEndSession, stopTimer]);
+  }, [canEndSession, timerStop]);
 
   // Handle cursor position
   const handleCursorChange = useCallback(() => {
@@ -115,19 +171,24 @@ const ChatInterface = ({
 
   
   const handleEndConfirm = useCallback(async () => {
+    if (isEndingAssessment) return; // Prevent multiple submissions
+    
     console.log("[ChatInterface] Starting end assessment process...");
     setIsEndingAssessment(true);
     setIsEndAlertOpen(false);
-    stopTimer();
+    timerStop();
     
     try {
       await onEndSession();
       console.log("[ChatInterface] Assessment ended successfully");
+      // Don't reset isEndingAssessment here as we want to keep the UI in loading state
+      // until the navigation happens from the parent component
     } catch (error) {
       console.error("[ChatInterface] Error ending assessment:", error);
       setIsEndingAssessment(false);
+      setIsEndAlertOpen(false); // Close the dialog on error
     }
-  }, [onEndSession, stopTimer]);
+  }, [onEndSession, timerStop, isEndingAssessment]);
 
   // Handle dialog close
   const handleDialogClose = useCallback(
@@ -147,25 +208,8 @@ const ChatInterface = ({
     setIsEndAlertOpen(true);
   }, []);
 
-  // Scroll to bottom
-  const scrollToBottom = useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-      block: "end",
-    });
-  }, []);
-
-  // Scroll effects
-  useEffect(() => {
-    scrollToBottom();
-  }, [conversationHistory, sessionLoading, scrollToBottom]);
-
-  useEffect(() => {
-    scrollToBottom(false);
-  }, []);
-
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] bg-background overflow-hidden">
+    <div className={cn("flex flex-col w-full h-full", className)}>
       {/* Timer Display */}
       <div className="absolute top-4 right-4 z-50">
         <TimerDisplay
@@ -178,7 +222,14 @@ const ChatInterface = ({
 
       {/* Chat messages area */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto px-4 py-4 custom-scrollbar">
+        <div 
+          ref={messageContainerRef}
+          className="h-full overflow-y-auto px-4 py-4 custom-scrollbar"
+          style={{ 
+            scrollBehavior: "smooth",
+            overscrollBehavior: "contain"
+          }}
+        >
           <div className="max-w-4xl mx-auto space-y-6">
             <AnimatePresence mode="popLayout" initial={false}>
               {conversationHistory.map((pair, index) => (
@@ -198,7 +249,7 @@ const ChatInterface = ({
             </AnimatePresence>
 
             {sessionLoading && <LoadingIndicator />}
-            <div ref={bottomRef} />
+            <div ref={lastMessageRef} className="h-1" /> {/* Scroll anchor */}
           </div>
         </div>
       </div>
@@ -243,11 +294,16 @@ const ChatInterface = ({
               </Button>
               <Button
                 size="icon"
-                onClick={onSendResponse}
+                onClick={() => {
+                  if (isEndAlertOpen) {
+                    handleEndConfirm();
+                  } else {
+                    onSendResponse();
+                  }
+                }}
                 disabled={
                   sessionLoading ||
                   !salespersonInput.trim() ||
-                  isEndAlertOpen ||
                   isEndingAssessment
                 }
                 className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90"
@@ -299,7 +355,7 @@ const ChatInterface = ({
               </AlertDialogCancel>
             )}
             <AlertDialogAction
-              onClick={handleEndConfirm}
+              
               disabled={isEndingAssessment}
               className={cn(
                 "bg-primary hover:bg-primary/90",
@@ -324,4 +380,6 @@ const ChatInterface = ({
   );
 };
 
-export default memo(ChatInterface);
+ChatInterface.displayName = 'ChatInterface';
+
+export default memo(forwardRef(ChatInterface));

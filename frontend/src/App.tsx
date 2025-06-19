@@ -19,6 +19,8 @@ import AppLayout from "./components/AppLayout";
 // New admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
 import ManageUsers from "./pages/admin/ManageUsers";
+import SessionSetupPage from "@/pages/session/setup";
+import ChatSessionPage from "@/pages/session/chat";
 
 // Import the new TestSetup page component
 import TestSetup from "./pages/TestSetup";
@@ -106,6 +108,22 @@ const App = () => {
                     >
                       <Practice />
                     </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/session/setup"
+                element={
+                  <ProtectedRoute>
+                    <SessionSetupPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/session/chat"
+                element={
+                  <ProtectedRoute>
+                    <ChatSessionPage />
                   </ProtectedRoute>
                 }
               />
