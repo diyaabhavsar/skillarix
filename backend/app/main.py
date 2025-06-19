@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +19,13 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Ensure 'uploads/' directory exists at the project root
+UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../uploads"))
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+# Mount static files
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 if __name__ == "__main__":
     import uvicorn
