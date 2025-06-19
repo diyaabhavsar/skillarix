@@ -33,7 +33,7 @@ interface ChatInterfaceProps {
   onVoiceInput: () => void;
   onSendResponse: () => void;
   canEndSession: boolean;
-  onEndSession: () => void;
+  onEndSession: () => Promise<void>;
 }
 
 const ChatInterface = ({
@@ -68,19 +68,28 @@ const ChatInterface = ({
     currentText: salespersonInput,
   });
 
-  // Handle timer end
-  const handleTimeEnd = useCallback(() => {
-    setIsEndAlertOpen(true);
-    setTimeout(() => {
-      handleEndConfirm();
-    }, 3000); // Auto end after 3 seconds
-  }, []);
 
-  // Initialize timer
+
+  // Initialize timer and session control
   const { timeLeft, formattedTime, isActive, startTimer, stopTimer } =
     useAssessmentTimer({
       duration: ASSESSMENT_DURATION,
-      onTimeEnd: handleTimeEnd,
+      onTimeEnd: () => {
+        setIsEndAlertOpen(true);
+        // Auto end session after 3 seconds when time is up
+        setTimeout(async () => {
+          console.log("[ChatInterface] Auto-ending session due to time up");
+          setIsEndingAssessment(true);
+          setIsEndAlertOpen(false);
+          stopTimer();
+          try {
+            await onEndSession();
+          } catch (error) {
+            console.error("[ChatInterface] Error ending assessment:", error);
+            setIsEndingAssessment(false);
+          }
+        }, 3000);
+      },
     });
 
   // Start timer when conversation starts
@@ -104,13 +113,20 @@ const ChatInterface = ({
     }
   }, [textareaRef]);
 
-  // Handle end session
-  const handleEndConfirm = useCallback(() => {
+  
+  const handleEndConfirm = useCallback(async () => {
     console.log("[ChatInterface] Starting end assessment process...");
-    setIsEndingAssessment(true); // Set this before closing dialog
+    setIsEndingAssessment(true);
     setIsEndAlertOpen(false);
     stopTimer();
-    onEndSession();
+    
+    try {
+      await onEndSession();
+      console.log("[ChatInterface] Assessment ended successfully");
+    } catch (error) {
+      console.error("[ChatInterface] Error ending assessment:", error);
+      setIsEndingAssessment(false);
+    }
   }, [onEndSession, stopTimer]);
 
   // Handle dialog close

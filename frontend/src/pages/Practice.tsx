@@ -10,13 +10,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useConversationHistory } from "@/hooks/useConversationHistory";
 import SessionsPagination from "@/components/past-sessions/SessionsPagination";
 import PracticeHeader from "@/components/practice/PracticeHeader";
-import SessionSetupForm from "@/components/practice/SessionSetupForm";
 import ChatInterface from "@/components/practice/ChatInterface";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ConversationEvaluation } from "@/types/conversations";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
+import SessionSetupForm from "@/components/practice/SessionSetupForm";
 
 interface ConversationPair {
   visitor_text: string;
@@ -68,6 +68,7 @@ const Practice = () => {
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
   // Add ref for scroll area
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -228,6 +229,9 @@ const Practice = () => {
       setRecognition(null);
     }
 
+    // Mark that an answer has been sent
+    setHasAnswered(true);
+
     // Clear input immediately
     setSalespersonInput("");
 
@@ -268,6 +272,7 @@ const Practice = () => {
     setSalespersonInput("");
     setSessionLoading(false);
     setIsSetupOpen(false);
+    setHasAnswered(false);
 
     // Close websocket if open
     if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -344,6 +349,7 @@ const Practice = () => {
     setCurrentCustomerQuestion("");
     setEvaluationResults(null);
     setSessionError(null);
+    setHasAnswered(false); // Reset hasAnswered when starting new session
   };
 
   const isStartButtonDisabled =
@@ -386,12 +392,12 @@ const Practice = () => {
     // Clean up session
     cleanupSession();
 
-    // Small delay to ensure state updates are processed
+    // Small delay to ensure state updates are processed and show evaluation results
     setTimeout(() => {
       console.log('[Practice] Redirecting to practice page...');
-      // Navigate to practice page and force a reload
-      window.location.href = '/practice';
-    }, 500);
+      // Navigate to practice page with complete URL
+      window.location.href = '/Practice';
+    }, 2000); // Increased delay to 2 seconds to ensure evaluation is visible
   };
 
   const handleError = (data: WebSocketMessage) => {
@@ -694,7 +700,7 @@ const Practice = () => {
                         onVoiceInput={handleVoiceInput}
                         onSendResponse={sendSalespersonAnswer}
                         onEndSession={endSession}
-                        canEndSession={!sessionLoading && conversationHistory.length > 0}
+                        canEndSession={!sessionLoading && hasAnswered}
                       />
                     )}
                   </div>
