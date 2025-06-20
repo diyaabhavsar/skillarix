@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
+import { GrammarlyEditorPlugin } from "@grammarly/editor-sdk-react";
+import React from 'react';
 
 interface UseChatInputProps {
   onSalespersonInputChange: (value: string) => void;
@@ -15,6 +17,7 @@ interface UseChatInputReturn {
   handleCursorChange: () => void;
   cleanup: () => void;
   isVoiceActive: boolean;
+  GrammarlyWrapper: React.FC<{ children: React.ReactNode }>;
 }
 
 export const useChatInput = ({
@@ -185,15 +188,59 @@ export const useChatInput = ({
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += ' ' + transcript;
+          // Enhanced transcript processing
+          let processedTranscript = transcript.trim();
+          
+          // Proper sentence capitalization
+          processedTranscript = processedTranscript.replace(/([.!?]\s+|^)([a-z])/g, 
+            (match, separator, letter) => separator + letter.toUpperCase()
+          );
+          
+          // Fix common speech recognition issues
+          processedTranscript = processedTranscript
+            // Fix "I" capitalization
+            .replace(/\bi\b/g, "I")
+            .replace(/\bi'm\b/gi, "I'm")
+            .replace(/\bi'll\b/gi, "I'll")
+            .replace(/\bi've\b/gi, "I've")
+            .replace(/\bi'd\b/gi, "I'd")
+            // Fix common proper nouns
+            .replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi,
+              word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
+              word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+          // Smart punctuation handling
+          if (processedTranscript && !/[.!?]$/.test(processedTranscript)) {
+            // Check if it's a question
+            if (/^(who|what|where|when|why|how|is|are|was|were|do|does|did|will|would|should|could|can|may|might)\b/i.test(processedTranscript)) {
+              processedTranscript += '?';
+            } else {
+              processedTranscript += '.';
+            }
+          }
+          
+          // Handle sentence combinations
+          if (finalTranscript) {
+            // If the previous sentence doesn't end with punctuation, add it
+            if (!/[.!?]$/.test(finalTranscript)) {
+              finalTranscript += '. ';
+            } else if (!finalTranscript.endsWith(' ')) {
+              finalTranscript += ' ';
+            }
+          }
+          
+          finalTranscript += processedTranscript;
         } else {
-          interimTranscript += transcript;
+          interimTranscript = transcript;
         }
       }
 
-      // If we have a final transcript segment, update the text
+      // Process and insert the final text
       if (finalTranscript.trim()) {
-        insertAtCursor(finalTranscript);
+        // Use enhanced text processing
+        const enhancedText = enhanceText(finalTranscript);
+        insertAtCursor(enhancedText);
         finalTranscript = '';
       }
     };
@@ -242,6 +289,12 @@ export const useChatInput = ({
     }
   }, []);
 
+  const GrammarlyWrapper: React.FC<{ children: React.ReactNode }> = useCallback(({ children }) => {
+    return React.createElement(GrammarlyEditorPlugin, 
+      { clientId: "client_XXXXXXXXXXXXXXX", children }, 
+    );
+  }, []);
+
   return {
     textareaRef,
     handleInput,
@@ -250,5 +303,6 @@ export const useChatInput = ({
     handleCursorChange,
     cleanup,
     isVoiceActive: Boolean(recognitionRef.current),
+    GrammarlyWrapper,
   };
 };

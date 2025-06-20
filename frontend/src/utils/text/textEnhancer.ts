@@ -4,22 +4,27 @@ import { TEXT_PATTERNS } from './textPatterns';
 export const enhanceText = (rawText: string): string => {
   if (!rawText?.trim()) return "";
 
-  const doc = nlp(rawText.toLowerCase().trim());
-  const sentences = doc.sentences().out('array');
+  // Split into sentences more aggressively for speech input
+  const sentences = rawText.split(/(?<=[.!?])\s+|\s*(?:[.]\s*){2,}|\s+(?=[A-Z])/).map(s => s.trim()).filter(Boolean);
 
   const processedSentences = sentences.map((sentence: string) => {
     let line = sentence.trim();
     
-    // First letter capitalization
+    // Capitalize first letter of the sentence
     line = line.charAt(0).toUpperCase() + line.slice(1);
-    
-    // Fix I forms
+
+    // Capitalize proper nouns and important words
+    line = line.replace(/\b(i|i'm|i'll|i've|i'd)\b/gi, match => match.toUpperCase());
+    line = line.replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, 
+      word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+    line = line.replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
+      word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+    // Fix I forms and common speech patterns
     line = line.replace(TEXT_PATTERNS.I_FORMS, match => match.toUpperCase());
     
-    // Add commas after introductory phrases
+    // Add commas for natural speech patterns
     line = line.replace(TEXT_PATTERNS.INTRODUCTORY_PHRASES, '$1,');
-    
-    // Add commas in lists
     line = line.replace(/(\w+)(\s+and\s+|\s+or\s+)(\w+)/g, '$1, $2$3');
     
     // Determine sentence type
