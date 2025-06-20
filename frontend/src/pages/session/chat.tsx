@@ -5,7 +5,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import ChatInterface from "@/components/practice/ChatInterface";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWebsocket, WebSocketErrorMessages } from "@/services/websocketService";
+import { useWebsocket } from "@/services/websocketService";
+import { WebSocketErrorMessages } from "@/types/websocket";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -41,6 +42,7 @@ const ChatSessionPage = () => {
   // UI state
   const [isAttemptingToLeave, setIsAttemptingToLeave] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [hasAnsweredFirst, setHasAnsweredFirst] = useState(false);
 
   // Session state
   const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
@@ -101,6 +103,7 @@ const ChatSessionPage = () => {
     setSalespersonInput("");
     setSessionLoading(false);
     setHasAnswered(false);
+    setHasAnsweredFirst(false);
     setEvaluationResults(null);
     setSessionError(null);
     cleanup();
@@ -112,13 +115,16 @@ const ChatSessionPage = () => {
       switch (data.type) {
         case "question":
         case "next_question":
-          setCurrentCustomerQuestion(data.content || "");
-          setConversationHistory((prev) => [
-            ...prev,
-            { visitor_text: data.content || "", salesperson_text: "" },
-          ]);
-          setSessionLoading(false);
-          scrollToBottom();
+          // Only process next question if first answer was sent or it's the very first question
+          if (hasAnsweredFirst || conversationHistory.length === 0) {
+            setCurrentCustomerQuestion(data.content || "");
+            setConversationHistory((prev) => [
+              ...prev,
+              { visitor_text: data.content || "", salesperson_text: "" },
+            ]);
+            setSessionLoading(false);
+            scrollToBottom();
+          }
           break;
 
         case "evaluation": {
@@ -131,7 +137,7 @@ const ChatSessionPage = () => {
           });
           setSalespersonInput("");
 
-          if (data.next_question) {
+          if (data.next_question && hasAnsweredFirst) {
             setTimeout(() => {
               setCurrentCustomerQuestion(data.next_question || "");
               setConversationHistory((prev) => [
@@ -289,6 +295,17 @@ const ChatSessionPage = () => {
     const messageToSend = salespersonInput.trim();
     setSalespersonInput("");
     scrollToBottom();
+
+    // Set hasAnsweredFirst to true when sending first answer
+    if (!hasAnsweredFirst) {
+      setHasAnsweredFirst(true);
+      // Initialize the conversation with the first question if it hasn't been added yet
+      if (conversationHistory.length === 0 && currentCustomerQuestion) {
+        setConversationHistory([
+          { visitor_text: currentCustomerQuestion, salesperson_text: salespersonInput.trim() }
+        ]);
+      }
+    }
 
     try {
       const success = await sendAnswer({
@@ -462,7 +479,7 @@ const ChatSessionPage = () => {
         onSalespersonInputChange={setSalespersonInput}
         onSendResponse={sendSalespersonAnswer}
         onEndSession={handleEndSession}
-        canEndSession={!sessionLoading && conversationHistory.length > 0}
+        canEndSession={!sessionLoading && hasAnsweredFirst}
         isRecording={isRecording}
         onVoiceInput={handleVoiceInput}
         className="flex-1"

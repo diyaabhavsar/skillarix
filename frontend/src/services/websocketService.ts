@@ -1,100 +1,14 @@
 import { env } from "@/config/env";
 import { toast } from "sonner";
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-type MessageType = 
-  | "question"
-  | "next_question"
-  | "evaluation"
-  | "session_complete"
-  | "error"
-  | "answer"
-  | "start"
-  | "end_session"
-  | "ping";
-
-interface BaseWebSocketMessage {
-  type: MessageType;
-  error?: string;
-}
-
-interface QuestionMessage extends BaseWebSocketMessage {
-  type: "question" | "next_question";
-  content: string;
-}
-
-interface EvaluationMessage extends BaseWebSocketMessage {
-  type: "evaluation";
-  evaluation: string;
-  next_question?: string;
-}
-
-interface SessionCompleteMessage extends BaseWebSocketMessage {
-  type: "session_complete";
-  complete_evaluation: string;
-  additional_criteria_evaluation?: string;
-}
-
-interface ErrorMessage extends BaseWebSocketMessage {
-  type: "error";
-  content: string;
-}
-
-interface AnswerMessage extends BaseWebSocketMessage {
-  type: "answer";
-  product_id: string;
-  test_configuration_id: string;
-  last_question: string;
-  answer: string;
-  history: Array<{ visitor_text: string; salesperson_text: string }>;
-}
-
-interface StartMessage extends BaseWebSocketMessage {
-  type: "start";
-  product_id: string;
-  test_configuration_id: string;
-}
-
-interface EndSessionMessage extends BaseWebSocketMessage {
-  type: "end_session";
-  product_id: string;
-  test_configuration_id: string;
-  last_question: string;
-  answer: string;
-  history: Array<{ visitor_text: string; salesperson_text: string }>;
-}
-
-type WebSocketMessage = 
-  | QuestionMessage 
-  | EvaluationMessage 
-  | SessionCompleteMessage 
-  | ErrorMessage 
-  | AnswerMessage 
-  | StartMessage 
-  | EndSessionMessage
-  | { type: "ping" };
-
-// WebSocket Error Messages
-export const WebSocketErrorMessages = {
-  CONNECTION_FAILED: "Failed to establish WebSocket connection",
-  CONNECTION_CLOSED: "Connection closed unexpectedly",
-  INVALID_MESSAGE: "Invalid message format received",
-  NOT_CONNECTED: "WebSocket not connected",
-  SESSION_NOT_INITIALIZED: "Session not initialized",
-  SEND_FAILED: "Failed to send message",
-  AUTH_MISSING: "No authentication token found",
-  UNEXPECTED_ERROR: "An unexpected error occurred",
-} as const;
-
-export interface WebSocketConfig {
-  maxRetries?: number;
-  retryDelay?: number;
-  debug?: boolean;
-  onOpen?: () => void;
-  onMessage?: (data: WebSocketMessage) => void;
-  onError?: (error: string | Error | Event) => void;
-  onClose?: (event: CloseEvent) => void;
-}
+import {
+  WebSocketMessage,
+  MessageType,
+  AnswerMessage,
+  EndSessionMessage,
+  WebSocketErrorMessages,
+  WebSocketConfig
+} from "@/types/websocket";
 
 interface WebSocketState {
   isConnected: boolean;

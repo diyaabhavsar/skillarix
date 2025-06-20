@@ -26,6 +26,16 @@ export type MessageType =
   | "end_session"
   | "ping";
 
+export interface WebSocketConfig {
+  maxRetries?: number;
+  retryDelay?: number;
+  debug?: boolean;
+  onOpen?: () => void;
+  onMessage?: (data: WebSocketMessage) => void;
+  onError?: (error: string | Error | Event) => void;
+  onClose?: (event: CloseEvent) => void;
+}
+
 export interface BaseWebSocketMessage {
   type: MessageType;
   error?: string;
@@ -86,3 +96,14 @@ export type WebSocketMessage =
   | StartMessage 
   | EndSessionMessage
   | { type: "ping" };
+
+export const WebSocketErrorMessages = {
+  CONNECTION_FAILED: "Failed to establish WebSocket connection",
+  CONNECTION_CLOSED: "Connection closed unexpectedly",
+  INVALID_MESSAGE: "Invalid message format received",
+  NOT_CONNECTED: "WebSocket not connected",
+  SESSION_NOT_INITIALIZED: "Session not initialized",
+  SEND_FAILED: "Failed to send message",
+  AUTH_MISSING: "No authentication token found",
+  UNEXPECTED_ERROR: "An unexpected error occurred",
+} as const;
