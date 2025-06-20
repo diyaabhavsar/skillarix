@@ -18,7 +18,10 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 # Initialize OpenAI Client
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 FLAG = settings.MODEL
+<<<<<<< HEAD
 MODEL_NAME = settings.MODEL_NAME
+=======
+>>>>>>> 7776bbe (elevanlabs poc)
 
 def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     try:
@@ -83,7 +86,11 @@ Your response:
         if FLAG == 1:
             # Streaming OpenAI Chat completion
             response_stream = openai_client.chat.completions.create(
+<<<<<<< HEAD
                 model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+=======
+                model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
+>>>>>>> 7776bbe (elevanlabs poc)
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
@@ -215,7 +222,11 @@ IMPORTANT INSTRUCTIONS:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
+<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+=======
+            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
+>>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -299,7 +310,11 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
+<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+=======
+            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
+>>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -378,7 +393,11 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
+<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+=======
+            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
+>>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -495,7 +514,11 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
+<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+=======
+            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
+>>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": full_prompt}
             ],

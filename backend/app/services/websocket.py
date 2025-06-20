@@ -14,6 +14,7 @@ FLAG = settings.MODEL
 MODEL_NAME = settings.MODEL_NAME
 
 def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
+    print(persona)
     conversation_context = ""
     if conversation_history:
         conversation_context = f"""
