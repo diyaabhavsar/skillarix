@@ -85,31 +85,37 @@ export const useChatInput = ({
         });
       });
     }
-  }, []);
-  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const enhancedValue = enhanceText(e.target.value);
-    onSalespersonInputChange(enhancedValue);
+  }, []);  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // Only update the raw input value, don't enhance during typing
+    onSalespersonInputChange(e.target.value);
     animateTextareaScroll();
     if (textareaRef.current) {
       setCursorPosition(textareaRef.current.selectionStart);
     }
-  }, [onSalespersonInputChange, animateTextareaScroll, enhanceText]);
-
+  }, [onSalespersonInputChange, animateTextareaScroll]);
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && salespersonInput.trim()) {
       e.preventDefault();
+      // Enhance text only when sending
+      const enhancedText = enhanceText(salespersonInput);
+      onSalespersonInputChange(enhancedText);
       onSendResponse();
     }
-  }, [salespersonInput, onSendResponse]);
+  }, [salespersonInput, onSendResponse, enhanceText, onSalespersonInputChange]);
 
   // Voice input handling
   const insertAtCursor = useCallback((insertText: string) => {
     // Get the current text segments
     const before = salespersonInput.substring(0, cursorPosition).trim();
     const after = salespersonInput.substring(cursorPosition).trim();
-    
-    // Format and combine text
-    const newText = formatText(before, insertText, after);
+      // Combine text segments without heavy formatting during input
+    let newText = before;
+    if (newText && !newText.endsWith(' ')) newText += ' ';
+    newText += insertText.trim();
+    if (after) {
+      if (!newText.endsWith(' ')) newText += ' ';
+      newText += after;
+    }
     
     // Update text and cursor position
     const newPosition = newText.length;

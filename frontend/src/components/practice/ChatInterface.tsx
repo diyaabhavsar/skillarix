@@ -193,8 +193,8 @@ const ChatInterface: ForwardRefRenderFunction<
     Promise.resolve(onEndSession())
       .then(() => {
         console.log("[ChatInterface] Assessment ended successfully");
-        // Don't reset isEndingAssessment here as we want to keep the UI in loading state
-        // until the navigation happens from the parent component
+        // Force reload the practice page
+        window.location.href = '/Practice';
       })
       .catch((error) => {
         console.error("[ChatInterface] Error ending assessment:", error);

@@ -32,21 +32,46 @@ export default function Practice() {
 
   // Load conversations and show completion toast if needed
   useEffect(() => {
+    let mounted = true;
+    let refreshInterval: ReturnType<typeof setInterval>;
+
     async function load() {
+      if (!mounted) return;
+
       try {
         await fetchConversations();
-        
-        if (location.state?.sessionCompleted) {
+
+        if (mounted && location.state?.sessionCompleted) {
           toast.success("Assessment session completed!");
         }
       } catch (error) {
-        console.error("[Practice] Failed to load conversations:", error);
-        toast.error("Failed to load practice sessions");
+        if (mounted) {
+          console.error("[Practice] Failed to load conversations:", error);
+          toast.error("Failed to load practice sessions");
+        }
       }
     }
 
+    // Initial load
     load();
-  }, [location.state?.sessionCompleted]);
+
+    // Only set up refresh interval if we completed a session
+    if (location.state?.sessionCompleted) {
+      refreshInterval = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          load();
+        }
+      }, 5000);
+    }
+
+    // Cleanup function
+    return () => {
+      mounted = false;
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [location.state?.sessionCompleted]); // Remove fetchConversations from deps
 
   // Update pagination data when conversations change
   useEffect(() => {
@@ -62,25 +87,35 @@ export default function Practice() {
   }, [conversations]);
 
   // Transform conversation data to match expected types
-  const processedSessions = conversations?.data?.map((session: any) => ({
-    ...session,
-    evaluation_data: {
-      ...session.evaluation_data,
-      complete_rating: {
-        overall_progress: session.evaluation_data?.complete_rating?.overall_progress || defaultRating,
-        sales_strategy: session.evaluation_data?.complete_rating?.sales_strategy || defaultRating,
-        customer_journey: session.evaluation_data?.complete_rating?.customer_journey || defaultRating,
-        technical_accuracy: session.evaluation_data?.complete_rating?.technical_accuracy || defaultRating,
-        total: session.evaluation_data?.complete_rating?.total || defaultRating
-      } as CompleteRating
-    }
-  })) as ConversationEvaluation[] || [];
+  const processedSessions =
+    (conversations?.data?.map((session: any) => ({
+      ...session,
+      evaluation_data: {
+        ...session.evaluation_data,
+        complete_rating: {
+          overall_progress:
+            session.evaluation_data?.complete_rating?.overall_progress ||
+            defaultRating,
+          sales_strategy:
+            session.evaluation_data?.complete_rating?.sales_strategy ||
+            defaultRating,
+          customer_journey:
+            session.evaluation_data?.complete_rating?.customer_journey ||
+            defaultRating,
+          technical_accuracy:
+            session.evaluation_data?.complete_rating?.technical_accuracy ||
+            defaultRating,
+          total:
+            session.evaluation_data?.complete_rating?.total || defaultRating,
+        } as CompleteRating,
+      },
+    })) as ConversationEvaluation[]) || [];
 
   return (
     <ErrorBoundary>
       <div className="container mx-auto px-4 py-8">
         <PracticeHeader />
-        
+
         <div className="my-8">
           <h2 className="text-2xl font-semibold mb-4">Past Sessions</h2>
           <PastSessionsTable sessions={processedSessions} />
@@ -88,20 +123,22 @@ export default function Practice() {
             <div className="mt-4">
               <nav className="flex justify-center">
                 <ul className="inline-flex -space-x-px">
-                  {Array.from({ length: paginationData.total_pages }).map((_, index) => (
-                    <li key={index}>
-                      <button
-                        onClick={() => setCurrentPage(index + 1)}
-                        className={`px-3 py-2 ${
-                          currentPage === index + 1
-                            ? "bg-blue-500 text-white"
-                            : "bg-white text-gray-500 hover:bg-gray-100"
-                        } border border-gray-300`}
-                      >
-                        {index + 1}
-                      </button>
-                    </li>
-                  ))}
+                  {Array.from({ length: paginationData.total_pages }).map(
+                    (_, index) => (
+                      <li key={index}>
+                        <button
+                          onClick={() => setCurrentPage(index + 1)}
+                          className={`px-3 py-2 ${
+                            currentPage === index + 1
+                              ? "bg-blue-500 text-white"
+                              : "bg-white text-gray-500 hover:bg-gray-100"
+                          } border border-gray-300`}
+                        >
+                          {index + 1}
+                        </button>
+                      </li>
+                    )
+                  )}
                 </ul>
               </nav>
             </div>
