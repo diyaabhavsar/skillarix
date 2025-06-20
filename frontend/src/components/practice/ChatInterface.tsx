@@ -31,6 +31,47 @@ import { useChatInput } from "@/hooks/chat/useChatInput";
 
 const ASSESSMENT_DURATION = 300; // 5 minutes in seconds
 
+// Add keyframe animation for mic blinking
+const micBlinkingStyles = `
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  @keyframes pulseRing {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+      opacity: 0.8;
+    }
+    70% {
+      transform: scale(1.4);
+      box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+      opacity: 0.4;
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+      opacity: 0;
+    }
+  }
+  @keyframes glowPulse {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(59, 130, 246, 0.5),
+                  0 0 10px rgba(59, 130, 246, 0.3),
+                  0 0 15px rgba(59, 130, 246, 0.2);
+    }
+    50% {
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8),
+                  0 0 20px rgba(59, 130, 246, 0.5),
+                  0 0 30px rgba(59, 130, 246, 0.3);
+    }
+  }
+  @keyframes micScale {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+`;
+
 interface ChatInterfaceProps {
   conversationHistory: ConversationPair[];
   sessionLoading: boolean;
@@ -223,6 +264,7 @@ const ChatInterface: ForwardRefRenderFunction<
 
   return (
     <div className={cn("flex flex-col w-full h-full", className)}>
+      <style>{micBlinkingStyles}</style>
       {/* Timer Display */}
       <div className="absolute top-4 right-4 z-50">
         <TimerDisplay
@@ -288,23 +330,32 @@ const ChatInterface: ForwardRefRenderFunction<
               }}
             />
             <div className="absolute right-2 bottom-2 flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleVoiceInput}
-                className={cn(
-                  "h-8 w-8 rounded-full transition-colors",
-                  isVoiceActive
-                    ? "bg-red-100 text-red-600 hover:bg-red-200"
-                    : "hover:bg-slate-100"
-                )}
-              >
-                {isVoiceActive ? (
-                  <MicOff className="h-4 w-4" />
-                ) : (
-                  <Mic className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="relative">
+                <button
+                  onClick={handleVoiceInput}
+                  disabled={sessionLoading}
+                  className={cn(
+                    "p-2 rounded-full transition-all duration-300 relative z-10",
+                    isVoiceActive ? "text-blue-500 bg-blue-50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                  )}
+                  style={{
+                    animation: isVoiceActive ? "glowPulse 2s ease-in-out infinite" : "none",
+                  }}
+                >
+                  <Mic className={cn(
+                    "h-5 w-5 transition-transform duration-300",
+                    isVoiceActive && "text-blue-500 animate-[micScale_1.5s_ease-in-out_infinite]"
+                  )} />
+                  {isVoiceActive && (
+                    <>
+                      <span className="absolute inset-0 rounded-full bg-blue-200/50 animate-[pulseRing_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
+                      <span className="absolute inset-0 rounded-full bg-blue-200/30 animate-[pulseRing_2s_cubic-bezier(0.4,0,0.6,1)_infinite_400ms]" />
+                      <span className="absolute inset-0 rounded-full bg-blue-200/20 animate-[pulseRing_2s_cubic-bezier(0.4,0,0.6,1)_infinite_800ms]" />
+                      <span className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20 blur-sm" />
+                    </>
+                  )}
+                </button>
+              </div>
               <Button
                 size="icon"
                 onClick={onSendResponse}
