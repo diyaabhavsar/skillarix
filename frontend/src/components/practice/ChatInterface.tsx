@@ -3,13 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRef, useEffect, useCallback, useState, memo, forwardRef, ForwardRefRenderFunction } from "react";
+import {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  memo,
+  forwardRef,
+  ForwardRefRenderFunction,
+} from "react";
 import { cn } from "@/lib/utils";
 import { Message } from "@/components/chat/Message";
 import { LoadingIndicator } from "@/components/chat/LoadingIndicator";
 import { TimerDisplay } from "@/components/chat/TimerDisplay";
-import { useVoiceInput } from "@/hooks/chat/useVoiceInput";
-import { useTextInput } from "@/hooks/chat/useTextInput";
 import { useAssessmentTimer } from "@/hooks/chat/useAssessmentTimer";
 import {
   AlertDialog,
@@ -21,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useChatInput } from "@/hooks/chat/useChatInput";
 
 const ASSESSMENT_DURATION = 300; // 5 minutes in seconds
 
@@ -28,80 +35,82 @@ interface ChatInterfaceProps {
   conversationHistory: ConversationPair[];
   sessionLoading: boolean;
   salespersonInput: string;
-  isRecording: boolean;
   onSalespersonInputChange: (value: string) => void;
-  onVoiceInput: () => void;
   onSendResponse: () => void;
   onEndSession: () => void;
   canEndSession: boolean;
   className?: string;
 }
 
-const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps> = ({
-  conversationHistory,
-  sessionLoading,
-  salespersonInput,
-  isRecording,
-  onSalespersonInputChange,
-  onVoiceInput,
-  onSendResponse,
-  onEndSession,
-  canEndSession,
-  className
-}, ref) => {
+const ChatInterface: ForwardRefRenderFunction<
+  HTMLDivElement,
+  ChatInterfaceProps
+> = (
+  {
+    conversationHistory,
+    sessionLoading,
+    salespersonInput,
+    onSalespersonInputChange,
+    onSendResponse,
+    onEndSession,
+    canEndSession,
+    className,
+  },
+  ref
+) => {
   const [isEndAlertOpen, setIsEndAlertOpen] = useState(false);
   const [isEndingAssessment, setIsEndingAssessment] = useState(false);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
-  const [cursorPosition, setCursorPosition] = useState<number>(0);
 
   // Enhanced scroll to bottom function
-  const scrollToBottom = useCallback((smooth = true) => {
-    if (lastMessageRef.current && autoScroll) {
-      lastMessageRef.current.scrollIntoView({
+  const scrollToBottom = useCallback(
+    (smooth = true) => {
+      if (!messageContainerRef.current || !autoScroll) return;
+
+      const { scrollHeight, clientHeight } = messageContainerRef.current;
+      const targetScroll = scrollHeight - clientHeight;
+
+      messageContainerRef.current.scrollTo({
+        top: targetScroll,
         behavior: smooth ? "smooth" : "auto",
-        block: "end",
       });
-    }
-  }, [autoScroll]);
+    },
+    [autoScroll]
+  );
 
   // Handle scroll events to determine if auto-scroll should be enabled
   const handleScroll = useCallback(() => {
     if (messageContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messageContainerRef.current;
-      const isAtBottom = scrollHeight - scrollTop - clientHeight < 100; // Within 100px of bottom
-      setAutoScroll(isAtBottom);
+      const { scrollTop, scrollHeight, clientHeight } =
+        messageContainerRef.current;
+      // Only enable auto-scroll when very close to bottom (within 20px)
+      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 20;
+      if (isAtBottom !== autoScroll) {
+        setAutoScroll(isAtBottom);
+        console.log(
+          "[ChatInterface] Auto-scroll:",
+          isAtBottom ? "enabled" : "disabled"
+        );
+      }
     }
-  }, []);
+  }, [autoScroll]);
 
   // Use custom hooks
-  const { textareaRef, handleInput, handleKeyDown } = useTextInput({
+  const {
+    textareaRef,
+    handleInput,
+    handleKeyDown,
+    handleVoiceInput,
+    handleCursorChange,
+    cleanup,
+    isVoiceActive,
+  } = useChatInput({
     onSalespersonInputChange,
     onSendResponse,
     salespersonInput,
-  });
-
-  const { handleVoiceInput } = useVoiceInput({
-    onSalespersonInputChange,
-    onVoiceInput,
-    cursorPosition,
-    currentText: salespersonInput,
-  });
-
-  // Timer hook
-  const { timeLeft, formattedTime, isActive, startTimer, stopTimer } = useAssessmentTimer({
-    duration: ASSESSMENT_DURATION,
-    onTimeEnd: () => {
-      setIsEndAlertOpen(true);
-      setTimeout(async () => {
-        console.log("[ChatInterface] Auto-ending session due to time up");
-        setIsEndingAssessment(true);
-        setIsEndAlertOpen(false);
-        stopTimer();
-        await onEndSession();
-      }, 3000);
-    },
+    onVoiceStateChange: () => {}, // Optional prop
   });
 
   // Scroll to bottom when conversation updates
@@ -109,14 +118,18 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
     scrollToBottom();
   }, [conversationHistory, scrollToBottom]);
 
-  // Add scroll event listener
+  // Add scroll event listener and cleanup voice recognition
   useEffect(() => {
     const container = messageContainerRef.current;
     if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
+      container.addEventListener("scroll", handleScroll);
+      return () => {
+        container.removeEventListener("scroll", handleScroll);
+        cleanup();
+      }
     }
-  }, [handleScroll]);
+    return cleanup;
+  }, [handleScroll, cleanup]);
 
   // Force scroll to bottom when sending a message
   useEffect(() => {
@@ -127,17 +140,17 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
   }, [sessionLoading, scrollToBottom]);
 
   // Initialize timer and session control
-  const { timeLeft: timerTimeLeft, formattedTime: timerFormattedTime, isActive: timerIsActive, startTimer: timerStart, stopTimer: timerStop } =
+  const { timeLeft, formattedTime, isActive, startTimer, stopTimer } =
     useAssessmentTimer({
       duration: ASSESSMENT_DURATION,
       onTimeEnd: () => {
+        console.log("[ChatInterface] Assessment time up - auto ending session");
         setIsEndAlertOpen(true);
         // Auto end session after 3 seconds when time is up
         setTimeout(async () => {
-          console.log("[ChatInterface] Auto-ending session due to time up");
           setIsEndingAssessment(true);
           setIsEndAlertOpen(false);
-          timerStop();
+          stopTimer();
           try {
             await onEndSession();
           } catch (error) {
@@ -148,47 +161,47 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
       },
     });
 
-  // Start timer when conversation starts
+  // Start timer when first question is received (when conversation history gets its first item)
   useEffect(() => {
-    if (conversationHistory.length > 0 && !timerIsActive) {
-      timerStart();
+    if (!isActive && conversationHistory.length === 1) {
+      console.log(
+        "[ChatInterface] First question received - Starting assessment timer"
+      );
+      startTimer();
     }
-  }, [conversationHistory.length, timerIsActive, timerStart]);
+  }, [isActive, startTimer, conversationHistory.length]);
 
   // Stop timer when session ends
   useEffect(() => {
     if (!canEndSession) {
-      timerStop();
+      stopTimer();
     }
-  }, [canEndSession, timerStop]);
+  }, [canEndSession, stopTimer]);
 
-  // Handle cursor position
-  const handleCursorChange = useCallback(() => {
-    if (textareaRef.current) {
-      setCursorPosition(textareaRef.current.selectionStart);
+  const handleEndConfirm = useCallback(() => {
+    if (isEndingAssessment) {
+      console.log("[ChatInterface] Already ending assessment, ignoring click");
+      return;
     }
-  }, [textareaRef]);
 
-  
-  const handleEndConfirm = useCallback(async () => {
-    if (isEndingAssessment) return; // Prevent multiple submissions
-    
     console.log("[ChatInterface] Starting end assessment process...");
     setIsEndingAssessment(true);
     setIsEndAlertOpen(false);
-    timerStop();
-    
-    try {
-      await onEndSession();
-      console.log("[ChatInterface] Assessment ended successfully");
-      // Don't reset isEndingAssessment here as we want to keep the UI in loading state
-      // until the navigation happens from the parent component
-    } catch (error) {
-      console.error("[ChatInterface] Error ending assessment:", error);
-      setIsEndingAssessment(false);
-      setIsEndAlertOpen(false); // Close the dialog on error
-    }
-  }, [onEndSession, timerStop, isEndingAssessment]);
+    stopTimer();
+
+    // Use Promise to handle the async operation
+    Promise.resolve(onEndSession())
+      .then(() => {
+        console.log("[ChatInterface] Assessment ended successfully");
+        // Don't reset isEndingAssessment here as we want to keep the UI in loading state
+        // until the navigation happens from the parent component
+      })
+      .catch((error) => {
+        console.error("[ChatInterface] Error ending assessment:", error);
+        setIsEndingAssessment(false);
+        setIsEndAlertOpen(false); // Close the dialog on error
+      });
+  }, [onEndSession, stopTimer, isEndingAssessment]);
 
   // Handle dialog close
   const handleDialogClose = useCallback(
@@ -222,12 +235,13 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
 
       {/* Chat messages area */}
       <div className="flex-1 overflow-hidden">
-        <div 
+        <div
           ref={messageContainerRef}
           className="h-full overflow-y-auto px-4 py-4 custom-scrollbar"
-          style={{ 
-            scrollBehavior: "smooth",
-            overscrollBehavior: "contain"
+          style={{
+            overflowY: "auto",
+            overscrollBehavior: "auto",
+            height: "100%",
           }}
         >
           <div className="max-w-4xl mx-auto space-y-6">
@@ -247,7 +261,6 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
                 </motion.div>
               ))}
             </AnimatePresence>
-
             {sessionLoading && <LoadingIndicator />}
             <div ref={lastMessageRef} className="h-1" /> {/* Scroll anchor */}
           </div>
@@ -281,12 +294,12 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
                 onClick={handleVoiceInput}
                 className={cn(
                   "h-8 w-8 rounded-full transition-colors",
-                  isRecording
+                  isVoiceActive
                     ? "bg-red-100 text-red-600 hover:bg-red-200"
                     : "hover:bg-slate-100"
                 )}
               >
-                {isRecording ? (
+                {isVoiceActive ? (
                   <MicOff className="h-4 w-4" />
                 ) : (
                   <Mic className="h-4 w-4" />
@@ -294,13 +307,7 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
               </Button>
               <Button
                 size="icon"
-                onClick={() => {
-                  if (isEndAlertOpen) {
-                    handleEndConfirm();
-                  } else {
-                    onSendResponse();
-                  }
-                }}
+                onClick={onSendResponse}
                 disabled={
                   sessionLoading ||
                   !salespersonInput.trim() ||
@@ -355,7 +362,7 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
               </AlertDialogCancel>
             )}
             <AlertDialogAction
-              
+              onClick={handleEndConfirm}
               disabled={isEndingAssessment}
               className={cn(
                 "bg-primary hover:bg-primary/90",
@@ -380,6 +387,6 @@ const ChatInterface: ForwardRefRenderFunction<HTMLDivElement, ChatInterfaceProps
   );
 };
 
-ChatInterface.displayName = 'ChatInterface';
+ChatInterface.displayName = "ChatInterface";
 
 export default memo(forwardRef(ChatInterface));

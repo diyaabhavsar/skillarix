@@ -45,20 +45,23 @@ const ChatSessionPage = () => {
   const [hasAnsweredFirst, setHasAnsweredFirst] = useState(false);
 
   // Session state
-  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(null);
+  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(
+    null
+  );
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
 
   // Chat state
-  const [conversationHistory, setConversationHistory] = useState<ConversationPair[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<
+    ConversationPair[]
+  >([]);
   const [currentCustomerQuestion, setCurrentCustomerQuestion] = useState("");
   const [salespersonInput, setSalespersonInput] = useState("");
-  const [evaluationResults, setEvaluationResults] = useState<EvaluationResults | null>(null);
+  const [evaluationResults, setEvaluationResults] =
+    useState<EvaluationResults | null>(null);
 
-  // Voice input state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
+  // No local voice state needed - managed by useChatInput hook
 
   // Core utility functions
   const scrollToBottom = useCallback(() => {
@@ -80,11 +83,11 @@ const ChatSessionPage = () => {
     sendAnswer,
     startSession,
     endSession,
-    cleanup
+    cleanup,
   } = useWebsocket({
     debug: true,
     onError: (error) => {
-      console.error('WebSocket error:', error);
+      console.error("WebSocket error:", error);
     },
     onClose: (event) => {
       setSessionLoading(false);
@@ -93,7 +96,7 @@ const ChatSessionPage = () => {
         setSessionError(WebSocketErrorMessages.CONNECTION_CLOSED);
         toast.error(WebSocketErrorMessages.CONNECTION_CLOSED);
       }
-    }
+    },
   });
 
   const cleanupSession = useCallback(() => {
@@ -115,8 +118,14 @@ const ChatSessionPage = () => {
       switch (data.type) {
         case "question":
         case "next_question":
-          // Only process next question if first answer was sent or it's the very first question
+          // Process the first question immediately, subsequent questions only after first answer
           if (hasAnsweredFirst || conversationHistory.length === 0) {
+            console.log(
+              "[Chat] Processing question:",
+              conversationHistory.length === 0
+                ? "First question"
+                : "Next question"
+            );
             setCurrentCustomerQuestion(data.content || "");
             setConversationHistory((prev) => [
               ...prev,
@@ -142,7 +151,10 @@ const ChatSessionPage = () => {
               setCurrentCustomerQuestion(data.next_question || "");
               setConversationHistory((prev) => [
                 ...prev,
-                { visitor_text: data.next_question || "", salesperson_text: "" },
+                {
+                  visitor_text: data.next_question || "",
+                  salesperson_text: "",
+                },
               ]);
               setSessionLoading(false);
               scrollToBottom();
@@ -155,8 +167,8 @@ const ChatSessionPage = () => {
 
         case "session_complete": {
           const msg = data as SessionCompleteMessage;
-          console.log('[Chat] Session complete response received:', data);
-          
+          console.log("[Chat] Session complete response received:", data);
+
           setEvaluationResults({
             complete: msg.complete_evaluation,
             additional: msg.additional_criteria_evaluation,
@@ -164,27 +176,28 @@ const ChatSessionPage = () => {
 
           cleanupSession();
           setHasAnswered(true);
-          
+
           setTimeout(() => {
-            navigate("/practice", { 
-              state: { sessionCompleted: true }
+            navigate("/practice", {
+              state: { sessionCompleted: true },
             });
           }, 2000);
           break;
         }
 
         case "end_session": {
-          console.log('[Chat] Session ended successfully');
+          console.log("[Chat] Session ended successfully");
           cleanupSession();
           setHasAnswered(true);
           navigate("/practice", {
-            state: { sessionCompleted: true }
+            state: { sessionCompleted: true },
           });
           break;
         }
 
         case "error": {
-          const errorMessage = data.error || "An error occurred during the session";
+          const errorMessage =
+            data.error || "An error occurred during the session";
           setSessionError(errorMessage);
           setSessionLoading(false);
           toast.error(errorMessage);
@@ -201,7 +214,7 @@ const ChatSessionPage = () => {
       // Update the WebSocket message handler through the hook's config
       connect("/ws/chat", token, {
         debug: true,
-        onMessage: handleMessage
+        onMessage: handleMessage,
       });
     }
   }, [handleMessage, token, connect]);
@@ -223,7 +236,7 @@ const ChatSessionPage = () => {
           sessionDetails.productId,
           sessionDetails.testConfigId
         );
-        
+
         if (!started) {
           setSessionLoading(false);
           toast.error(WebSocketErrorMessages.CONNECTION_FAILED);
@@ -268,11 +281,6 @@ const ChatSessionPage = () => {
       return;
     }
 
-    if (isRecording) {
-      setIsRecording(false);
-      recognition?.stop();
-    }
-
     setSessionLoading(true);
     setSessionError(null);
 
@@ -302,7 +310,10 @@ const ChatSessionPage = () => {
       // Initialize the conversation with the first question if it hasn't been added yet
       if (conversationHistory.length === 0 && currentCustomerQuestion) {
         setConversationHistory([
-          { visitor_text: currentCustomerQuestion, salesperson_text: salespersonInput.trim() }
+          {
+            visitor_text: currentCustomerQuestion,
+            salesperson_text: salespersonInput.trim(),
+          },
         ]);
       }
     }
@@ -329,8 +340,6 @@ const ChatSessionPage = () => {
     salespersonInput,
     currentCustomerQuestion,
     isConnected,
-    isRecording,
-    recognition,
     conversationHistory,
     sessionDetails,
     scrollToBottom,
@@ -364,7 +373,6 @@ const ChatSessionPage = () => {
         toast.error(WebSocketErrorMessages.SEND_FAILED);
       }
       // Don't navigate here - wait for the end_session message response
-      
     } catch (error) {
       setSessionLoading(false);
       toast.error(WebSocketErrorMessages.SEND_FAILED);
@@ -379,60 +387,8 @@ const ChatSessionPage = () => {
     endSession,
   ]);
 
-  // Handle voice input
-  const handleVoiceInput = useCallback(() => {
-    if (!("webkitSpeechRecognition" in window)) {
-      toast.error("Speech recognition is not supported in your browser");
-      return;
-    }
-
-    if (isRecording) {
-      recognition?.stop();
-      setRecognition(null);
-      setIsRecording(false);
-      return;
-    }
-
-    const newRecognition = new (window as any).webkitSpeechRecognition();
-    newRecognition.continuous = true;
-    newRecognition.interimResults = true;
-
-    newRecognition.onstart = () => setIsRecording(true);
-    newRecognition.onend = () => {
-      setIsRecording(false);
-      setRecognition(null);
-    };
-
-    newRecognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((result: any) => result[0])
-        .map((result: any) => result.transcript)
-        .join(" ");
-
-      setSalespersonInput(transcript);
-    };
-
-    newRecognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
-      setIsRecording(false);
-      setRecognition(null);
-      toast.error("Voice input error. Please try again.");
-    };
-
-    setRecognition(newRecognition);
-    newRecognition.start();
-  }, [isRecording, recognition]);
-
-  // Clean up recognition on unmount
-  useEffect(() => {
-    return () => {
-      if (recognition) {
-        recognition.stop();
-        setIsRecording(false);
-        setRecognition(null);
-      }
-    };
-  }, [recognition]);
+  // We don't need a handleVoiceInput function anymore since
+  // voice handling is managed entirely by the ChatInterface component
 
   return (
     <div className="fixed inset-0 bg-background min-h-screen flex flex-col">
@@ -480,8 +436,6 @@ const ChatSessionPage = () => {
         onSendResponse={sendSalespersonAnswer}
         onEndSession={handleEndSession}
         canEndSession={!sessionLoading && hasAnsweredFirst}
-        isRecording={isRecording}
-        onVoiceInput={handleVoiceInput}
         className="flex-1"
       />
 

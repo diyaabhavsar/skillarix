@@ -15,7 +15,7 @@ export interface EvaluationResults {
   additional?: string;
 }
 
-export type MessageType = 
+export type MessageType =
   | "question"
   | "next_question"
   | "evaluation"
@@ -87,13 +87,13 @@ export interface EndSessionMessage extends BaseWebSocketMessage {
   history: Array<ConversationPair>;
 }
 
-export type WebSocketMessage = 
-  | QuestionMessage 
-  | EvaluationMessage 
-  | SessionCompleteMessage 
-  | ErrorMessage 
-  | AnswerMessage 
-  | StartMessage 
+export type WebSocketMessage =
+  | QuestionMessage
+  | EvaluationMessage
+  | SessionCompleteMessage
+  | ErrorMessage
+  | AnswerMessage
+  | StartMessage
   | EndSessionMessage
   | { type: "ping" };
 
