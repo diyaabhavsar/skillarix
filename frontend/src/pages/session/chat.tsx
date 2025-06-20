@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import ChatInterface from "@/components/practice/ChatInterface";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWebSocket, WebSocketErrorMessages } from "@/services/websocketService";
+import { useWebsocket, WebSocketErrorMessages } from "@/services/websocketService";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -75,22 +75,14 @@ const ChatSessionPage = () => {
     isConnected,
     connect,
     send,
-    sendAnswer: sendWsAnswer,
-    startSession: startWebSocketSession,
-    endSession: endWebSocketSession,
-    cleanup: cleanupWebSocket
-  } = useWebSocket({
+    sendAnswer,
+    startSession,
+    endSession,
+    cleanup
+  } = useWebsocket({
     debug: true,
     onError: (error) => {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-          ? error
-          : WebSocketErrorMessages.CONNECTION_FAILED;
-      setSessionError(errorMessage);
-      setSessionLoading(false);
-      toast.error(errorMessage);
+      console.error('WebSocket error:', error);
     },
     onClose: (event) => {
       setSessionLoading(false);
@@ -111,8 +103,8 @@ const ChatSessionPage = () => {
     setHasAnswered(false);
     setEvaluationResults(null);
     setSessionError(null);
-    cleanupWebSocket();
-  }, [cleanupWebSocket]);
+    cleanup();
+  }, [cleanup]);
 
   // Message handling
   const handleMessage = useCallback(
@@ -197,13 +189,16 @@ const ChatSessionPage = () => {
     [salespersonInput, navigate, scrollToBottom, cleanupSession]
   );
 
-  // Update WebSocket config with message handler
+  // Configure WebSocket message handler
   useEffect(() => {
     if (handleMessage) {
-      // @ts-ignore - TypeScript doesn't like modifying config after initialization
-      websocket.config.onMessage = handleMessage;
+      // Update the WebSocket message handler through the hook's config
+      connect("/ws/chat", token, {
+        debug: true,
+        onMessage: handleMessage
+      });
     }
-  }, [handleMessage]);
+  }, [handleMessage, token, connect]);
 
   // WebSocket connection and session management
   useEffect(() => {
@@ -218,7 +213,7 @@ const ChatSessionPage = () => {
         });
 
         setSessionLoading(true);
-        const started = await startWebSocketSession(
+        const started = await startSession(
           sessionDetails.productId,
           sessionDetails.testConfigId
         );
@@ -235,8 +230,8 @@ const ChatSessionPage = () => {
     };
 
     initSession();
-    return () => cleanupWebSocket();
-  }, [sessionDetails, token, connect, startWebSocketSession, cleanupWebSocket]);
+    return () => cleanup();
+  }, [sessionDetails, token, connect, startSession, cleanup]);
 
   // Load session details on mount
   useEffect(() => {
@@ -296,7 +291,7 @@ const ChatSessionPage = () => {
     scrollToBottom();
 
     try {
-      const success = await sendWsAnswer({
+      const success = await sendAnswer({
         product_id: sessionDetails.productId,
         test_configuration_id: sessionDetails.testConfigId,
         last_question: currentCustomerQuestion,
@@ -322,10 +317,10 @@ const ChatSessionPage = () => {
     conversationHistory,
     sessionDetails,
     scrollToBottom,
-    sendWsAnswer,
+    sendAnswer,
   ]);
 
-  const endSession = useCallback(async () => {
+  const handleEndSession = useCallback(async () => {
     if (!sessionDetails || !isConnected || sessionLoading) return;
 
     setSessionLoading(true);
@@ -339,7 +334,7 @@ const ChatSessionPage = () => {
     }
 
     try {
-      const success = await endWebSocketSession({
+      const success = await endSession({
         product_id: sessionDetails.productId,
         test_configuration_id: sessionDetails.testConfigId,
         last_question: currentCustomerQuestion,
@@ -364,7 +359,7 @@ const ChatSessionPage = () => {
     conversationHistory,
     currentCustomerQuestion,
     salespersonInput,
-    endWebSocketSession,
+    endSession,
   ]);
 
   // Handle voice input
@@ -466,7 +461,7 @@ const ChatSessionPage = () => {
         salespersonInput={salespersonInput}
         onSalespersonInputChange={setSalespersonInput}
         onSendResponse={sendSalespersonAnswer}
-        onEndSession={endSession}
+        onEndSession={handleEndSession}
         canEndSession={!sessionLoading && conversationHistory.length > 0}
         isRecording={isRecording}
         onVoiceInput={handleVoiceInput}
