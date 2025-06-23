@@ -130,7 +130,6 @@ export default function Practice() {
         <PracticeHeader />
 
         <div className="my-8">
-          <h2 className="text-2xl font-semibold mb-4">Past Sessions</h2>
           <div className="relative">
             {isLoading && (
               <div className="absolute inset-0 bg-white/50 flex items-center justify-center">

@@ -204,6 +204,13 @@ const ChatInterface: ForwardRefRenderFunction<
       });
   }, [onEndSession, stopTimer, isEndingAssessment]);
 
+  const handleButtonClick = useCallback((buttonType: 'confirm' | 'send') => {
+    if (buttonType === 'confirm') {
+      handleEndConfirm();
+    } else if (buttonType === 'send') {
+      onSendResponse();
+    }
+  }, [handleEndConfirm, onSendResponse]);
   // Handle dialog close
   const handleDialogClose = useCallback(
     (open: boolean) => {
@@ -324,7 +331,7 @@ const ChatInterface: ForwardRefRenderFunction<
               </div>
               <Button
                 size="icon"
-                onClick={onSendResponse}
+                onClick={() => handleButtonClick('send')}
                 disabled={
                   sessionLoading ||
                   !salespersonInput.trim() ||
@@ -379,7 +386,7 @@ const ChatInterface: ForwardRefRenderFunction<
               </AlertDialogCancel>
             )}
             <AlertDialogAction
-              onClick={handleEndConfirm}
+              onClick={() => handleButtonClick('confirm')}
               disabled={isEndingAssessment}
               className={cn(
                 "bg-primary hover:bg-primary/90",
