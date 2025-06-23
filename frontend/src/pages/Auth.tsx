@@ -9,13 +9,12 @@ import ForgotPasswordDialog from "@/components/auth/ForgotPasswordDialog";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
+  // All hooks must be called before any conditional returns
   const [activeTab, setActiveTab] = useState("login");
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Get the page that the user was trying to access
   const from = location.state?.from || "/dashboard";
   
   // Redirect if user is already logged in
@@ -24,6 +23,15 @@ const Auth = () => {
       navigate(from, { replace: true });
     }
   }, [user, navigate, from]);
+
+  // Now we can have conditional renders after all hooks are called
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

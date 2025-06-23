@@ -81,19 +81,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuthStatus = () => {
+    const checkAuthStatus = async () => {
       try {
         const storedUser = localStorage.getItem("user");
         const storedToken = localStorage.getItem(env.TOKEN_KEY);
-        if (storedUser && storedToken) {
+        
+        if (!storedUser || !storedToken) {
+          // No stored credentials, clear everything to be safe
+          localStorage.removeItem("user");
+          localStorage.removeItem(env.TOKEN_KEY);
+          setUser(null);
+          setToken(null);
+          return;
+        }
+
+        try {
           setUser(JSON.parse(storedUser));
           setToken(storedToken);
           sessionService.initSession(); // Initialize session monitoring
+        } catch (parseError) {
+          console.error("Error parsing stored user:", parseError);
+          localStorage.removeItem("user");
+          localStorage.removeItem(env.TOKEN_KEY);
+          setUser(null);
+          setToken(null);
         }
       } catch (error) {
         console.error("Error checking auth status:", error);
+        // Clear everything on error
         localStorage.removeItem("user");
         localStorage.removeItem(env.TOKEN_KEY);
+        setUser(null);
+        setToken(null);
       } finally {
         setIsLoading(false);
       }

@@ -23,52 +23,49 @@ interface WebSocketConfig {
 }
 
 class ApiError extends Error {
-  status?: number;
-  detail?: string;
-  constructor(message: string, status?: number) {
+  constructor(
+    message: string,
+    public status?: number,
+    public detail?: string
+  ) {
     super(message);
     this.name = 'ApiError';
-    this.status = status;
   }
 }
 
-interface ApiResponse<T> {
-  data: T;
-  error?: string;
-}
-
-const handleApiError = (error: unknown): never => {
-  const apiError = error as ApiError;
-  const message = apiError.detail || apiError.message || "An unexpected error occurred";
-  
-  // Check for session expiration
-  if (apiError.status === 401) {
-    // Clear auth data
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem("user");
-    // Redirect to auth page
+const handleApiError = (error: unknown) => {
+  // Check if it's a CORS error or 401/403
+  if (
+    error instanceof TypeError && error.message === 'Failed to fetch' ||
+    (error as ApiError).status === 401 || 
+    (error as ApiError).status === 403
+  ) {
+    // Clear auth data and redirect
+    localStorage.clear();
     window.location.href = '/auth';
-    toast.error("Session expired. Please login again.");
-  } else {
-    toast.error(message);
+    throw new Error('Session expired. Please login again.');
   }
-  
-  throw apiError;
+
+  // Handle other errors
+  const message = (error as ApiError).detail || (error as Error).message || "An unexpected error occurred";
+  toast.error(message);
+  throw error;
 };
 
 export const api = {
   getToken: () => localStorage.getItem(TOKEN_KEY),
 
   handleResponse: async <T>(response: Response): Promise<T> => {
-    if (response.status === 401) {
-      // Session expired or invalid token
-      sessionService.endSession();
-      throw new ApiError("Session expired. Please login again.", 401);
-    }
-    
     if (!response.ok) {
-      const error = await response.json() as { detail?: string };
-      throw new ApiError(error.detail || "API request failed", response.status);
+      const errorData = await response.json().catch(() => ({ detail: "API request failed" }));
+      
+      if (response.status === 401 || response.status === 403) {
+        localStorage.clear();
+        window.location.href = '/auth';
+        throw new ApiError("Session expired. Please login again.", response.status, errorData.detail);
+      }
+      
+      throw new ApiError(errorData.detail || "API request failed", response.status, errorData.detail);
     }
     
     return response.json() as Promise<T>;
@@ -84,11 +81,8 @@ export const api = {
         },
       });
       return api.handleResponse<T>(response);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return handleApiError(error);
-      }
-      throw error;
+    } catch (error: unknown) {
+      return handleApiError(error) as Promise<T>;
     }
   },
 

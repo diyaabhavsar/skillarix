@@ -28,6 +28,11 @@ const AdminDashboard = () => {
         const data = await api.get<DashboardStats>("/users/admin/stats");
         setStats(data);
       } catch (error) {
+        if (error instanceof Error && error.message.includes('Failed to fetch')) {
+          // CORS or network error - will be handled by api.handleApiError
+          console.error('Network or CORS error:', error);
+          return;
+        }
         console.error('Error fetching stats:', error);
       }
     };
@@ -42,6 +47,11 @@ const AdminDashboard = () => {
         const sessions = await api.get<DashboardSession[]>("/users/admin/latest-sessions");
         setLatestSessions(sessions);
       } catch (error) {
+        if (error instanceof Error && error.message.includes('Failed to fetch')) {
+          // CORS or network error - will be handled by api.handleApiError
+          console.error('Network or CORS error:', error);
+          return;
+        }
         console.error('Error fetching latest data:', error);
         setLatestUsers([]);
         setLatestSessions([]);
