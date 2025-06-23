@@ -204,7 +204,7 @@ async def get_conversation_details(
 
 @router.get("")
 async def get_all_conversations_for_user(
-    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    page: int = Query(1, ge=1, description="Page number starting from 1"),
     limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
     token = Depends(verify_bearer_token)
 ):
@@ -214,22 +214,26 @@ async def get_all_conversations_for_user(
     - Employee: Returns only conversations belonging to the logged-in user.
     """
     conversations = []
-
     # Check the role of the authenticated user
     if token["role"] == "admin":
         base_query = {}
     else:
         base_query = {"user_id": ObjectId(token["id"])}
-
+    # Calculate skip from page
+    skip = (page - 1) * limit
     total_count = conversation_collection.count_documents(base_query)
     total_pages = ceil(total_count / limit) if total_count > 0 else 1
-    conversations_cursor = conversation_collection.find(base_query).sort("created_at", -1).skip(skip).limit(limit)
+    conversations_cursor = (
+        conversation_collection.find(base_query)
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+    )
     conversations = list(conversations_cursor)
     conversations = convert_objectids_to_strings(conversations)
-
     return {
         "data": conversations,
-        "skip": skip,
+        "page": page,
         "limit": limit,
         "count": len(conversations),
         "total_count": total_count,

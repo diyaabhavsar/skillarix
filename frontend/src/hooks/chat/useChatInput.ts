@@ -107,17 +107,27 @@ export const useChatInput = ({
   }, [salespersonInput, onSendResponse, enhanceText, onSalespersonInputChange]);
 
   // Voice input handling
-  const insertAtCursor = useCallback((insertText: string) => {
+  const insertAtCursor = useCallback((insertText: string, appendMode = false) => {
     // Get the current text segments
     const before = salespersonInput.substring(0, cursorPosition).trim();
     const after = salespersonInput.substring(cursorPosition).trim();
-      // Combine text segments without heavy formatting during input
-    let newText = before;
-    if (newText && !newText.endsWith(' ')) newText += ' ';
-    newText += insertText.trim();
-    if (after) {
-      if (!newText.endsWith(' ')) newText += ' ';
-      newText += after;
+    
+    let newText = '';
+    
+    if (appendMode) {
+      // In append mode, add to existing text with proper spacing
+      newText = salespersonInput;
+      if (newText && !newText.endsWith(' ')) newText += ' ';
+      newText += insertText.trim();
+    } else {
+      // In insert mode, handle cursor position
+      newText = before;
+      if (newText && !newText.endsWith(' ')) newText += ' ';
+      newText += insertText.trim();
+      if (after) {
+        if (!newText.endsWith(' ')) newText += ' ';
+        newText += after;
+      }
     }
     
     // Update text and cursor position
@@ -132,7 +142,7 @@ export const useChatInput = ({
         textareaRef.current?.focus();
       });
     }
-  }, [cursorPosition, salespersonInput, onSalespersonInputChange, formatText]);
+  }, [cursorPosition, salespersonInput, onSalespersonInputChange]);
   const handleVoiceInput = useCallback(() => {
     if (recognitionRef.current) {
       // Stop current recognition
@@ -220,28 +230,15 @@ export const useChatInput = ({
             }
           }
           
-          // Handle sentence combinations
-          if (finalTranscript) {
-            // If the previous sentence doesn't end with punctuation, add it
-            if (!/[.!?]$/.test(finalTranscript)) {
-              finalTranscript += '. ';
-            } else if (!finalTranscript.endsWith(' ')) {
-              finalTranscript += ' ';
-            }
-          }
+          finalTranscript += (finalTranscript ? ' ' : '') + processedTranscript;
           
-          finalTranscript += processedTranscript;
+          // Process and insert the final text
+          // Use enhanced text processing and append mode if there's existing text
+          const enhancedText = enhanceText(processedTranscript);
+          insertAtCursor(enhancedText, Boolean(salespersonInput.trim()));
         } else {
           interimTranscript = transcript;
         }
-      }
-
-      // Process and insert the final text
-      if (finalTranscript.trim()) {
-        // Use enhanced text processing
-        const enhancedText = enhanceText(finalTranscript);
-        insertAtCursor(enhancedText);
-        finalTranscript = '';
       }
     };
 

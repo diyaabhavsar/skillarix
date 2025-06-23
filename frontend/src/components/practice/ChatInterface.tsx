@@ -1,7 +1,7 @@
 import { ConversationPair } from "@/types/practice";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, Send } from "lucide-react";
+import { Mic, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useRef,
@@ -167,7 +167,7 @@ const ChatInterface: ForwardRefRenderFunction<
       return () => {
         container.removeEventListener("scroll", handleScroll);
         cleanup();
-      }
+      };
     }
     return cleanup;
   }, [handleScroll, cleanup]);
@@ -235,7 +235,7 @@ const ChatInterface: ForwardRefRenderFunction<
       .then(() => {
         console.log("[ChatInterface] Assessment ended successfully");
         // Force reload the practice page
-        window.location.href = '/Practice';
+        window.location.href = "/Practice";
       })
       .catch((error) => {
         console.error("[ChatInterface] Error ending assessment:", error);
@@ -336,16 +336,23 @@ const ChatInterface: ForwardRefRenderFunction<
                   disabled={sessionLoading}
                   className={cn(
                     "p-2 rounded-full transition-all duration-300 relative z-10",
-                    isVoiceActive ? "text-blue-500 bg-blue-50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                    isVoiceActive
+                      ? "text-blue-500 bg-blue-50"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                   )}
                   style={{
-                    animation: isVoiceActive ? "glowPulse 2s ease-in-out infinite" : "none",
+                    animation: isVoiceActive
+                      ? "glowPulse 2s ease-in-out infinite"
+                      : "none",
                   }}
                 >
-                  <Mic className={cn(
-                    "h-5 w-5 transition-transform duration-300",
-                    isVoiceActive && "text-blue-500 animate-[micScale_1.5s_ease-in-out_infinite]"
-                  )} />
+                  <Mic
+                    className={cn(
+                      "h-5 w-5 transition-transform duration-300",
+                      isVoiceActive &&
+                        "text-blue-500 animate-[micScale_1.5s_ease-in-out_infinite]"
+                    )}
+                  />
                   {isVoiceActive && (
                     <>
                       <span className="absolute inset-0 rounded-full bg-blue-200/50 animate-[pulseRing_2s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
