@@ -121,93 +121,127 @@ export const useChatInput = ({
     }
 
     let accumulatedText = '';
-    let interimText = '';
-    let lastFinalResult = '';
+    let interimResult = '';
+    let lastProcessedResult = '';
     let pauseTimer: number | null = null;
-    let resultIndex = 0;
+    let silenceStart: number | null = null;
+    let isProcessing = false;
     
     const recognition = new (window as any).webkitSpeechRecognition();
     recognitionRef.current = recognition;
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1; // Optimize by only getting the best result
     recognition.lang = 'en-US';
-    
-    const processSpeechResult = (transcript: string, isFinal: boolean) => {
-      // Clean and normalize the transcript
-      const cleanTranscript = transcript.trim()
-        // Remove multiple spaces
-        .replace(/\s+/g, ' ')
-        // Remove duplicate phrases that often occur in continuous recognition
-        .replace(/\b(\w+\s+\w+)\s+\1\b/g, '$1')
-        .trim();
 
-      if (isFinal) {
-        // Avoid duplicating the last final result
-        if (cleanTranscript !== lastFinalResult) {
-          // If the new transcript starts with the end of the last one, trim the overlap
-          if (lastFinalResult && cleanTranscript.startsWith(lastFinalResult)) {
-            accumulatedText = cleanTranscript;
-          } else {
-            // Append new text with proper spacing
-            accumulatedText = accumulatedText
-              ? accumulatedText + (accumulatedText.endsWith('.') ? ' ' : '. ') + cleanTranscript
-              : cleanTranscript;
-          }
-          lastFinalResult = cleanTranscript;
-          console.log('🎤 Final:', cleanTranscript);
-          console.log('🎤 Accumulated:', accumulatedText);
+    // Optimize speech recognition settings for better performance
+    recognition.interimResults = true;
+    recognition.continuous = true;
+    
+    // Smart text processing with debouncing
+    const processText = (text: string) => {
+      if (!text.trim() || text === lastProcessedResult) return;
+      
+      // Quick cleanup before processing
+      text = text.trim()
+        .replace(/\s+/g, ' ') // Remove extra spaces
+        .replace(/(\b\w+\b)(?:\s+\1)+/g, '$1'); // Remove immediate duplicates
+      
+      // Check if this is a continuation of the previous text
+      if (accumulatedText) {
+        // Find the overlap between the new text and the existing text
+        const words = accumulatedText.split(' ');
+        const newWords = text.split(' ');
+        const overlapIndex = findOverlap(words, newWords);
+        
+        if (overlapIndex > 0) {
+          // Merge with overlap
+          text = [...words.slice(0, overlapIndex), ...newWords].join(' ');
+        } else {
+          // Append with proper spacing
+          text = accumulatedText + (accumulatedText.endsWith('.') ? ' ' : '. ') + text;
         }
-      } else {
-        interimText = cleanTranscript;
-        console.log('🎤 Speaking...:', interimText);
       }
+      
+      lastProcessedResult = text;
+      accumulatedText = text;
     };
 
+    // Helper function to find overlap between old and new text
+    const findOverlap = (oldWords: string[], newWords: string[]): number => {
+      const maxOverlap = Math.min(oldWords.length, newWords.length);
+      for (let i = 1; i <= maxOverlap; i++) {
+        const oldSlice = oldWords.slice(-i).join(' ').toLowerCase();
+        const newSlice = newWords.slice(0, i).join(' ').toLowerCase();
+        if (oldSlice === newSlice) return oldWords.length - i;
+      }
+      return 0;
+    };
+
+    // Smart pause detection with dynamic timing
     const resetPauseTimer = () => {
       if (pauseTimer) {
         window.clearTimeout(pauseTimer);
       }
-      pauseTimer = window.setTimeout(() => {
-        if (accumulatedText.trim()) {
-          // Smart text processing before insertion
-          const processedText = accumulatedText
-            // Remove any duplicate phrases that might have slipped through
-            .replace(/\b(\w+(?:\s+\w+){0,3})\s+\1\b/g, '$1')
-            // Ensure proper sentence structure
-            .replace(/\b([.!?])\s+([a-z])/g, (_, punct, letter) => punct + ' ' + letter.toUpperCase())
-            .trim();
+      if (silenceStart === null) {
+        silenceStart = Date.now();
+      }
 
-          insertAtCursor(processedText, Boolean(salespersonInput.trim()));
+      const silenceDuration = Date.now() - silenceStart;
+      const pauseThreshold = Math.min(1500, Math.max(500, silenceDuration * 0.5));
+
+      pauseTimer = window.setTimeout(() => {
+        if (accumulatedText.trim() && !isProcessing) {
+          isProcessing = true;
+          insertAtCursor(accumulatedText.trim(), Boolean(salespersonInput.trim()));
           accumulatedText = '';
-          lastFinalResult = '';
-          resultIndex = 0;
+          lastProcessedResult = '';
+          silenceStart = null;
+          isProcessing = false;
         }
+        
         try {
           recognition.start();
         } catch (e) {
           // Ignore errors about recognition already started
         }
-      }, 1500);
+      }, pauseThreshold);
     };
 
     recognition.onstart = () => {
       console.log('🎤 Voice recognition started');
       onVoiceStateChange?.();
       accumulatedText = '';
-      interimText = '';
-      lastFinalResult = '';
-      resultIndex = 0;
+      interimResult = '';
+      lastProcessedResult = '';
+      silenceStart = null;
+      isProcessing = false;
     };
 
     recognition.onresult = (event: any) => {
+      silenceStart = null; // Reset silence detection
       resetPauseTimer();
       
-      for (let i = resultIndex; i < event.results.length; i++) {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      
+      // Process all results in one go
+      for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
-        processSpeechResult(transcript, event.results[i].isFinal);
         if (event.results[i].isFinal) {
-          resultIndex = i + 1;
+          finalTranscript = transcript;
+        } else {
+          interimTranscript = transcript;
         }
+      }
+
+      if (finalTranscript) {
+        processText(finalTranscript);
+        console.log('🎤 Final:', finalTranscript);
+        console.log('🎤 Accumulated:', accumulatedText);
+      } else if (interimTranscript) {
+        interimResult = interimTranscript;
+        console.log('🎤 Speaking...:', interimTranscript);
       }
     };
 
@@ -220,6 +254,7 @@ export const useChatInput = ({
         recognitionRef.current = null;
         onVoiceStateChange?.();
       }
+      isProcessing = false;
     };
 
     recognition.onend = () => {
@@ -227,12 +262,8 @@ export const useChatInput = ({
         if (pauseTimer) {
           window.clearTimeout(pauseTimer);
         }
-        if (accumulatedText.trim()) {
-          const processedText = accumulatedText
-            .replace(/\b(\w+(?:\s+\w+){0,3})\s+\1\b/g, '$1')
-            .replace(/\b([.!?])\s+([a-z])/g, (_, punct, letter) => punct + ' ' + letter.toUpperCase())
-            .trim();
-          insertAtCursor(processedText, Boolean(salespersonInput.trim()));
+        if (accumulatedText.trim() && !isProcessing) {
+          insertAtCursor(accumulatedText.trim(), Boolean(salespersonInput.trim()));
         }
         onVoiceStateChange?.();
       } else {
@@ -242,6 +273,7 @@ export const useChatInput = ({
           // Ignore errors about recognition already started
         }
       }
+      isProcessing = false;
     };
 
     recognition.start();
