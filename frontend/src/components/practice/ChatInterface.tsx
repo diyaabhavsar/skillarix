@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import "@/styles/chat-animations.css";
 import {
   useRef,
   useEffect,
@@ -31,54 +32,13 @@ import { useChatInput } from "@/hooks/chat/useChatInput";
 
 const ASSESSMENT_DURATION = 300; // 5 minutes in seconds
 
-// Add keyframe animation for mic blinking
-const micBlinkingStyles = `
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  @keyframes pulseRing {
-    0% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
-      opacity: 0.8;
-    }
-    70% {
-      transform: scale(1.4);
-      box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
-      opacity: 0.4;
-    }
-    100% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-      opacity: 0;
-    }
-  }
-  @keyframes glowPulse {
-    0%, 100% {
-      box-shadow: 0 0 5px rgba(59, 130, 246, 0.5),
-                  0 0 10px rgba(59, 130, 246, 0.3),
-                  0 0 15px rgba(59, 130, 246, 0.2);
-    }
-    50% {
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8),
-                  0 0 20px rgba(59, 130, 246, 0.5),
-                  0 0 30px rgba(59, 130, 246, 0.3);
-    }
-  }
-  @keyframes micScale {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-  }
-`;
-
 interface ChatInterfaceProps {
   conversationHistory: ConversationPair[];
   sessionLoading: boolean;
   salespersonInput: string;
   onSalespersonInputChange: (value: string) => void;
   onSendResponse: () => void;
-  onEndSession: () => void;
+  onEndSession: () => Promise<void>;
   canEndSession: boolean;
   className?: string;
 }
@@ -153,11 +113,11 @@ const ChatInterface: ForwardRefRenderFunction<
     salespersonInput,
     onVoiceStateChange: () => {}, // Optional prop
   });
-
   // Scroll to bottom when conversation updates
   useEffect(() => {
     scrollToBottom();
   }, [conversationHistory, scrollToBottom]);
+
 
   // Add scroll event listener and cleanup voice recognition
   useEffect(() => {
@@ -263,8 +223,7 @@ const ChatInterface: ForwardRefRenderFunction<
   }, []);
 
   return (
-    <div className={cn("flex flex-col w-full h-full", className)}>
-      <style>{micBlinkingStyles}</style>
+    <div ref={ref} className={cn("flex flex-col w-full h-full", className)}>
       {/* Timer Display */}
       <div className="absolute top-4 right-4 z-50">
         <TimerDisplay

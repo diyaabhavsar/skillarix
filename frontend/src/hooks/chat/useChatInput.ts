@@ -203,7 +203,7 @@ export const useChatInput = ({
           
           // Proper sentence capitalization
           processedTranscript = processedTranscript.replace(/([.!?]\s+|^)([a-z])/g, 
-            (match, separator, letter) => separator + letter.toUpperCase()
+            (_match: string, separator: string, letter: string) => separator + letter.toUpperCase()
           );
           
           // Fix common speech recognition issues
@@ -216,9 +216,9 @@ export const useChatInput = ({
             .replace(/\bi'd\b/gi, "I'd")
             // Fix common proper nouns
             .replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi,
-              word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
             .replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
-              word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+              (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
           // Smart punctuation handling
           if (processedTranscript && !/[.!?]$/.test(processedTranscript)) {
