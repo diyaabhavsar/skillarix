@@ -41,41 +41,6 @@ export const useChatInput = ({
   }, []);
 
   // Format and combine text segments
-  const formatText = useCallback((before: string, insert: string, after: string): string => {
-    const beforeText = before.trim();
-    const afterText = after.trim();
-    let newText = '';
-
-    if (!beforeText) {
-      // Start of text - enhance the insert text
-      newText = enhanceText(insert);
-    } else {
-      // Check if the previous text ends with punctuation
-      const endsWithPunctuation = /[.!?]$/.test(beforeText);
-      
-      if (endsWithPunctuation) {
-        // After a complete sentence - enhance the insert text
-        newText = beforeText + ' ' + enhanceText(insert);
-      } else {
-        // Continue the current sentence
-        newText = beforeText + ' ' + insert.trim().toLowerCase();
-      }
-    }
-    
-    // Handle the text that comes after
-    if (afterText) {
-      // If we have text after, ensure proper separation
-      const needsPunctuation = !/[.!?]$/.test(newText);
-      newText += (needsPunctuation ? '. ' : ' ') + afterText;
-      // Enhance the final text to ensure proper ending
-      newText = enhanceText(newText);
-    } else {
-      // No text after, just enhance what we have
-      newText = enhanceText(newText);
-    }
-
-    return newText;
-  }, [enhanceText]);
 
   // Text input handling
   const animateTextareaScroll = useCallback(() => {
@@ -96,53 +61,51 @@ export const useChatInput = ({
       setCursorPosition(textareaRef.current.selectionStart);
     }
   }, [onSalespersonInputChange, animateTextareaScroll]);
+  const handleSend = useCallback(() => {
+    // Only enhance text when sending
+    const enhancedText = enhanceText(salespersonInput.trim());
+    
+    if (enhancedText) {
+      onSendResponse();
+    }
+  }, [salespersonInput, onSendResponse, enhanceText]);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && salespersonInput.trim()) {
       e.preventDefault();
-      // Enhance text only when sending
-      const enhancedText = enhanceText(salespersonInput);
-      onSalespersonInputChange(enhancedText);
-      onSendResponse();
+      handleSend();
     }
-  }, [salespersonInput, onSendResponse, enhanceText, onSalespersonInputChange]);
+  }, [salespersonInput, handleSend]);
 
   // Voice input handling
-  const insertAtCursor = useCallback((insertText: string, appendMode = false) => {
-    // Get the current text segments
-    const before = salespersonInput.substring(0, cursorPosition).trim();
-    const after = salespersonInput.substring(cursorPosition).trim();
+  const insertAtCursor = (text: string, shouldPrependSpace: boolean) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const cursorPosition = textarea.selectionStart;
+    const textBeforeCursor = salespersonInput.substring(0, cursorPosition);
+    const textAfterCursor = salespersonInput.substring(cursorPosition);
     
-    let newText = '';
+    // Add a space before new text if:
+    // 1. There's existing text AND
+    // 2. The last character isn't a space or newline AND
+    // 3. shouldPrependSpace is true
+    const needsSpace = shouldPrependSpace && 
+                      textBeforeCursor.length > 0 && 
+                      ![' ', '\n'].includes(textBeforeCursor[textBeforeCursor.length - 1]);
     
-    if (appendMode) {
-      // In append mode, add to existing text with proper spacing
-      newText = salespersonInput;
-      if (newText && !newText.endsWith(' ')) newText += ' ';
-      newText += insertText.trim();
-    } else {
-      // In insert mode, handle cursor position
-      newText = before;
-      if (newText && !newText.endsWith(' ')) newText += ' ';
-      newText += insertText.trim();
-      if (after) {
-        if (!newText.endsWith(' ')) newText += ' ';
-        newText += after;
-      }
-    }
+    const spacePrefix = needsSpace ? ' ' : '';
+    const newText = textBeforeCursor + spacePrefix + text + textAfterCursor;
     
-    // Update text and cursor position
-    const newPosition = newText.length;
     onSalespersonInputChange(newText);
-    setCursorPosition(newPosition);
     
-    // Update cursor position in textarea
-    if (textareaRef.current) {
-      requestAnimationFrame(() => {
-        textareaRef.current?.setSelectionRange(newPosition, newPosition);
-        textareaRef.current?.focus();
-      });
-    }
-  }, [cursorPosition, salespersonInput, onSalespersonInputChange]);
+    // Set cursor position after the inserted text
+    const newPosition = cursorPosition + spacePrefix.length + text.length;
+    setTimeout(() => {
+      textarea.selectionStart = newPosition;
+      textarea.selectionEnd = newPosition;
+    }, 0);
+  };
   const handleVoiceInput = useCallback(() => {
     if (recognitionRef.current) {
       // Stop current recognition
@@ -157,8 +120,11 @@ export const useChatInput = ({
       return;
     }
 
-    let finalTranscript = '';
+    let accumulatedText = '';
+    let interimText = '';
+    let lastFinalResult = '';
     let pauseTimer: number | null = null;
+    let resultIndex = 0;
     
     const recognition = new (window as any).webkitSpeechRecognition();
     recognitionRef.current = recognition;
@@ -166,17 +132,56 @@ export const useChatInput = ({
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     
+    const processSpeechResult = (transcript: string, isFinal: boolean) => {
+      // Clean and normalize the transcript
+      const cleanTranscript = transcript.trim()
+        // Remove multiple spaces
+        .replace(/\s+/g, ' ')
+        // Remove duplicate phrases that often occur in continuous recognition
+        .replace(/\b(\w+\s+\w+)\s+\1\b/g, '$1')
+        .trim();
+
+      if (isFinal) {
+        // Avoid duplicating the last final result
+        if (cleanTranscript !== lastFinalResult) {
+          // If the new transcript starts with the end of the last one, trim the overlap
+          if (lastFinalResult && cleanTranscript.startsWith(lastFinalResult)) {
+            accumulatedText = cleanTranscript;
+          } else {
+            // Append new text with proper spacing
+            accumulatedText = accumulatedText
+              ? accumulatedText + (accumulatedText.endsWith('.') ? ' ' : '. ') + cleanTranscript
+              : cleanTranscript;
+          }
+          lastFinalResult = cleanTranscript;
+          console.log('🎤 Final:', cleanTranscript);
+          console.log('🎤 Accumulated:', accumulatedText);
+        }
+      } else {
+        interimText = cleanTranscript;
+        console.log('🎤 Speaking...:', interimText);
+      }
+    };
+
     const resetPauseTimer = () => {
       if (pauseTimer) {
         window.clearTimeout(pauseTimer);
       }
-      // Set a new timer for 1.5 seconds of silence
       pauseTimer = window.setTimeout(() => {
-        if (finalTranscript.trim()) {
-          insertAtCursor(finalTranscript);
-          finalTranscript = '';
+        if (accumulatedText.trim()) {
+          // Smart text processing before insertion
+          const processedText = accumulatedText
+            // Remove any duplicate phrases that might have slipped through
+            .replace(/\b(\w+(?:\s+\w+){0,3})\s+\1\b/g, '$1')
+            // Ensure proper sentence structure
+            .replace(/\b([.!?])\s+([a-z])/g, (_, punct, letter) => punct + ' ' + letter.toUpperCase())
+            .trim();
+
+          insertAtCursor(processedText, Boolean(salespersonInput.trim()));
+          accumulatedText = '';
+          lastFinalResult = '';
+          resultIndex = 0;
         }
-        // Restart recognition to keep listening
         try {
           recognition.start();
         } catch (e) {
@@ -186,58 +191,22 @@ export const useChatInput = ({
     };
 
     recognition.onstart = () => {
+      console.log('🎤 Voice recognition started');
       onVoiceStateChange?.();
-      finalTranscript = '';
+      accumulatedText = '';
+      interimText = '';
+      lastFinalResult = '';
+      resultIndex = 0;
     };
 
     recognition.onresult = (event: any) => {
       resetPauseTimer();
       
-      let interimTranscript = '';
-      
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
+        processSpeechResult(transcript, event.results[i].isFinal);
         if (event.results[i].isFinal) {
-          // Enhanced transcript processing
-          let processedTranscript = transcript.trim();
-          
-          // Proper sentence capitalization
-          processedTranscript = processedTranscript.replace(/([.!?]\s+|^)([a-z])/g, 
-            (_match: string, separator: string, letter: string) => separator + letter.toUpperCase()
-          );
-          
-          // Fix common speech recognition issues
-          processedTranscript = processedTranscript
-            // Fix "I" capitalization
-            .replace(/\bi\b/g, "I")
-            .replace(/\bi'm\b/gi, "I'm")
-            .replace(/\bi'll\b/gi, "I'll")
-            .replace(/\bi've\b/gi, "I've")
-            .replace(/\bi'd\b/gi, "I'd")
-            // Fix common proper nouns
-            .replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi,
-              (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .replace(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/gi,
-              (word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
-
-          // Smart punctuation handling
-          if (processedTranscript && !/[.!?]$/.test(processedTranscript)) {
-            // Check if it's a question
-            if (/^(who|what|where|when|why|how|is|are|was|were|do|does|did|will|would|should|could|can|may|might)\b/i.test(processedTranscript)) {
-              processedTranscript += '?';
-            } else {
-              processedTranscript += '.';
-            }
-          }
-          
-          finalTranscript += (finalTranscript ? ' ' : '') + processedTranscript;
-          
-          // Process and insert the final text
-          // Use enhanced text processing and append mode if there's existing text
-          const enhancedText = enhanceText(processedTranscript);
-          insertAtCursor(enhancedText, Boolean(salespersonInput.trim()));
-        } else {
-          interimTranscript = transcript;
+          resultIndex = i + 1;
         }
       }
     };
@@ -254,14 +223,19 @@ export const useChatInput = ({
     };
 
     recognition.onend = () => {
-      // Only clear recognition if we're actually stopping (not just paused)
       if (!recognitionRef.current) {
         if (pauseTimer) {
           window.clearTimeout(pauseTimer);
         }
+        if (accumulatedText.trim()) {
+          const processedText = accumulatedText
+            .replace(/\b(\w+(?:\s+\w+){0,3})\s+\1\b/g, '$1')
+            .replace(/\b([.!?])\s+([a-z])/g, (_, punct, letter) => punct + ' ' + letter.toUpperCase())
+            .trim();
+          insertAtCursor(processedText, Boolean(salespersonInput.trim()));
+        }
         onVoiceStateChange?.();
       } else {
-        // Try to restart if we're still supposed to be recording
         try {
           recognition.start();
         } catch (e) {
@@ -271,7 +245,7 @@ export const useChatInput = ({
     };
 
     recognition.start();
-  }, [insertAtCursor, onVoiceStateChange]);
+  }, [insertAtCursor, onVoiceStateChange, salespersonInput]);
 
   const handleCursorChange = useCallback(() => {
     if (textareaRef.current) {

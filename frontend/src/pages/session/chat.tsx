@@ -10,8 +10,6 @@ import { WebSocketErrorMessages } from "@/types/websocket";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  EvaluationMessage,
-  QuestionMessage,
   SessionCompleteMessage,
   WebSocketMessage,
 } from "@/types/websocket";

@@ -7,14 +7,8 @@ import PracticeHeader from "@/components/practice/PracticeHeader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState } from "react";
 import { ConversationEvaluation, CompleteRating } from "@/types/conversations";
-
-interface PaginationData {
-  skip: number;
-  limit: number;
-  count: number;
-  total_count: number;
-  total_pages: number;
-}
+import SessionsPagination from "@/components/past-sessions/SessionsPagination";
+import { PaginationData } from "@/components/past-sessions/SessionsPagination";
 
 const defaultRating = { score: 0, max: 0 };
 
@@ -29,6 +23,20 @@ export default function Practice() {
     total_count: 0,
     total_pages: 1,
   });
+  const [isLoading, setIsLoading] = useState(false);
+  // Function to handle page changes
+  const handlePageChange = async (page: number) => {
+    try {
+      setIsLoading(true);
+      setCurrentPage(page);
+      await fetchConversations(page);
+    } catch (error) {
+      console.error("Failed to fetch page:", page, error);
+      toast.error("Failed to load page " + page);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Load conversations and show completion toast if needed
   useEffect(() => {
@@ -39,7 +47,8 @@ export default function Practice() {
       if (!mounted) return;
 
       try {
-        await fetchConversations();
+        setIsLoading(true);
+        await fetchConversations(currentPage);
 
         if (mounted && location.state?.sessionCompleted) {
           toast.success("Assessment session completed!");
@@ -48,6 +57,10 @@ export default function Practice() {
         if (mounted) {
           console.error("[Practice] Failed to load conversations:", error);
           toast.error("Failed to load practice sessions");
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
         }
       }
     }
@@ -71,7 +84,7 @@ export default function Practice() {
         clearInterval(refreshInterval);
       }
     };
-  }, [location.state?.sessionCompleted]); // Remove fetchConversations from deps
+  }, [location.state?.sessionCompleted]); // Only depend on session completion state
 
   // Update pagination data when conversations change
   useEffect(() => {
@@ -118,30 +131,20 @@ export default function Practice() {
 
         <div className="my-8">
           <h2 className="text-2xl font-semibold mb-4">Past Sessions</h2>
-          <PastSessionsTable sessions={processedSessions} />
+          <div className="relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+            <PastSessionsTable sessions={processedSessions} />
+          </div>
           {paginationData.total_pages > 1 && (
-            <div className="mt-4">
-              <nav className="flex justify-center">
-                <ul className="inline-flex -space-x-px">
-                  {Array.from({ length: paginationData.total_pages }).map(
-                    (_, index) => (
-                      <li key={index}>
-                        <button
-                          onClick={() => setCurrentPage(index + 1)}
-                          className={`px-3 py-2 ${
-                            currentPage === index + 1
-                              ? "bg-blue-500 text-white"
-                              : "bg-white text-gray-500 hover:bg-gray-100"
-                          } border border-gray-300`}
-                        >
-                          {index + 1}
-                        </button>
-                      </li>
-                    )
-                  )}
-                </ul>
-              </nav>
-            </div>
+            <SessionsPagination
+              currentPage={currentPage}
+              paginationData={paginationData}
+              onPageChange={handlePageChange}
+            />
           )}
         </div>
       </div>

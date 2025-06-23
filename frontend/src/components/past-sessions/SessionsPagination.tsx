@@ -7,7 +7,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-interface PaginationData {
+export interface PaginationData {
   skip: number;
   limit: number;
   count: number;

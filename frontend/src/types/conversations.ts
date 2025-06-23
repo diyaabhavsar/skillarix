@@ -11,22 +11,11 @@ export interface CompleteRating {
   total: Rating;
 }
 
-export interface IndividualEvaluation {
-  evaluation: string;
-  reference_answer?: string;
-  rating: {
-    question_relevance: Rating;
-    technical_accuracy: Rating;
-    sales_effectiveness: Rating;
-    total: Rating;
-  };
-}
-
 export interface ConversationEvaluation {
   _id: string;
   product_id: string;
-  user_id: string;
   category_id: string;
+  user_id: string;
   test_name: string;
   prod_name: string;
   cat_name: string;
@@ -37,7 +26,15 @@ export interface ConversationEvaluation {
     }[];
   };
   evaluation_data: {
-    individual_evaluations: IndividualEvaluation[];
+    individual_evaluations: {
+      evaluation: string;
+      rating: {
+        question_relevance: Rating;
+        technical_accuracy: Rating;
+        sales_effectiveness: Rating;
+        total: Rating;
+      };
+    }[];
     mid_evaluations: string[];
     complete_evaluation: {
       Overall_Progress: string;
@@ -50,12 +47,21 @@ export interface ConversationEvaluation {
       Recommendations_for_future_conversations: string;
     };
     complete_rating: CompleteRating;
+    is_complete: boolean;
     additional_criteria_evaluation: {
       distraction_handling: string;
     };
-    is_complete: boolean;
     test_configuration_id: string;
   };
   created_at: string;
   updated_at: string;
+}
+
+export interface ConversationsResponse {
+  data: ConversationEvaluation[];
+  skip: number;
+  limit: number;
+  count: number;
+  total_count: number;
+  total_pages: number;
 }
