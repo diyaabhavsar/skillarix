@@ -9,6 +9,8 @@ export type Product = {
     creation_date: string;
     total_pages: number;
   };
+  file_name: string;
+  file_url: string;
   created_by: string;
   created_at: string;
   updated_at: string;

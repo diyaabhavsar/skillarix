@@ -67,9 +67,11 @@ async def create_product(
     category_id: str = Form(...),
     description: Optional[str] = Form(None),
     file: UploadFile = File(...),
+    file_name: str = Form(...),
+    file_url: str = Form(...),
     token = Depends(verify_bearer_token)):
         pdf_content, metadata = read_pdf(file.file)
-        created_product = create_product_process(name, category_id, pdf_content, metadata, token, description)
+        created_product = create_product_process(name, category_id, pdf_content, metadata, token, description, file_name, file_url)
         return {"message":"Products Added Successfully", "new_product": created_product}
 
 @router.get("/{category_id}")
@@ -90,9 +92,12 @@ async def get_products(category_id: str, _ = Depends(verify_bearer_token)):
 @router.put("/{product_id}")
 async def update_product(
     product_id: str,
+    category_id: str = Form(None),
     name: str = Form(None),
     description: str = Form(None),
     file: UploadFile = File(None),
+    file_name: Optional [str] = Form(None),
+    file_url: Optional[str] = Form(None),
     token = Depends(verify_bearer_token)
 ):
     """
@@ -100,6 +105,8 @@ async def update_product(
     Does NOT update category_id.
     """
     update_data = {}
+    if category_id is not None:
+        update_data["category_id"] = ObjectId(category_id)
     if name is not None:
         update_data["name"] = name
     if description is not None:
@@ -109,6 +116,10 @@ async def update_product(
         pdf_content, metadata = read_pdf(file.file)
         update_data["content"] = pdf_content
         update_data["metadata"] = metadata
+    if file_name is not None:
+        update_data["file_name"] = file_name
+    if file_url is not None:
+        update_data["file_url"] = file_url
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")

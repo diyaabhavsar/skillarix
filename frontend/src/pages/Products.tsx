@@ -10,7 +10,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, Trash2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
@@ -85,6 +85,7 @@ const Products = () => {
                 <TableHead className="w-[200px]">Name</TableHead>
                 <TableHead className="w-[200px]">Category</TableHead>
                 <TableHead className="max-w-[360px]">Description</TableHead>
+                <TableHead className="max-w-[360px]">File</TableHead>
                 <TableHead className="w-[150px]">Created At</TableHead>
                 <TableHead className="w-[150px] text-right">Actions</TableHead>
               </TableRow>
@@ -127,6 +128,24 @@ const Products = () => {
                       "-"
                     )}
                   </TableCell>
+                  <TableCell>
+                    {product.file_url ? (
+                      <a
+                        href={product.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-800 hover:underline flex items-center"
+                        download={product.file_name}
+                        title={product.file_name}
+                      >
+                        <FileDown />
+                      </a>
+                    ) : (
+                      <span className="text-blue-400" title="No file attached">
+                        <FileDown />
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>{formatDate(product.created_at)}</TableCell>{" "}
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -154,6 +173,8 @@ const Products = () => {
                                 categories.find(
                                   (cat) => cat.id === product.category_id
                                 )?.name || "Unknown",
+                              fileUrl: product.file_url,
+                              fileName: product.file_name,
                               createdAt: product.created_at,
                             }}
                           />
@@ -178,6 +199,8 @@ const Products = () => {
                               productName: product.name,
                               description: product.description || "",
                               categoryId: product.category_id,
+                              filename: product.file_name || "",
+                              fileUrl: product.file_url || "",
                             }}
                           />
                         </Sheet>
