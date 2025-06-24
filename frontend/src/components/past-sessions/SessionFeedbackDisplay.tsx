@@ -22,14 +22,19 @@ import { ConversationEvaluation } from "@/types/conversations";
 import { capitalizeTitle } from "@/utils/textFormatting";
 import { EvaluationContent } from "@/components/evaluation/EvaluationContent";
 
+interface IndividualRating {
+  score: number;
+  max: number;
+}
+
 interface IndividualEvaluation {
   evaluation: string;
   reference_answer?: string;
   rating: {
-    question_relevance: { score: number; max: number };
-    technical_accuracy: { score: number; max: number };
-    sales_effectiveness: { score: number; max: number };
-    total: { score: number; max: number };
+    question_relevance: IndividualRating;
+    technical_accuracy: IndividualRating;
+    sales_effectiveness: IndividualRating;
+    total: IndividualRating;
   };
 }
 
@@ -167,15 +172,15 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({
     const percentage = max > 0 ? (score / max) * 100 : 0;
 
     return (
-      <div className="space-y-1.5">
-        <div className="flex justify-between items-center text-sm">
-          <span className="font-medium">
+      <div className="space-y-0.5 max-w-[200px] ml-auto">
+        <div className="flex justify-end items-center text-xs">
+          <span className="font-medium text-slate-600">
             {score}/{max}
           </span>
         </div>
-        <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+        <div className="relative h-1 w-full bg-slate-100 rounded-full overflow-hidden">
           <div
-            className="absolute left-0 top-0 h-full bg-blue-500 rounded-full transition-all"
+            className="absolute left-0 top-0 h-full bg-blue-400/70 rounded-full transition-all"
             style={{ width: `${percentage}%` }}
           />
         </div>
@@ -363,14 +368,11 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({
                         <p className="text-sm text-slate-700">
                           <ReferenceAnswer
                             text={
-                              typeof evaluation_data.individual_evaluations[
-                                index
-                              ] === "object" &&
-                              "reference_answer" in
-                                evaluation_data.individual_evaluations[index]
-                                ? evaluation_data.individual_evaluations[index]
-                                    .reference_answer ||
-                                  "No reference answer available"
+                              typeof evaluation_data.individual_evaluations[index] === "object" &&
+                              evaluation_data.individual_evaluations[index] &&
+                              "reference_answer" in evaluation_data.individual_evaluations[index] &&
+                              typeof evaluation_data.individual_evaluations[index].reference_answer === "string"
+                                ? evaluation_data.individual_evaluations[index].reference_answer
                                 : "No reference answer available"
                             }
                           />
@@ -394,7 +396,7 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({
               <CardContent className="p-0">
                 <ScrollArea className="h-[400px]">
                   {evaluation_data.individual_evaluations.map(
-                    (ind_eval, index) => (
+                    (ind_eval: IndividualEvaluation, index) => (
                       <div key={index} className="p-4 border-b last:border-b-0">
                         <div className="mb-3">
                           <h4 className="font-medium text-sm mb-2">
