@@ -21,7 +21,7 @@ export const FeedbackViewButton = ({
     // If we have the session data, store it before navigation
     if (session) {
       sessionStorage.setItem(
-        `session-feedback-${sessionId}`,
+        `session-${sessionId}`,
         JSON.stringify(session)
       );
     }

@@ -1,12 +1,12 @@
 import React, { useMemo } from "react";
 import { useTheme } from "next-themes";
-import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import styles from '@/styles/score-display.module.css';
 
 interface ScoreDisplayProps {
   score: number;
@@ -15,101 +15,59 @@ interface ScoreDisplayProps {
   showTooltip?: boolean;
 }
 
-type ThemeMode = "light" | "dark";
-type ScoreLevel = "excellent" | "good" | "average" | "poor";
-
-interface ColorConfig {
-  gradient: string;
-  ring: string;
-  background: string;
-  text: string;
-}
-
-const scoreColorConfig: Record<ScoreLevel, Record<ThemeMode, ColorConfig>> = {
-  excellent: {
-    light: {
-      gradient: "from-emerald-500 to-teal-400",
-      ring: "ring-emerald-500/20",
-      background: "bg-emerald-50",
-      text: "text-emerald-700"
-    },
-    dark: {
-      gradient: "from-emerald-400 to-teal-300",
-      ring: "ring-emerald-400/20",
-      background: "bg-emerald-500/10",
-      text: "text-emerald-300"
-    }
-  },
-  good: {
-    light: {
-      gradient: "from-green-500 to-emerald-400",
-      ring: "ring-green-500/20",
-      background: "bg-green-50",
-      text: "text-green-700"
-    },
-    dark: {
-      gradient: "from-green-400 to-emerald-300",
-      ring: "ring-green-400/20",
-      background: "bg-green-500/10",
-      text: "text-green-300"
-    }
-  },
-  average: {
-    light: {
-      gradient: "from-amber-500 to-yellow-400",
-      ring: "ring-amber-500/20",
-      background: "bg-amber-50",
-      text: "text-amber-700"
-    },
-    dark: {
-      gradient: "from-amber-400 to-yellow-300",
-      ring: "ring-amber-400/20",
-      background: "bg-amber-500/10",
-      text: "text-amber-300"
-    }
-  },
-  poor: {
-    light: {
-      gradient: "from-red-500 to-rose-400",
-      ring: "ring-red-500/20",
-      background: "bg-red-50",
-      text: "text-red-700"
-    },
-    dark: {
-      gradient: "from-red-400 to-rose-300",
-      ring: "ring-red-400/20",
-      background: "bg-red-500/10",
-      text: "text-red-300"
-    }
-  }
-} as const;
-
 const sizeConfig = {
   sm: {
-    container: "w-10 h-10",
-    scoreText: "text-sm",
-    maxScoreText: "text-xs",
-    strokeWidth: 3,
+    strokeWidth: 2.5,
     radius: 18,
     center: 20
   },
   md: {
-    container: "w-14 h-14",
-    scoreText: "text-base",
-    maxScoreText: "text-xs",
-    strokeWidth: 4,
+    strokeWidth: 3,
     radius: 24,
     center: 28
   },
   lg: {
-    container: "w-20 h-20",
-    scoreText: "text-xl",
-    maxScoreText: "text-sm",
-    strokeWidth: 5,
+    strokeWidth: 4,
     radius: 35,
     center: 40
   }
 } as const;
+
+const getScoreLevel = (percentage: number): 'excellent' | 'good' | 'average' | 'poor' => {
+  if (percentage >= 75) return 'excellent';
+  if (percentage >= 50) return 'good';
+  if (percentage >= 25) return 'average';
+  return 'poor';
+};
+
+interface GradientConfig {
+  id: string;
+  colors: string[];
+  darkColors: string[];
+}
+
+const gradientConfigs: Record<ReturnType<typeof getScoreLevel>, GradientConfig> = {
+  excellent: {
+    id: 'excellent-gradient',
+    colors: ['#4F46E5', '#7C3AED', '#2563EB', '#3B82F6'], // Indigo -> Purple -> Blue
+    darkColors: ['#6366F1', '#8B5CF6', '#3B82F6', '#60A5FA'] // Light variants
+  },
+  good: {
+    id: 'good-gradient',
+    colors: ['#059669', '#10B981', '#14B8A6', '#2DD4BF'], // Emerald -> Green -> Teal
+    darkColors: ['#10B981', '#34D399', '#2DD4BF', '#5EEAD4'] // Light variants
+  },
+  average: {
+    id: 'average-gradient',
+    colors: ['#D97706', '#F59E0B', '#FBBF24', '#FCD34D'], // Amber -> Yellow -> Gold
+    darkColors: ['#F59E0B', '#FBBF24', '#FCD34D', '#FDE68A'] // Light variants
+  },
+  poor: {
+    id: 'poor-gradient',
+    colors: ['#DC2626', '#EF4444', '#F43F5E', '#FB7185'], // Red -> Rose
+    darkColors: ['#EF4444', '#F87171', '#FB7185', '#FDA4AF'] // Light variants
+  }
+};
 
 export const ScoreDisplay: React.FC<ScoreDisplayProps> = React.memo(({
   score,
@@ -120,106 +78,80 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = React.memo(({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   
-  const { percentage, colorConfig, scoreDescription } = useMemo(() => {
+  const { percentage, scoreDescription, scoreLevel, gradientConfig } = useMemo(() => {
     const percentage = (score / maxScore) * 100;
-    
-    let level: ScoreLevel = "poor";
-    if (percentage >= 70) level = "excellent";
-    else if (percentage >= 40) level = "good";
-    else if (percentage >= 20) level = "average";
+    const level = getScoreLevel(percentage);
     
     return {
       percentage,
-      colorConfig: scoreColorConfig[level][isDark ? "dark" : "light"],
-      scoreDescription: level.charAt(0).toUpperCase() + level.slice(1)
+      scoreLevel: level,
+      scoreDescription: level.charAt(0).toUpperCase() + level.slice(1),
+      gradientConfig: gradientConfigs[level]
     };
-  }, [score, maxScore, isDark]);
+  }, [score, maxScore]);
 
   const dimensions = sizeConfig[size];
-  const uniqueGradientId = `score-gradient-${score}-${size}`;
   
+  // Create a unique ID for the gradient to prevent conflicts with multiple instances
+  const uniqueGradientId = `score-gradient-${score}-${maxScore}-${size}`;
+
   const scoreDisplay = (
     <div 
-      className={cn(
-        "relative flex items-center justify-center group cursor-help",
-        dimensions.container
-      )}
+      className={`${styles.scoreDisplay} ${styles[scoreLevel]} ${styles[size]}`}
+      data-theme={isDark ? 'dark' : 'light'}
       role="meter"
       aria-valuemin={0}
       aria-valuemax={maxScore}
       aria-valuenow={score}
-      aria-label={`Score: ${score} out of ${maxScore}`}
+      aria-label={`Score: ${score} out of ${maxScore} (${scoreDescription})`}
     >
-      {/* Background with hover effect */}
-      <div className={cn(
-        "absolute inset-0 rounded-full transition-all duration-300",
-        colorConfig.background,
-        "group-hover:scale-110"
-      )} />
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <linearGradient id={uniqueGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            {(isDark ? gradientConfig.darkColors : gradientConfig.colors).map((color, index, array) => (
+              <stop 
+                key={index} 
+                offset={`${(index / (array.length - 1)) * 100}%`} 
+                stopColor={color}
+              />
+            ))}
+          </linearGradient>
+        </defs>
+      </svg>
       
-      {/* Gradient ring */}
-      <div className={cn(
-        "absolute inset-[2px] rounded-full transition-all duration-300",
-        colorConfig.ring,
-        isDark ? "bg-slate-900" : "bg-white",
-        "group-hover:ring-opacity-100"
-      )} />
+      <div className={`${styles.background} ${isDark ? styles.darkBg : styles.lightBg}`} />
       
-      {/* SVG Progress Circle */}
-      <div className="absolute inset-0" aria-hidden="true">
-        <svg className="w-full h-full -rotate-90" style={{ transform: "rotate(-90deg)" }}>
+      <div className={`${styles.ring} ${isDark ? styles.darkRing : styles.lightRing}`} />
+      
+      <div className={styles.circleContainer} aria-hidden="true">
+        <svg className={styles.circleSvg} viewBox={`0 0 ${dimensions.center * 2} ${dimensions.center * 2}`}>
           <circle
             cx={dimensions.center}
             cy={dimensions.center}
             r={dimensions.radius}
-            stroke="currentColor"
             strokeWidth={dimensions.strokeWidth}
             fill="none"
-            className={cn(
-              "transition-all duration-500 ease-out",
-              isDark ? "text-slate-800" : "text-slate-100"
-            )}
+            className={`${styles.circleBackground} ${isDark ? styles.darkCircle : styles.lightCircle}`}
           />
           <circle
             cx={dimensions.center}
             cy={dimensions.center}
             r={dimensions.radius}
-            stroke={`url(#${uniqueGradientId})`}
             strokeWidth={dimensions.strokeWidth}
             fill="none"
             strokeLinecap="round"
-            className="transition-all duration-500 ease-out"
+            className={`${styles.circleProgress} ${styles[`${scoreLevel}Progress`]}`}
             strokeDasharray={`${percentage * (Math.PI * dimensions.radius * 2 / 100)} 999`}
+            style={{ stroke: `url(#${uniqueGradientId})` }}
           />
-          <defs>
-            <linearGradient
-              id={uniqueGradientId}
-              x1="0%"
-              y1="0%"
-              x2="0%"
-              y2="100%"
-            >
-              <stop offset="0%" className={colorConfig.gradient.split(' ')[0]} />
-              <stop offset="100%" className={colorConfig.gradient.split(' ')[1]} />
-            </linearGradient>
-          </defs>
         </svg>
       </div>
 
-      {/* Score Text */}
-      <div className="relative text-center z-10 transition-transform group-hover:scale-105">
-        <span className={cn(
-          dimensions.scoreText,
-          "font-semibold",
-          colorConfig.text
-        )}>
+      <div className={styles.scoreText}>
+        <span className={`${styles.score} ${styles[`${scoreLevel}Text`]}`}>
           {score}
         </span>
-        <span className={cn(
-          dimensions.maxScoreText,
-          "ml-0.5",
-          isDark ? "text-slate-500" : "text-slate-400"
-        )}>
+        <span className={`${styles.maxScore} ${isDark ? styles.darkText : styles.lightText}`}>
           /{maxScore}
         </span>
       </div>
@@ -234,8 +166,8 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = React.memo(({
         <TooltipTrigger asChild>
           {scoreDisplay}
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-sm">
-          <p><span className={colorConfig.text}>{scoreDescription}</span></p>
+        <TooltipContent side="top">
+          <p className="text-sm font-medium">{scoreDescription}</p>
           <p className="text-xs text-muted-foreground">Score: {score} out of {maxScore}</p>
         </TooltipContent>
       </Tooltip>

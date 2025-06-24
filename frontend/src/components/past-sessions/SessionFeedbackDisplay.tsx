@@ -367,14 +367,18 @@ const SessionFeedbackDisplay: React.FC<SessionFeedbackDisplayProps> = ({
                         </p>
                         <p className="text-sm text-slate-700">
                           <ReferenceAnswer
-                            text={
-                              typeof evaluation_data.individual_evaluations[index] === "object" &&
-                              evaluation_data.individual_evaluations[index] &&
-                              "reference_answer" in evaluation_data.individual_evaluations[index] &&
-                              typeof evaluation_data.individual_evaluations[index].reference_answer === "string"
-                                ? evaluation_data.individual_evaluations[index].reference_answer
-                                : "No reference answer available"
-                            }
+                            text={(() => {
+                              const evaluation = evaluation_data.individual_evaluations[index];
+                              if (
+                                typeof evaluation === "object" &&
+                                evaluation !== null &&
+                                "reference_answer" in evaluation &&
+                                typeof evaluation.reference_answer === "string"
+                              ) {
+                                return evaluation.reference_answer || "No reference answer available";
+                              }
+                              return "No reference answer available";
+                            })()}
                           />
                         </p>
                       </div>

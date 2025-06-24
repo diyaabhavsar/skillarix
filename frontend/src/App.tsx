@@ -25,6 +25,7 @@ import ChatSessionPage from "@/pages/session/chat";
 // Import the new TestSetup page component
 import TestSetup from "./pages/TestSetup";
 import Categories from "./pages/Categories";
+import SessionFeedback from "./pages/feedback/SessionFeedback";
 
 const queryClient = new QueryClient();
 
@@ -190,6 +191,23 @@ const App = () => {
                       <ManageUsers />
                     </AppLayout>
                   </RoleProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/feedback/:sessionId"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout
+                      showBreadcrumbs={true}
+                      breadcrumbs={[
+                        { label: "Practice", path: "/practice" },
+                        { label: "Session Feedback", path: "" },
+                      ]}
+                    >
+                      <SessionFeedback />
+                    </AppLayout>
+                  </ProtectedRoute>
                 }
               />
 
