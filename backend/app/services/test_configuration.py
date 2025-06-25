@@ -1,6 +1,6 @@
 from ..schemas.test_configuration import TestConfigurationCreate
 from bson import ObjectId
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from ..database import db
 from typing import List, Dict, Any
 
@@ -15,7 +15,7 @@ def save_test_configuration(config_data: TestConfigurationCreate, token):
         "additionalCriteria": config_data.additionalCriteria.model_dump(), # Use model_dump() for Pydantic V2
         "name": config_data.name,
         "created_by": ObjectId(token["id"]),
-        "created_at": datetime.now(UTC),
+        "created_at": datetime.now(timezone.utc),
         "is_deleted": False  # Add this line
     }
     result = test_configurations_collection.insert_one(test_config)

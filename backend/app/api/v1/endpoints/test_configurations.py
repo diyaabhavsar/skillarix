@@ -5,7 +5,7 @@ from ....services.auth import verify_bearer_token
 from typing import List
 from bson import ObjectId
 from ....database import db
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 test_configurations_collection = db["test_configurations"]
 
@@ -100,7 +100,7 @@ async def update_test_configuration(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-    update_data["updated_at"] = datetime.now(UTC)
+    update_data["updated_at"] = datetime.now(timezone.utc)
     update_data["updated_by"] = token["id"]
 
     result = test_configurations_collection.update_one(

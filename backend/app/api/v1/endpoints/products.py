@@ -3,7 +3,7 @@ from ....services.product import read_pdf, create_product_process, list_products
 from ....services.auth import verify_bearer_token
 from ....services.test_configuration import convert_objectids_to_strings
 from typing import Optional
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from bson import ObjectId
 from ....database import db
 
@@ -125,7 +125,7 @@ async def update_product(
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
     # Always update the updated_at field
-    update_data["updated_at"] = datetime.now(UTC)
+    update_data["updated_at"] = datetime.now(timezone.utc)
     update_data["updated_by"] = token["id"]
 
     result = product_collection.update_one(

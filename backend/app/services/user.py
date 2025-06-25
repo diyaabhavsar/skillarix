@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from ..models.user import User
 from ..database import db
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from ..schemas.user import UserInDB
 from ..schemas.token import TokenData
 from ..config import settings
@@ -78,7 +78,7 @@ def register(username: str, email: str, password: str, role: str, active: bool) 
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "active": active,
-        "last_login": datetime.now(UTC),
+        "last_login": datetime.now(timezone.utc),
         "is_deleted": False,
         "updated_by": None
     }
