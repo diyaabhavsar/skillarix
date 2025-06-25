@@ -1,10 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { 
+  ChevronLeft, 
+  Star, 
+  ClipboardList, 
+  MessageCircle, 
+  BarChart, 
+  CheckCircle2,
+  History
+} from "lucide-react";
 import { marked } from "marked";
 import { ConversationEvaluation } from '@/types/conversations';
 
+// Component imports
 import OverallPerformance from '@/components/feedback/OverallPerformance';
 import CompleteEvaluation from '@/components/feedback/CompleteEvaluation';
 import ConversationDisplay from '@/components/feedback/ConversationDisplay';
@@ -16,7 +32,7 @@ const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
-
+console.log({session})
   useEffect(() => {
     // Try to get the session data from sessionStorage
     console.log('Looking for session with ID:', sessionId);
@@ -190,9 +206,21 @@ const SessionFeedback: React.FC = () => {
 
   const { evaluation_data, conversation_data, created_at } = session;
 
+  // Debug logging
+  console.log('Session data structure:', {
+    evaluation_data,
+    conversation_data,
+    has_pairs: conversation_data?.pairs,
+    has_evaluations: evaluation_data?.individual_evaluations
+  });
+
+  // Ensure the data structure is valid
+  const validConversationPairs = conversation_data?.pairs || [];
+  const validIndividualEvaluations = evaluation_data?.individual_evaluations || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 container mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-8">
         <Button
           variant="ghost"
           onClick={() => navigate('/practice')}
@@ -206,41 +234,177 @@ const SessionFeedback: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <OverallPerformance
-            completeRating={evaluation_data.complete_rating}
-            formatRatingKey={formatRatingKey}
-            renderRating={renderRating}
-          />
-          <CompleteEvaluation
-            completeEvaluation={evaluation_data.complete_evaluation}
-            formatEvaluationValue={formatEvaluationValue}
-          />
-        </div>
+      <Tabs defaultValue="overall-performance" className="w-full">
+        <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg space-x-1">
+          <TabsTrigger 
+            value="overall-performance" 
+            className="flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all"
+          >
+            <Star className="h-4 w-4" />
+            Overall Performance
+          </TabsTrigger>
+          <TabsTrigger 
+            value="complete-evaluation" 
+            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Complete Evaluation
+          </TabsTrigger>
+          <TabsTrigger 
+            value="conversation" 
+            className="flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Conversation
+          </TabsTrigger>
+          <TabsTrigger 
+            value="exchange-evaluations" 
+            className="flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all"
+          >
+            <BarChart className="h-4 w-4" />
+            Exchange Evaluations
+          </TabsTrigger>
+          <TabsTrigger 
+            value="additional-criteria" 
+            className="flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Additional Criteria
+          </TabsTrigger>
+          <TabsTrigger 
+            value="mid-evaluations" 
+            className="flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all"
+          >
+            <History className="h-4 w-4" />
+            Mid Evaluations
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-6">
-          <ConversationDisplay
-            conversationPairs={conversation_data.pairs}
-            individualEvaluations={evaluation_data.individual_evaluations}
-          />
+        <AnimatePresence mode="wait">
+          <TabsContent 
+            value="overall-performance" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <OverallPerformance
+                  completeRating={evaluation_data.complete_rating}
+                  formatRatingKey={formatRatingKey}
+                  renderRating={renderRating}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
 
-          <ExchangeEvaluations
-            evaluations={evaluation_data.individual_evaluations}
-            formatEvaluationData={formatEvaluationData}
-          />
+          <TabsContent 
+            value="complete-evaluation" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <CompleteEvaluation
+                  completeEvaluation={evaluation_data.complete_evaluation}
+                  formatEvaluationValue={formatEvaluationValue}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
 
-          <AdditionalCriteria
-            criteriaEvaluation={evaluation_data.additional_criteria_evaluation}
-            formatAIGeneratedText={formatAIGeneratedText}
-          />
+          <TabsContent 
+            value="conversation" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <ScrollArea className="h-[600px] pr-4">
+                  <ConversationDisplay
+                    conversationPairs={validConversationPairs}
+                    individualEvaluations={validIndividualEvaluations}
+                  />
+                </ScrollArea>
+              </div>
+            </motion.div>
+          </TabsContent>
 
-          <MidEvaluations
-            evaluations={evaluation_data.mid_evaluations}
-            formatAIGeneratedText={formatAIGeneratedText}
-          />
-        </div>
-      </div>
+          <TabsContent 
+            value="exchange-evaluations" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <ExchangeEvaluations
+                  evaluations={evaluation_data.individual_evaluations}
+                  formatEvaluationData={formatEvaluationData}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent 
+            value="additional-criteria" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <AdditionalCriteria
+                  criteriaEvaluation={evaluation_data.additional_criteria_evaluation}
+                  formatAIGeneratedText={formatAIGeneratedText}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent 
+            value="mid-evaluations" 
+            className="mt-6"
+            asChild
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="p-1">
+                <MidEvaluations
+                  evaluations={evaluation_data.mid_evaluations}
+                  formatAIGeneratedText={formatAIGeneratedText}
+                />
+              </div>
+            </motion.div>
+          </TabsContent>
+        </AnimatePresence>
+      </Tabs>
     </div>
   );
 };

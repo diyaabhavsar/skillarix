@@ -9,15 +9,40 @@ interface ConversationPair {
   salesperson_text: string;
 }
 
+interface IndividualEvaluation {
+  reference_answer?: string;
+  [key: string]: any;
+}
+
 interface ConversationDisplayProps {
   conversationPairs: ConversationPair[];
-  individualEvaluations: any[];
+  individualEvaluations: IndividualEvaluation[];
 }
 
 const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
   conversationPairs,
   individualEvaluations,
 }) => {
+  console.log('ConversationDisplay props:', { conversationPairs, individualEvaluations });
+
+  if (!conversationPairs || !Array.isArray(conversationPairs) || conversationPairs.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center text-lg">
+            <MessageCircle className="h-5 w-5 mr-2 text-indigo-500" />
+            CONVERSATION
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 text-center text-slate-500">
+            No conversation data available
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="border-b">
