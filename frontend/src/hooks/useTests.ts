@@ -66,6 +66,8 @@ export const useTests = () => {
     }
   };
 
+  const fetchTestById=(id: string)=>tests.find(test=>test._id===id)
+
   useEffect(() => {
     if (token) {
       fetchTests();
@@ -79,5 +81,6 @@ export const useTests = () => {
     updateTest,
     deleteTest,
     fetchTests,
+    fetchTestById
   };
 };

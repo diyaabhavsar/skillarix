@@ -10,26 +10,15 @@ import { env } from "@/config/env";
 import { useProducts } from "@/hooks/useProducts";
 import { useTests } from "@/hooks/useTests";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { usePracticeSession } from "@/hooks/usePracticeSession";
 
 const agent_id = env.AGENT_ID;
 
 interface VoiceChatProps {
-  selectedProductId: string | null;
-  selectedTestConfigId: string | null;
-  sessionLoading: boolean;
-  salespersonInput: string;
   onEndSession: () => void;
-  canEndSession: boolean;
 }
 
-const VoiceChat: React.FC<VoiceChatProps> = ({
-  selectedProductId,
-  selectedTestConfigId,
-  sessionLoading,
-  salespersonInput,
-  onEndSession,
-  canEndSession,
-}) => {
+const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   const [hasPermission, setHasPermission] = useState(false);
   const [conversationId, setConversationId] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -42,12 +31,18 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const { fetchProductById } = useProducts();
   const { fetchTestById } = useTests();
-  // console.log(agent_id)
+  const sessionStr = localStorage.getItem("currentSession");
+  const currentSession = JSON.parse(sessionStr);
+
+  const selectedProductId = currentSession.productId;
+  const selectedTestConfigId = currentSession.testConfigId;
+
   const conversation = useConversation({
     onConnect: () => {
       console.log("Connected to ElevenLabs");
     },
-    onDisconnect: () => {
+    onDisconnect: async () => {
+      await evaluateConversation();
       console.log("Disconnected from ElevenLabs");
     },
     onMessage: (message) => {
@@ -67,7 +62,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
   const elevenLabs = useElevenLabsConfig();
   const { status, isSpeaking } = conversation;
   const { postTranscript } = useElevenLabsTranscript();
-
   useEffect(() => {
     // Request microphone permission on component mount
     const requestMicPermission = async () => {
@@ -82,6 +76,11 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
 
     requestMicPermission();
   }, []);
+  const messagesRef = useRef(messages);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -91,11 +90,9 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
     }
   }, [messages]);
 
-
   const handleStartConversation = async () => {
     const fetchedProduct = fetchProductById(selectedProductId);
     const fetchedTest = fetchTestById(selectedTestConfigId);
-    console.log(fetchedProduct, fetchedTest);
 
     setIsStarting(true);
     const dynamicBody = {
@@ -105,7 +102,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
         description: fetchedProduct.description,
       }),
     };
-    console.log(dynamicBody);
 
     try {
       await elevenLabs.updateAgentConfig(dynamicBody); // moved here
@@ -123,31 +119,44 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
     }
   };
 
-  const handleEndConversation = async () => {
+  const evaluateConversation = async () => {
+    setIsEvaluating(true); // Show loading modal
+    const finalMessages = messagesRef.current; // ✅ always latest messages
+    console.log(finalMessages);
+
     try {
-      await conversation.endSession();
-      setMessages([]); // Clear all messages after ending conversation
-      setIsEvaluating(true); // Show loading modal
-      const convo=messages;
-      console.log(convo)
-      // Call transcript API
       await postTranscript({
         product_id_str: selectedProductId,
         test_config_id_str: selectedTestConfigId,
-        transcript: convo,
+        transcript: finalMessages,
       });
-      setIsEvaluating(false); // Hide loading modal
       onEndSession();
+    } catch (error) {
+      setErrorMessage("Failed to evaluate conversation");
+      console.error("Error evaluating conversation:", error);
+    } finally {
+      setIsEvaluating(false); // Hide loading modal
+    }
+  };
+
+  const handleEndConversation = async () => {
+    try {
+      await conversation.endSession();
     } catch (error) {
       setIsEvaluating(false);
       setErrorMessage("Failed to end conversation");
       console.error("Error ending conversation:", error);
     }
   };
-
   return (
     <>
       <div className="flex flex-col w-full h-full">
+        {/* Centered Chat Heading */}
+        <div className="w-full flex justify-center items-center mt-6 mb-2">
+          <h2 className="text-2xl font-bold text-gray-800 text-center">
+            AI Practice Assessment Chat
+          </h2>
+        </div>
         <div className="flex-1 flex flex-col justify-center items-center px-8 pt-4 w-full h-full">
           <div className="w-full h-full flex flex-col">
             {/* Chat Messages */}

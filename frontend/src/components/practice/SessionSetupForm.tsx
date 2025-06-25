@@ -40,15 +40,16 @@ const SessionSetupForm = ({
   setSelectedTestConfigId,
   onStartSession,
   isStartButtonDisabled,
-  sessionError
+  sessionError,
 }: SessionSetupFormProps) => {
+  // console.log({ selectedCategoryId, selectedProductId, selectedTestConfigId });
   return (
     <div className="max-w-2xl mx-auto">
       <div className="space-y-6">
         {/* Category Selection */}
         <div className="grid gap-3">
-          <Label 
-            htmlFor="select-category" 
+          <Label
+            htmlFor="select-category"
             className="text-md font-semibold text-foreground"
           >
             Select Category
@@ -58,7 +59,7 @@ const SessionSetupForm = ({
             value={selectedCategoryId}
             disabled={isSelectionLoading}
           >
-            <SelectTrigger 
+            <SelectTrigger
               id="select-category"
               className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
             >
@@ -76,8 +77,8 @@ const SessionSetupForm = ({
 
         {/* Product Selection */}
         <div className="grid gap-3">
-          <Label 
-            htmlFor="select-product" 
+          <Label
+            htmlFor="select-product"
             className="text-md font-semibold text-foreground"
           >
             Select Product
@@ -85,19 +86,23 @@ const SessionSetupForm = ({
           <Select
             onValueChange={setSelectedProductId}
             value={selectedProductId}
-            disabled={isSelectionLoading || products.length === 0 || !selectedCategoryId}
+            disabled={
+              isSelectionLoading || products.length === 0 || !selectedCategoryId
+            }
           >
-            <SelectTrigger 
+            <SelectTrigger
               id="select-product"
               className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
             >
-              <SelectValue placeholder={
-                selectedCategoryId 
-                  ? isSelectionLoading 
-                    ? "Loading products..." 
-                    : "Choose a product"
-                  : "Select a category first"
-              } />
+              <SelectValue
+                placeholder={
+                  selectedCategoryId
+                    ? isSelectionLoading
+                      ? "Loading products..."
+                      : "Choose a product"
+                    : "Select a category first"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {products.map((prod) => (
@@ -111,8 +116,8 @@ const SessionSetupForm = ({
 
         {/* Test Configuration Selection */}
         <div className="grid gap-3">
-          <Label 
-            htmlFor="select-test-config" 
+          <Label
+            htmlFor="select-test-config"
             className="text-md font-semibold text-foreground"
           >
             Select Test Scenario
@@ -120,19 +125,25 @@ const SessionSetupForm = ({
           <Select
             onValueChange={setSelectedTestConfigId}
             value={selectedTestConfigId}
-            disabled={isSelectionLoading || testConfigurations.length === 0 || !selectedProductId}
+            disabled={
+              isSelectionLoading ||
+              testConfigurations.length === 0 ||
+              !selectedProductId
+            }
           >
-            <SelectTrigger 
+            <SelectTrigger
               id="select-test-config"
               className="w-full rounded-lg px-4 py-3 border transition-colors duration-200 hover:border-primary/50 focus:border-primary"
             >
-              <SelectValue placeholder={
-                selectedProductId
-                  ? isSelectionLoading
-                    ? "Loading scenarios..."
-                    : "Choose a scenario"
-                  : "Select a product first"
-              } />
+              <SelectValue
+                placeholder={
+                  selectedProductId
+                    ? isSelectionLoading
+                      ? "Loading scenarios..."
+                      : "Choose a scenario"
+                    : "Select a product first"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {testConfigurations.map((config) => (
@@ -145,8 +156,10 @@ const SessionSetupForm = ({
         </div>
 
         <div className="flex justify-center mt-8">
-          <Button 
-            onClick={onStartSession} 
+          <Button
+            onClick={() => {
+              onStartSession();
+            }}
             disabled={isStartButtonDisabled}
             className={cn(
               "w-full md:w-auto min-w-[200px]",

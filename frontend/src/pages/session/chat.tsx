@@ -9,10 +9,8 @@ import { useWebsocket } from "@/services/websocketService";
 import { WebSocketErrorMessages } from "@/types/websocket";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  SessionCompleteMessage,
-  WebSocketMessage,
-} from "@/types/websocket";
+import { SessionCompleteMessage, WebSocketMessage } from "@/types/websocket";
+import VoiceChat from "@/components/practice/practicev1/ChatInterfacev1";
 
 interface ConversationPair {
   visitor_text: string;
@@ -72,7 +70,7 @@ const ChatSessionPage = () => {
       }
     }, 100);
   }, []);
-
+  console.log(salespersonInput);
   // Initialize WebSocket hook first to avoid circular dependency
   const {
     isConnected,
@@ -344,50 +342,53 @@ const ChatSessionPage = () => {
     sendAnswer,
   ]);
 
-  const handleEndSession = useCallback(async () => {
-    if (!sessionDetails || !isConnected || sessionLoading) return;
+  // const handleEndSession = useCallback(async () => {
+  //   if (!sessionDetails || !isConnected || sessionLoading) return;
 
-    setSessionLoading(true);
+  //   setSessionLoading(true);
 
-    const finalHistory = [...conversationHistory];
-    const hasUnsentResponse = salespersonInput.trim().length > 0;
+  //   const finalHistory = [...conversationHistory];
+  //   const hasUnsentResponse = salespersonInput.trim().length > 0;
 
-    if (hasUnsentResponse && finalHistory.length > 0) {
-      finalHistory[finalHistory.length - 1].salesperson_text =
-        salespersonInput.trim();
-    }
+  //   if (hasUnsentResponse && finalHistory.length > 0) {
+  //     finalHistory[finalHistory.length - 1].salesperson_text =
+  //       salespersonInput.trim();
+  //   }
 
-    try {
-      const success = await endSession({
-        product_id: sessionDetails.productId,
-        test_configuration_id: sessionDetails.testConfigId,
-        last_question: currentCustomerQuestion,
-        answer: hasUnsentResponse ? salespersonInput.trim() : "",
-        history: finalHistory,
-      });
+  //   try {
+  //     const success = await endSession({
+  //       product_id: sessionDetails.productId,
+  //       test_configuration_id: sessionDetails.testConfigId,
+  //       last_question: currentCustomerQuestion,
+  //       answer: hasUnsentResponse ? salespersonInput.trim() : "",
+  //       history: finalHistory,
+  //     });
 
-      if (!success) {
-        setSessionLoading(false);
-        toast.error(WebSocketErrorMessages.SEND_FAILED);
-      }
-      // Don't navigate here - wait for the end_session message response
-    } catch (error) {
-      setSessionLoading(false);
-      toast.error(WebSocketErrorMessages.SEND_FAILED);
-    }
-  }, [
-    sessionDetails,
-    isConnected,
-    sessionLoading,
-    conversationHistory,
-    currentCustomerQuestion,
-    salespersonInput,
-    endSession,
-  ]);
+  //     if (!success) {
+  //       setSessionLoading(false);
+  //       toast.error(WebSocketErrorMessages.SEND_FAILED);
+  //     }
+  //     // Don't navigate here - wait for the end_session message response
+  //   } catch (error) {
+  //     setSessionLoading(false);
+  //     toast.error(WebSocketErrorMessages.SEND_FAILED);
+  //   }
+  // }, [
+  //   sessionDetails,
+  //   isConnected,
+  //   sessionLoading,
+  //   conversationHistory,
+  //   currentCustomerQuestion,
+  //   salespersonInput,
+  //   endSession,
+  // ]);
 
   // We don't need a handleVoiceInput function anymore since
   // voice handling is managed entirely by the ChatInterface component
 
+  const handleEndSession=()=>{
+    navigate('/Practice')
+  }
   return (
     <div className="fixed inset-0 bg-background min-h-screen flex flex-col">
       <AnimatePresence>
@@ -424,17 +425,8 @@ const ChatSessionPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Chat Interface */}
-      <ChatInterface
-        ref={scrollRef}
-        sessionLoading={sessionLoading}
-        conversationHistory={conversationHistory}
-        salespersonInput={salespersonInput}
-        onSalespersonInputChange={setSalespersonInput}
-        onSendResponse={sendSalespersonAnswer}
+      <VoiceChat
         onEndSession={handleEndSession}
-        canEndSession={!sessionLoading && hasAnsweredFirst}
-        className="flex-1"
       />
 
       {/* Session Complete Dialog */}

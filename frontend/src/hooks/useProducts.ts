@@ -183,6 +183,8 @@ const formattedCategory = {
     }
   };
 
+  const fetchProductById=(id: string)=>products.find(product=>product._id===id)
+
   useEffect(() => {
     if (token) {
       fetchProducts();
@@ -209,5 +211,6 @@ const formattedCategory = {
     createCategory,
     updateCategory,
     deleteCategory,
+    fetchProductById
   };
 };

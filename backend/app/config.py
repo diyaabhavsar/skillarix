@@ -12,6 +12,11 @@ class Settings(BaseSettings):
 
     # Groq
     GROQ_API_KEY: str
+    
+    #openai
+    OPENAI_API_KEY: str
+    
+    MODEL: int
 
     # MongoDB
     MONGODB_URL: str
@@ -19,6 +24,7 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list
+    
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
