@@ -1,17 +1,10 @@
 import React from "react";
 import { Test } from "@/types/testconfig";
 import { Product } from "@/types/products";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
 
 import VisitorPersonaDialog from "./VisitorPersonaDialog";
-import TestConfigurationActions from "./TestConfigurationActions"; // New import
+import TestConfigurationActions from "./TestConfigurationActions";
 
 interface TestConfigurationTableProps {
   tests: Test[];
@@ -40,54 +33,58 @@ const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
   formatValue,
   getProductName,
 }) => {
+  const columns: ShadcnColumn<Test>[] = [
+    {
+      key: "name",
+      header: "Name",
+      className: "py-3 font-medium text-slate-700",
+      render: (value) => <span className="font-medium text-slate-800">{value}</span>,
+    },
+    {
+      key: "product_id",
+      header: "Product",
+      className: "py-3 text-slate-700",
+      render: (value) => getProductName(value),
+    },
+    {
+      key: "created_at",
+      header: "Created At",
+      className: "py-3 text-slate-700",
+      render: (value) => formatDate(value),
+    },
+    {
+      key: "visitor_persona",
+      header: "Visitor Persona",
+      className: "py-3 text-slate-700",
+      render: (_, row) => (
+        <VisitorPersonaDialog test={row} formatValue={formatValue} />
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "py-3 text-right w-[80px] text-slate-700",
+      render: (_, row) => (
+        <TestConfigurationActions
+          test={row}
+          fetchTests={fetchTests}
+          setTestToDelete={setTestToDelete}
+          handleDelete={handleDelete}
+          formatDate={formatDate}
+          formatValue={formatValue}
+          getProductName={getProductName}
+        />
+      ),
+    },
+  ];
+
   return (
-    <div className="rounded-md border overflow-x-auto bg-white">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="font-medium">Name</TableHead>
-            <TableHead className="font-medium">Product</TableHead>
-            <TableHead className="font-medium">Created At</TableHead>
-            <TableHead className="font-medium">Visitor Persona</TableHead>
-            <TableHead className="font-medium text-right w-[80px]">
-              Actions
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tests.map((test) => (
-            <TableRow key={test._id} className="hover:bg-gray-50">
-              <TableCell className="py-3">{test.name}</TableCell>
-              <TableCell className="py-3">
-                {getProductName(test.product_id)}
-              </TableCell>
-              <TableCell className="py-3">
-                {formatDate(test.created_at)}
-              </TableCell>
-              <TableCell className="py-3">
-                <VisitorPersonaDialog
-                  test={test}
-                  formatValue={formatValue}
-                />
-              </TableCell>
-              <TableCell>
-                <div className="flex justify-end">
-                  <TestConfigurationActions
-                    test={test}
-                    fetchTests={fetchTests}
-                    setTestToDelete={setTestToDelete}
-                    handleDelete={handleDelete}
-                    formatDate={formatDate}
-                    formatValue={formatValue}
-                    getProductName={getProductName}
-                  />
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <ShadcnTable
+      columns={columns}
+      data={tests}
+      emptyMessage="No test configurations available."
+      className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+    />
   );
 };
 

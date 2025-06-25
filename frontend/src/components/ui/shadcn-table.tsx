@@ -29,6 +29,10 @@ export interface ShadcnTableProps<T = any> {
   className?: string;
   rowClassName?: string | ((row: T, index: number) => string);
   onRowClick?: (row: T) => void;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchKeys?: (keyof T)[];
+  filters?: React.ReactNode;
 }
 
 export const renderScore = (score: number, maxScore: number = 10) => {
@@ -128,9 +132,24 @@ const ShadcnTable = React.memo(<T extends Record<string, any>>({
   className,
   rowClassName,
   onRowClick,
+  searchable = false,
+  searchPlaceholder = "Search...",
+  searchKeys = [],
+  filters,
 }: ShadcnTableProps<T>) => {
-  const memoizedStatusRenderer = useCallback(renderStatus, []);
-  const memoizedActionRenderer = useCallback(renderAction, []);
+  const [search, setSearch] = React.useState("");
+
+  // Filter data by search
+  const filteredData = React.useMemo(() => {
+    if (!searchable || !search.trim()) return data;
+    const lower = search.toLowerCase();
+    return data.filter((row) =>
+      (searchKeys.length ? searchKeys : columns.map((c) => c.key)).some((key) => {
+        const value = row[key];
+        return value && String(value).toLowerCase().includes(lower);
+      })
+    );
+  }, [search, data, searchable, searchKeys, columns]);
 
   if (isLoading) {
     return (
@@ -140,7 +159,7 @@ const ShadcnTable = React.memo(<T extends Record<string, any>>({
     );
   }
 
-  if (!data?.length) {
+  if (!filteredData?.length) {
     return (
       <div className="w-full p-12 text-center border rounded-lg bg-muted/5">
         <div className="max-w-sm mx-auto space-y-4">
@@ -160,6 +179,18 @@ const ShadcnTable = React.memo(<T extends Record<string, any>>({
       "transition duration-200 hover:shadow-md",
       className
     )}>
+      {searchable && (
+        <div className="flex items-center gap-2 p-4 border-b bg-muted/10">
+          <input
+            type="text"
+            className="w-full px-3 py-2 rounded-md border text-sm bg-background"
+            placeholder={searchPlaceholder}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {filters}
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -177,7 +208,7 @@ const ShadcnTable = React.memo(<T extends Record<string, any>>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data.map((row, rowIndex) => (
+          {filteredData.map((row, rowIndex) => (
             <MemoizedTableRow
               key={row.id || rowIndex}
               columns={columns}

@@ -1,17 +1,10 @@
 import React from "react";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CategoryActions } from "@/components/categories/CategoryActions";
 import { formatDate } from "@/utils/textFormatting";
 import { Category } from "@/types/categories";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
 
 interface CategoryTableProps {
   categories: Category[];
@@ -36,70 +29,71 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
   onDeleteCategory,
   loading, // Add this line
 }) => {
+  const columns: ShadcnColumn<Category>[] = [
+    {
+      key: "sr_no",
+      header: "Sr No.",
+      className: "py-3 text-center w-[30px]",
+      render: (_, row) => categories.indexOf(row) + 1,
+    },
+    {
+      key: "name",
+      header: "Name",
+      className: "py-3 text-left w-[300px]",
+      render: (value, row) =>
+        editingCategory?.id === row.id ? (
+          <div className="flex gap-4 items-center">
+            <Input
+              value={editCategoryName}
+              onChange={(e) => onEditCategoryName(e.target.value)}
+              className="max-w-[200px]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onUpdateCategory();
+                }
+              }}
+            />
+            <Button onClick={onUpdateCategory} size="sm">
+              Save
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onCancelEdit}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          value
+        ),
+    },
+    {
+      key: "created_at",
+      header: "Created At",
+      className: "py-3 text-left w-[200px]",
+      render: (value) => formatDate(value),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "py-3 text-center w-[50px]",
+      render: (_, row) => (
+        <div className="flex justify-left">
+          <CategoryActions
+            onEdit={() => onEditCategory(row.id)}
+            onDelete={() => onDeleteCategory(row.id)}
+          />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="rounded-md border mt-8 bg-white">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Sr No.</TableHead>
-            <TableHead className="w-[300px]">Name</TableHead>
-            <TableHead className="w-[200px]">Created At</TableHead>
-            <TableHead className="w-[100px] text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center">
-                Loading categories...
-              </TableCell>
-            </TableRow>
-          ) : categories.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center">
-                No categories found.
-              </TableCell>
-            </TableRow>
-          ) : (
-            categories.map((category, index) => (
-              <TableRow key={category.id}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>
-                  {editingCategory?.id === category.id ? (
-                    <div className="flex gap-4 items-center">
-                      <Input
-                        value={editCategoryName}
-                        onChange={(e) => onEditCategoryName(e.target.value)}
-                        className="max-w-[200px]"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            onUpdateCategory();
-                          }
-                        }}
-                      />
-                      <Button onClick={onUpdateCategory} size="sm">
-                        Save
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={onCancelEdit}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    category.name
-                  )}
-                </TableCell>
-                <TableCell>{formatDate(category.created_at)}</TableCell>
-                <TableCell className="text-right">
-                  <CategoryActions
-                    onEdit={() => onEditCategory(category.id)}
-                    onDelete={() => onDeleteCategory(category.id)}
-                  />
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <ShadcnTable
+        columns={columns}
+        data={categories}
+        isLoading={loading}
+        emptyMessage="No categories found."
+        className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+      />
     </div>
   );
 };

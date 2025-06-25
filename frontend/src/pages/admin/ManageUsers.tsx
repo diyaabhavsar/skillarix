@@ -1,20 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Search,
   UserPlus,
   MoreHorizontal,
   RefreshCw,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -25,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
-  AlertDialogTrigger,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -35,7 +23,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import SideSheet from "@/components/SideSheet";
-import DataTable from "@/components/DataTable";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
 import { api } from "@/utils/api";
 import { User, ApiUser } from "@/types/users";
 import ManageUserForm from "@/components/manageUser/ManageUserForm";
@@ -50,12 +38,6 @@ const formatDateTime = (dateTimeStr: string) => {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
   return `${day}-${month}-${year} ${hours}:${minutes}`;
-};
-
-// Error display component
-const ErrorMessage = ({ error }: { error: string | null }) => {
-  if (!error) return null;
-  return <div className="text-red-500 text-sm">{error}</div>;
 };
 
 // Delete confirmation dialog component
@@ -104,8 +86,152 @@ const defaultForm = {
   active: true,
 };
 
+const UserHeader = () => (
+  <div>
+    <h1 className="text-3xl font-bold">Manage Users</h1>
+    <p className="text-muted-foreground">
+      Administer user accounts and permissions
+    </p>
+  </div>
+);
+
+const UserActions = ({
+  onRefresh,
+  isAddUserOpen,
+  setIsAddUserOpen,
+  addUserForm,
+  setAddUserForm,
+  addUserLoading,
+  addUserError,
+  handleAddUser,
+}: any) => (
+  <>
+    <Button variant="outline" onClick={onRefresh}>
+      <RefreshCw className="h-4 w-4 mr-2" />
+      Refresh
+    </Button>
+    <SideSheet
+      open={isAddUserOpen}
+      onOpenChange={setIsAddUserOpen}
+      title="Add New User"
+      description="Create a new user account. An invitation email will be sent to the provided address."
+      trigger={
+        <Button>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Add User
+        </Button>
+      }
+    >
+      <ManageUserForm
+        form={addUserForm}
+        setForm={setAddUserForm}
+        loading={addUserLoading}
+        error={addUserError}
+        onSubmit={handleAddUser}
+        onCancel={() => setIsAddUserOpen(false)}
+      />
+    </SideSheet>
+  </>
+);
+
+const UserViewSheet = ({
+  isViewUserOpen,
+  setIsViewUserOpen,
+  viewUserLoading,
+  viewUser,
+  formatDateTime,
+}: any) => (
+  <SideSheet
+    open={isViewUserOpen}
+    onOpenChange={setIsViewUserOpen}
+    title="View User"
+    description="View user details and activity."
+    footer={
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setIsViewUserOpen(false)}
+      >
+        Close
+      </Button>
+    }
+  >
+    {viewUserLoading ? (
+      <div className="flex-1 flex items-center justify-center">Loading...</div>
+    ) : viewUser ? (
+      <div className="flex-1 flex flex-col gap-6 py-4 px-1">
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Name:</span>{" "}
+          <span>{viewUser.name}</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Email:</span>{" "}
+          <span>{viewUser.email}</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Role:</span>{" "}
+          <span
+            className={
+              viewUser.role === "admin"
+                ? "text-blue-500"
+                : "text-gray-500"
+            }
+          >
+            {viewUser.role === "admin" ? "Admin" : "Employee"}
+          </span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Status:</span>{" "}
+          <span
+            className={
+              viewUser.active
+                ? "text-green-500"
+                : "text-muted-foreground"
+            }
+          >
+            {viewUser.active ? "Active" : "Inactive"}
+          </span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Sessions:</span>{" "}
+          <span>{viewUser.sessions}</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="font-medium">Last Active:</span>{" "}
+          <span>{formatDateTime(viewUser.lastActive)}</span>
+        </div>
+      </div>
+    ) : (
+      <div className="flex-1 flex items-center justify-center text-red-500">
+        Failed to load user info.
+      </div>
+    )}
+  </SideSheet>
+);
+
+const UserTableCard = ({
+  columns,
+  users,
+  loading,
+  formatDateTime,
+}: any) => (
+  // Remove <Card> and <CardContent> wrappers, render table directly
+  <ShadcnTable
+    columns={columns}
+    data={users.map((userData: any) => ({
+      ...userData,
+      lastActive: formatDateTime(userData.lastActive),
+      status: userData.active ? "Active" : "Inactive",
+    }))}
+    isLoading={loading}
+    emptyMessage="No users found matching your search criteria."
+    searchable={true}
+    searchPlaceholder="Search users..."
+    searchKeys={["name", "email"]}
+  />
+);
+
 const ManageUsers = () => {
-  const [searchQuery, setSearchQuery] = useState("");
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isViewUserOpen, setIsViewUserOpen] = useState(false);
@@ -114,18 +240,15 @@ const ManageUsers = () => {
   const [addUserForm, setAddUserForm] = useState({ ...defaultForm });
   const [editUserForm, setEditUserForm] = useState({ ...defaultForm, id: "" });
   const [viewUser, setViewUser] = useState<User | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showEditPassword, setShowEditPassword] = useState(false);
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [editUserLoading, setEditUserLoading] = useState(false);
   const [addUserError, setAddUserError] = useState<string | null>(null);
   const [editUserError, setEditUserError] = useState<string | null>(null);
   const [viewUserLoading, setViewUserLoading] = useState(false);
   const [deleteUserLoading, setDeleteUserLoading] = useState(false);
-  const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   // Fetch users from backend API
   useEffect(() => {
@@ -152,15 +275,6 @@ const ManageUsers = () => {
   }, []);
 
   // Memoize filtered users
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [users, searchQuery]
-  );
 
   // Add type for GetUsersResponse
   type GetUsersResponse = ApiUser[];
@@ -246,7 +360,6 @@ const ManageUsers = () => {
       role: user.role === "admin" ? "admin" : "employee",
       active: user.active,
     });
-    setShowEditPassword(false);
     setEditUserError(null);
     setIsEditUserOpen(true);
   };
@@ -275,7 +388,6 @@ const ManageUsers = () => {
   // Handle delete user with proper typing
   const handleDeleteUser = async (userId: string) => {
     setDeleteUserLoading(true);
-    setDeleteUserError(null);
     try {
       await api.delete(`/users/${userId}`);
       setLoading(true);
@@ -292,7 +404,6 @@ const ManageUsers = () => {
       setUsers(mappedUsers);
       setLoading(false);
     } catch (err: any) {
-      setDeleteUserError(err.message || "Failed to delete user");
       setDeleteUserLoading(false);
     }
     setDeleteUserLoading(false);
@@ -311,43 +422,91 @@ const ManageUsers = () => {
     setUserToDelete(null);
   };
 
+  // Define columns for ShadcnTable
+  const columns: ShadcnColumn<any>[] = [
+    { key: "name", header: "Name" },
+    { key: "email", header: "Email" },
+    {
+      key: "role",
+      header: "Role",
+      render: (value) => (
+        <span
+          className={
+            value === "admin"
+              ? "text-blue-600 font-semibold"
+              : "text-gray-700"
+          }
+        >
+          {value === "admin" ? "Admin" : "Employee"}
+        </span>
+      ),
+    },
+    { key: "sessions", header: "Sessions" },
+    { key: "lastActive", header: "Last Active" },
+    {
+      key: "status",
+      header: "Status",
+      render: (value) => (
+        <span
+          className={
+            value === "Active"
+              ? "text-green-600 font-semibold"
+              : "text-red-500 font-semibold"
+          }
+        >
+          {value}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "w-[80px]",
+      render: (_value, userData) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">More options</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => openViewUser(userData.id)}>
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditUser(userData)}>
+              Edit
+            </DropdownMenuItem>
+            {userData.email !== user?.email && (
+              <DropdownMenuItem
+                className="text-red-500"
+                onClick={() => confirmDeleteUser(userData)}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <div className="container p-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Manage Users</h1>
-          <p className="text-muted-foreground">
-            Administer user accounts and permissions
-          </p>
-        </div>
+        <UserHeader />
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          {/* Add User Sheet */}
-          <SideSheet
-            open={isAddUserOpen}
-            onOpenChange={setIsAddUserOpen}
-            title="Add New User"
-            description="Create a new user account. An invitation email will be sent to the provided address."
-            trigger={
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            }
-          >
-            <ManageUserForm
-              form={addUserForm}
-              setForm={setAddUserForm}
-              loading={addUserLoading}
-              error={addUserError}
-              onSubmit={handleAddUser}
-              onCancel={() => setIsAddUserOpen(false)}
-            />
-          </SideSheet>
-          {/* Edit User Sheet */}
+          <UserActions
+            onRefresh={() => window.location.reload()}
+            onAddUser={() => setIsAddUserOpen(true)}
+            isAddUserOpen={isAddUserOpen}
+            setIsAddUserOpen={setIsAddUserOpen}
+            addUserForm={addUserForm}
+            setAddUserForm={setAddUserForm}
+            addUserLoading={addUserLoading}
+            addUserError={addUserError}
+            handleAddUser={handleAddUser}
+          />
           <SideSheet
             open={isEditUserOpen}
             onOpenChange={setIsEditUserOpen}
@@ -364,145 +523,25 @@ const ManageUsers = () => {
               onCancel={() => setIsEditUserOpen(false)}
             />
           </SideSheet>
-          {/* View User Sheet */}
-          <SideSheet
-            open={isViewUserOpen}
-            onOpenChange={setIsViewUserOpen}
-            title="View User"
-            description="View user details and activity."
-            footer={
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsViewUserOpen(false)}
-              >
-                Close
-              </Button>
-            }
-          >
-            {viewUserLoading ? (
-              <div className="flex-1 flex items-center justify-center">
-                Loading...
-              </div>
-            ) : viewUser ? (
-              <div className="flex-1 flex flex-col gap-6 py-4 px-1">
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Name:</span>{" "}
-                  <span>{viewUser.name}</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Email:</span>{" "}
-                  <span>{viewUser.email}</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Role:</span>{" "}
-                  <span
-                    className={
-                      viewUser.role === "admin"
-                        ? "text-blue-500"
-                        : "text-gray-500"
-                    }
-                  >
-                    {viewUser.role === "admin" ? "Admin" : "Employee"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Status:</span>{" "}
-                  <span
-                    className={
-                      viewUser.active
-                        ? "text-green-500"
-                        : "text-muted-foreground"
-                    }
-                  >
-                    {viewUser.active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Sessions:</span>{" "}
-                  <span>{viewUser.sessions}</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="font-medium">Last Active:</span>{" "}
-                  <span>{formatDateTime(viewUser.lastActive)}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-red-500">
-                Failed to load user info.
-              </div>
-            )}
-          </SideSheet>
+          <UserViewSheet
+            isViewUserOpen={isViewUserOpen}
+            setIsViewUserOpen={setIsViewUserOpen}
+            viewUserLoading={viewUserLoading}
+            viewUser={viewUser}
+            formatDateTime={formatDateTime}
+          />
         </div>
       </div>
-
-      <Card>
-        <CardHeader></CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between mb-6">
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <DataTable
-              columns={[
-                { key: "name", label: "Name" },
-                { key: "email", label: "Email" },
-                { key: "role", label: "Role" },
-                { key: "sessions", label: "Sessions" },
-                { key: "lastActive", label: "Last Active" },
-                { key: "status", label: "Status" },
-                { key: "actions", label: "Actions", className: "w-[80px]" },
-              ]}
-              data={filteredUsers.map((userData) => ({
-                ...userData,
-                lastActive: formatDateTime(userData.lastActive),
-                status: userData.active ? "Active" : "Inactive",
-                actions: (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">More options</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => openViewUser(userData.id)}
-                      >
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditUser(userData)}>
-                        Edit
-                      </DropdownMenuItem>
-                      {userData.email !== user?.email && (
-                        <DropdownMenuItem
-                          className="text-red-500"
-                          onClick={() => confirmDeleteUser(userData)}
-                        >
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ),
-              }))}
-              loading={loading}
-              emptyMessage="No users found matching your search criteria."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* AlertDialog for delete confirmation */}
+      <UserTableCard
+        columns={columns}
+        users={users}
+        loading={loading}
+        formatDateTime={formatDateTime}
+        user={user}
+        openViewUser={openViewUser}
+        openEditUser={openEditUser}
+        confirmDeleteUser={confirmDeleteUser}
+      />
       <DeleteUserDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}

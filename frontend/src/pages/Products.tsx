@@ -2,14 +2,7 @@ import React, { useState } from "react";
 import ProductSetupBreadcrumb from "@/components/products/ProductSetupBreadcrumb";
 import { SetupHeader } from "@/components/products/SetupHeader";
 import { useProducts } from "@/hooks/useProducts";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
 import { Eye, MoreHorizontal, Pencil, Trash2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -66,11 +59,142 @@ const Products = () => {
     });
   };
 
-  const isTextOverflowing = (text: string) => {
-    // We can use a rough estimation: if text is longer than ~45 characters it will likely overflow
-    // This is an approximation based on the container width and typical character width
-    return text.length > 45;
-  };
+  const columns: ShadcnColumn<any>[] = [
+    {
+      key: "name",
+      header: "Name",
+      className: "py-3 font-medium text-slate-700",
+    },
+    {
+      key: "category_id",
+      header: "Category",
+      className: "py-3 text-slate-700",
+      render: (value) => {
+        const category = categories.find((cat) => cat.id === value);
+        return category ? category.name : "Unknown";
+      },
+    },
+    {
+      key: "description",
+      header: "Description",
+      className: "py-3 text-slate-700",
+      render: (value) => (
+        <div className="relative max-w-[360px]">
+          {value && value.length > 45 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="block truncate cursor-default">{value}</span>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  className="max-w-[360px] bg-white text-black border shadow-lg p-3 text-sm"
+                >
+                  {value}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span className="block cursor-default">{value || "-"}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "file_url",
+      header: "File",
+      className: "py-3 text-slate-700",
+      render: (value, row) =>
+        value ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-800 hover:underline flex items-center"
+            download={row.file_name}
+            title={row.file_name}
+          >
+            <FileDown />
+          </a>
+        ) : (
+          <span className="text-blue-400" title="No file attached">
+            <FileDown />
+          </span>
+        ),
+    },
+    {
+      key: "created_at",
+      header: "Created At",
+      className: "py-3 text-slate-700",
+      render: (value) => formatDate(value),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "py-3 text-right w-[150px] text-slate-700",
+      render: (_, row) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <Sheet>
+              <SheetTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View
+                </DropdownMenuItem>
+              </SheetTrigger>
+              <ProductDetails
+                data={{
+                  name: row.name,
+                  description: row.description || "",
+                  categoryId: row.category_id,
+                  categoryName:
+                    categories.find((cat) => cat.id === row.category_id)
+                      ?.name || "Unknown",
+                  fileUrl: row.file_url,
+                  fileName: row.file_name,
+                  createdAt: row.created_at,
+                }}
+              />
+            </Sheet>
+
+            <Sheet>
+              <SheetTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              </SheetTrigger>
+              <ProductForm
+                onSuccess={() => {
+                  fetchProducts();
+                  toast.success("Product updated successfully");
+                }}
+                initialData={{
+                  productId: row._id,
+                  productName: row.name,
+                  description: row.description || "",
+                  categoryId: row.category_id,
+                  filename: row.file_name || "",
+                  fileUrl: row.file_url || "",
+                }}
+              />
+            </Sheet>
+
+            <DropdownMenuItem onClick={() => setProductToDelete(row._id)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -78,146 +202,12 @@ const Products = () => {
         <SetupHeader onProductAdded={fetchProducts} />
 
         <div className="rounded-md border bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {" "}
-                <TableHead className="w-[200px]">Name</TableHead>
-                <TableHead className="w-[200px]">Category</TableHead>
-                <TableHead className="max-w-[360px]">Description</TableHead>
-                <TableHead className="max-w-[360px]">File</TableHead>
-                <TableHead className="w-[150px]">Created At</TableHead>
-                <TableHead className="w-[150px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((product) => (
-                <TableRow key={product._id}>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>
-                    {categories.find((cat) => cat.id === product.category_id)
-                      ?.name || "Unknown"}
-                  </TableCell>{" "}
-                  <TableCell>
-                    {product.description ? (
-                      <div className="relative max-w-[360px]">
-                        {isTextOverflowing(product.description) ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="block truncate cursor-default">
-                                  {product.description}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                align="start"
-                                className="max-w-[360px] bg-white text-black border shadow-lg p-3 text-sm"
-                              >
-                                {product.description}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <span className="block cursor-default">
-                            {product.description}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {product.file_url ? (
-                      <a
-                        href={product.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-800 hover:underline flex items-center"
-                        download={product.file_name}
-                        title={product.file_name}
-                      >
-                        <FileDown />
-                      </a>
-                    ) : (
-                      <span className="text-blue-400" title="No file attached">
-                        <FileDown />
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>{formatDate(product.created_at)}</TableCell>{" "}
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <DropdownMenuItem
-                              onSelect={(e) => e.preventDefault()}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </DropdownMenuItem>
-                          </SheetTrigger>
-                          <ProductDetails
-                            data={{
-                              name: product.name,
-                              description: product.description || "",
-                              categoryId: product.category_id,
-                              categoryName:
-                                categories.find(
-                                  (cat) => cat.id === product.category_id
-                                )?.name || "Unknown",
-                              fileUrl: product.file_url,
-                              fileName: product.file_name,
-                              createdAt: product.created_at,
-                            }}
-                          />
-                        </Sheet>
-
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <DropdownMenuItem
-                              onSelect={(e) => e.preventDefault()}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                          </SheetTrigger>
-                          <ProductForm
-                            onSuccess={() => {
-                              fetchProducts();
-                              toast.success("Product updated successfully");
-                            }}
-                            initialData={{
-                              productId: product._id,
-                              productName: product.name,
-                              description: product.description || "",
-                              categoryId: product.category_id,
-                              filename: product.file_name || "",
-                              fileUrl: product.file_url || "",
-                            }}
-                          />
-                        </Sheet>
-
-                        <DropdownMenuItem
-                          onClick={() => setProductToDelete(product._id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ShadcnTable
+            columns={columns}
+            data={products}
+            emptyMessage="No products available."
+            className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+          />
         </div>
 
         <AlertDialog

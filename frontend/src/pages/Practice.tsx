@@ -3,12 +3,12 @@ import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { useConversationHistory } from "@/hooks/useConversationHistory";
 import PastSessionsTable from "@/components/past-sessions/PastSessionsTable";
-import PracticeHeader from "@/components/practice/PracticeHeader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState } from "react";
 import { ConversationEvaluation, CompleteRating } from "@/types/conversations";
 import SessionsPagination from "@/components/past-sessions/SessionsPagination";
 import { PaginationData } from "@/components/past-sessions/SessionsPagination";
+import { PracticeHeader } from "@/components/products/SetupHeader";
 
 const defaultRating = { score: 0, max: 0 };
 
