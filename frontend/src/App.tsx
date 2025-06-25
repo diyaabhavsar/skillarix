@@ -17,7 +17,7 @@ import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import AppLayout from "./components/AppLayout";
 
 // New admin pages
-import AdminDashboard from "./pages/admin/Dashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import ManageUsers from "./pages/admin/ManageUsers";
 import SessionSetupPage from "@/pages/session/setup";
 import ChatSessionPage from "@/pages/session/chat";
