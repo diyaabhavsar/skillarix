@@ -183,6 +183,11 @@ const formattedCategory = {
     }
   };
 
+  const fetchProductById=(id: string)=>products.find(product=>product._id===id)
+ const getProductName = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.name || "Unknown Product";
+  };
   useEffect(() => {
     if (token) {
       fetchProducts();
@@ -209,5 +214,7 @@ const formattedCategory = {
     createCategory,
     updateCategory,
     deleteCategory,
+    fetchProductById,
+    getProductName
   };
 };

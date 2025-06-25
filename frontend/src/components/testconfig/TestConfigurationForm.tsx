@@ -11,6 +11,7 @@ import { useTests } from "@/hooks/useTests";
 import { BasicInformationSection } from "./BasicInformationSection";
 import { VisitorPersonaSection } from "./VisitorPersonaSection";
 import { AdditionalCriteriaSection } from "./AdditionalCriteriaSection";
+import { capitalizeWords } from "@/utils/textFormatting";
 
 const defaultVisitorPersona: VisitorPersona = {
   product_knowledge: "",
@@ -123,11 +124,14 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
     }
     try {
       setIsSubmitting(true);
-
+      const formattedFormData = {
+        ...formData,
+        name: capitalizeWords(formData.name),
+      };
       if (initialData?.id) {
-        await updateTest(initialData.id, formData);
+        await updateTest(initialData.id, formattedFormData);
       } else {
-        await createTest(formData);
+        await createTest(formattedFormData);
       }
       onSuccess?.();
       // Close the sheet by simulating escape key
@@ -178,8 +182,12 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
 
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading
-          ? (initialData ? "Updating..." : "Creating...")
-          : (initialData ? "Update Test Configuration" : "Create Test Configuration")}
+          ? initialData
+            ? "Updating..."
+            : "Creating..."
+          : initialData
+          ? "Update Test Configuration"
+          : "Create Test Configuration"}
       </Button>
     </form>
   );

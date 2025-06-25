@@ -66,6 +66,14 @@ export const useTests = () => {
     }
   };
 
+  const fetchTestById=(id: string)=>tests.find(test=>test._id===id)
+
+
+   const getTestName = (testId: string) => {
+    const test = tests.find((t) => t._id === testId);
+    return test?.name || "Unknown Test";
+  };
+
   useEffect(() => {
     if (token) {
       fetchTests();
@@ -79,5 +87,7 @@ export const useTests = () => {
     updateTest,
     deleteTest,
     fetchTests,
+    fetchTestById,
+    getTestName
   };
 };
