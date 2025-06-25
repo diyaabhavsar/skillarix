@@ -12,6 +12,7 @@ import ProductInfoForm from "./ProductInfoForm";
 import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
 import { api } from '@/utils/api';
+import { capitalizeWords } from "@/utils/textFormatting";
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -69,6 +70,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }));
   };
 
+
   const handleSubmit = async () => {
     if (!productInfo.productName.trim() || !selectedCategoryId) {
       if (!productInfo.productName.trim())
@@ -85,7 +87,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
 
     const formDataPayload = new FormData();
-    formDataPayload.append("name", productInfo.productName);
+    formDataPayload.append("name", capitalizeWords(productInfo.productName));
     formDataPayload.append("category_id", selectedCategoryId);
     if (productInfo.description.trim()) {
       formDataPayload.append("description", productInfo.description);

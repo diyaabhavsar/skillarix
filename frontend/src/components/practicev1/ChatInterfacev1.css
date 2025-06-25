@@ -1,0 +1,55 @@
+.listening-animation {
+  height: 22px;
+}
+.bar {
+  display: inline-block;
+  width: 4px;
+  margin: 0 1px;
+  border-radius: 2px;
+  background: #7c3aed; /* purple-500 */
+  animation: barAnim 1.2s infinite;
+}
+.bar1 {
+  height: 8px;
+  animation-delay: 0s;
+}
+.bar2 {
+  height: 12px;
+  animation-delay: 0.1s;
+}
+.bar3 {
+  height: 16px;
+  animation-delay: 0.2s;
+}
+.bar4 {
+  height: 22px;
+  animation-delay: 0.3s;
+}
+.bar5 {
+  height: 16px;
+  animation-delay: 0.4s;
+}
+.bar6 {
+  height: 12px;
+  animation-delay: 0.5s;
+}
+.bar7 {
+  height: 8px;
+  animation-delay: 0.6s;
+}
+@keyframes barAnim {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.7); }
+}
+.loader {
+  border: 4px solid #e0e0e0;
+  border-top: 4px solid #7c3aed;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

@@ -5,6 +5,7 @@ import { CategoryTable } from "@/components/categories/CategoryTable";
 import { CategoryForm } from "@/components/categories/CategoryForm";
 import { DeleteCategoryDialog } from "@/components/categories/DeleteCategoryDialog";
 import { Category } from "@/types/categories";
+import { capitalizeWords } from "@/utils/textFormatting";
 
 const Categories = () => {
   const {
@@ -30,7 +31,7 @@ const Categories = () => {
       return;
     }
     try {
-      await createCategory(newCategoryName);
+      await createCategory(capitalizeWords(newCategoryName));
       await fetchCategories();
       setNewCategoryName("");
       setShowInput(false);
@@ -53,7 +54,7 @@ const Categories = () => {
       return;
     }
     try {
-      await updateCategory(editingCategory.id, editCategoryName);
+      await updateCategory(editingCategory.id, capitalizeWords(editCategoryName));
       await fetchCategories();
       setEditingCategory(null);
       setEditCategoryName("");
