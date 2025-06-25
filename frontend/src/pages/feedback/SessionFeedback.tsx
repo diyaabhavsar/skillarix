@@ -18,7 +18,7 @@ import {
   History
 } from "lucide-react";
 import { marked } from "marked";
-import { ConversationEvaluation } from '@/types/conversations';
+import { ConversationEvaluation, Rating } from '@/types/conversations';
 
 // Component imports
 import OverallPerformance from '@/components/feedback/OverallPerformance';
@@ -72,11 +72,11 @@ console.log({session})
   };
 
   // Helper functions to safely get values
-  const getRatingValue = (rating: any) => {
+  const getRatingValue = (rating: any): Rating => {
     if (!rating || typeof rating !== "object") return { score: 0, max: 0 };
     return {
-      score: rating.score || 0,
-      max: rating.max || 0,
+      score: typeof rating.score === 'number' ? rating.score : 0,
+      max: typeof rating.max === 'number' ? rating.max : 0,
     };
   };
 
