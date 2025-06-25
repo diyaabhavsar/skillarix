@@ -55,6 +55,7 @@ export interface ConversationEvaluation {
   };
   created_at: string;
   updated_at: string;
+  testConfigurationId?: string; // Add this property to the type definition
 }
 
 export interface ConversationsResponse {

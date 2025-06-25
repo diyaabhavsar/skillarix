@@ -203,7 +203,7 @@ console.log({session})
       minute: "2-digit",
     });
   };
-
+console.log({session})
   const { evaluation_data, conversation_data, created_at } = session;
 
   // Debug logging
@@ -224,14 +224,23 @@ console.log({session})
         <Button
           variant="ghost"
           onClick={() => navigate('/practice')}
-          className="hover:bg-slate-100 text-sm"
+          className="hover:bg-slate-100 hover:text-primary text-sm"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <p className="text-sm text-slate-500">
-          {formatDate(created_at)}
-        </p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm text-slate-500">
+            {formatDate(created_at)}
+          </p>
+          <Button
+            variant="default"
+            onClick={() => navigate(`/test-configurations/${session?.testConfigurationId}`)}
+            className="bg-primary text-white hover:bg-primary-dark text-sm px-6 py-3 rounded-md shadow-md"
+          >
+            Test Configuration
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="overall-performance" className="w-full">
