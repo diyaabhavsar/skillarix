@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { capitalizeWords } from "@/utils/textFormatting";
 
 interface BasicInformationProps {
   name: string;
@@ -40,7 +41,7 @@ export const BasicInformationSection: React.FC<BasicInformationProps> = ({
           id="name"
           placeholder="Enter test name"
           value={name}
-          onChange={(e) => onNameChange(e.target.value)}
+          onChange={(e) => onNameChange(capitalizeWords(e.target.value))}
           disabled={isLoading}
           required
         />

@@ -10,7 +10,7 @@ import { WebSocketErrorMessages } from "@/types/websocket";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { SessionCompleteMessage, WebSocketMessage } from "@/types/websocket";
-import VoiceChat from "@/components/practice/practicev1/ChatInterfacev1";
+import VoiceChat from "@/components/practicev1/ChatInterfacev1";
 
 interface ConversationPair {
   visitor_text: string;

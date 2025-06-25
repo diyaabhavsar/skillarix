@@ -5,6 +5,17 @@ export const capitalizeTitle = (text: string): string => {
     .join(' ');
 };
 
+export const capitalizeWords = (str: string): string => {
+  return str
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+
+
 /**
  * Formats a date string into a localized format
  * @param dateString The date string to format

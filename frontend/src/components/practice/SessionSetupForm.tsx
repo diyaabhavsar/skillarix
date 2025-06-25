@@ -120,7 +120,7 @@ const SessionSetupForm = ({
             htmlFor="select-test-config"
             className="text-md font-semibold text-foreground"
           >
-            Select Test Scenario
+            Select Test Configuration
           </Label>
           <Select
             onValueChange={setSelectedTestConfigId}
@@ -174,14 +174,14 @@ const SessionSetupForm = ({
             )}
           >
             {isStartButtonDisabled ? (
-              <span className="opacity-70">Start Assessment</span>
+              <span className="opacity-70">Next</span>
             ) : (
               <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="flex items-center gap-2"
               >
-                Start Assessment
+                Next
               </motion.span>
             )}
           </Button>
