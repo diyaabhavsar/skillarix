@@ -110,7 +110,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       const relativeUrl = uploadFile.url.replace(baseUrl, "");
 
       formDataPayload.append(
-        "filename",
+        "file_name",
         uploadFile.filename || productInfo.filename
       );
       formDataPayload.append("file_url", relativeUrl || productInfo.fileUrl);
@@ -135,7 +135,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         setSelectedCategoryId("");
       }
 
-      onSuccess?.();
+      onSuccess();
 
       // Close the sheet
       const event = new KeyboardEvent("keydown", {
