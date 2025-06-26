@@ -1,54 +1,57 @@
+"use client";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart2, Package, Play, Users, CheckCircle } from "lucide-react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { BarChart2, Package, Play, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Import new component files
+// Optional custom components
 import MetricsOverview from "@/components/dashboard/MetricsOverview";
 import SessionHistoryTable from "@/components/dashboard/SessionHistoryTable";
 
+// Stat data
 const statCards = [
   {
     title: "Total Sessions",
     value: 42,
-    icon: <BarChart2 className="w-6 h-6 text-blue-500" />,
+    icon: <BarChart2 className="w-5 h-5 text-blue-500" />,
   },
   {
     title: "Products",
     value: 3,
-    icon: <Package className="w-6 h-6 text-purple-500" />,
+    icon: <Package className="w-5 h-5 text-purple-500" />,
   },
   {
     title: "Practice Completed",
     value: 18,
-    icon: <CheckCircle className="w-6 h-6 text-green-500" />,
+    icon: <CheckCircle className="w-5 h-5 text-green-500" />,
   },
   {
     title: "Average Score",
     value: "74%",
-    icon: <BarChart2 className="w-6 h-6 text-yellow-500" />,
+    icon: <BarChart2 className="w-5 h-5 text-yellow-500" />,
   },
 ];
 
-// Demo recent sessions data
+// Recent Sessions Mock (with questions field for SessionData type)
 const recentSessions = [
   {
     id: 1,
     productName: "CloudGuard Pro",
-    date: "May 13, 2023",
+    date: "2023-05-13",
     score: 82,
     duration: "15m 24s",
-    questions: 8,
+    questions: 10,
   },
   {
     id: 2,
     productName: "CloudGuard Pro",
-    date: "May 11, 2023",
+    date: "2023-05-11",
     score: 75,
     duration: "12m 08s",
     questions: 8,
@@ -56,14 +59,14 @@ const recentSessions = [
   {
     id: 3,
     productName: "DataSync 360",
-    date: "May 9, 2023",
+    date: "2023-05-09",
     score: 68,
     duration: "16m 42s",
-    questions: 8,
+    questions: 12,
   },
 ];
 
-function getScoreColor(score) {
+function getScoreColor(score: number) {
   if (score > 70) return "bg-green-100 text-green-800";
   if (score >= 30) return "bg-yellow-100 text-yellow-800";
   return "bg-red-100 text-red-800";
@@ -74,40 +77,18 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Remove handleStartPractice check for products, just navigate to /practice
   const handleStartPractice = () => {
     navigate("/practice");
   };
 
-  const handleViewAllSessions = () => {
-    setActiveTab("history");
-  };
-
   return (
-    <div className="container p-6">
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((stat) => (
-          <Card
-            key={stat.title}
-            className="rounded-xl border shadow-sm flex flex-col items-center p-4 gap-2"
-          >
-            <div className="flex items-center gap-2">
-              {stat.icon}
-              <span className="font-bold text-sm text-muted-foreground">
-                {stat.title}
-              </span>
-            </div>
-            <div className="text-3xl font-bold mt-2">{stat.value}</div>
-          </Card>
-        ))}
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+    <div className="container px-6 py-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Monitor your training progress
+          <h1 className="text-3xl font-bold">User Dashboard</h1>
+          <p className="text-muted-foreground text-sm">
+            Monitor your training progress and practice more to improve
           </p>
         </div>
         <div className="flex gap-3">
@@ -117,43 +98,61 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {statCards.map((stat) => (
+          <Card
+            key={stat.title}
+            className="rounded-xl border shadow-sm p-4 flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between text-sm text-muted-foreground font-medium mb-2">
+              {stat.title}
+              {stat.icon}
+            </div>
+            <div className="text-2xl font-bold">{stat.value}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Tabs */}
       <Tabs
         defaultValue="overview"
         value={activeTab}
         onValueChange={setActiveTab}
       >
+        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
           <MetricsOverview />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recent Sessions */}
-            <Card className="rounded-xl border shadow-sm flex flex-col">
-              <CardHeader className="pb-2">
+            <Card className="rounded-xl border shadow-sm">
+              <CardHeader>
                 <CardTitle className="text-lg font-bold">
                   Recent Sessions
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <ScrollArea className="h-64 px-4">
-                  <div className="flex flex-col gap-4 py-4">
+                  <div className="space-y-4 py-4">
                     {recentSessions.map((s) => (
                       <div
                         key={s.id}
-                        className="flex items-center justify-between border-b pb-3 last:border-b-0 last:pb-0"
+                        className="flex items-center justify-between border-b pb-3 last:border-b-0"
                       >
                         <div>
-                          <div className="font-medium">{s.productName}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <p className="font-medium">{s.productName}</p>
+                          <p className="text-xs text-muted-foreground">
                             {new Date(s.date).toLocaleDateString()}
-                          </div>
+                          </p>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="text-right space-y-1">
                           <Badge className={getScoreColor(s.score)}>
                             {s.score}%
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {s.duration}
-                          </span>
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -169,24 +168,24 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Progress/Insights */}
-            <Card className="rounded-xl border shadow-sm flex flex-col">
-              <CardHeader className="pb-2">
+            {/* Insights */}
+            <Card className="rounded-xl border shadow-sm">
+              <CardHeader>
                 <CardTitle className="text-lg font-bold">
                   Performance Insights
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* You can add a chart or insights here */}
                 <div className="text-muted-foreground">
-                  Your average score is improving. Keep practicing to boost your
-                  performance!
+                  Your average score is improving steadily. Keep practicing to
+                  reach your goal!
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
+        {/* Session History Tab */}
         <TabsContent value="history" className="space-y-6">
           <SessionHistoryTable
             sessions={[...recentSessions, ...recentSessions]}
