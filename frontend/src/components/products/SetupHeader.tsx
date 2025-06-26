@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, UserPlus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import SideSheet from "@/components/SideSheet";
+import { useState } from "react";
+import ProductForm from "./ProductForm";
 
 const SetupHeader = ({}: { onProductAdded?: () => void }) => {
-  const navigate = useNavigate();
+  const [showProductForm, setShowProductForm] = useState(false);
 
   const handleAddNewProduct = () => {
-    navigate("/product/setup");
+    setShowProductForm(true);
   };
 
   return (
@@ -23,6 +25,18 @@ const SetupHeader = ({}: { onProductAdded?: () => void }) => {
           Add New Product
         </Button>
       </div>
+      <SideSheet
+        open={showProductForm}
+        onOpenChange={setShowProductForm}
+        title="Add New Product"
+        description="Upload a new product and fill in the details below."
+      >
+        <ProductForm
+          onSuccess={() => {
+            setShowProductForm(false);
+          }}
+        />
+      </SideSheet>
     </div>
   );
 };
@@ -83,11 +97,4 @@ const CategoryHeader = ({ onToggleInput }: { onToggleInput: () => void }) => {
   );
 };
 
-
-
-export {
-  SetupHeader,
-  TestSetupHeader,
-  PracticeHeader,
-  CategoryHeader,
-};
+export { SetupHeader, TestSetupHeader, PracticeHeader, CategoryHeader };

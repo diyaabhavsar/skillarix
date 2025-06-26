@@ -2,6 +2,7 @@ import { SheetHeader, SheetTitle, SheetContent } from "@/components/ui/sheet";
 import { FileText, Download, Image as ImageIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { env } from "@/config/env";
 
 interface ProductDetailsProps {
   data: {
@@ -15,9 +16,7 @@ interface ProductDetailsProps {
   };
 }
 
-const ProductDetails = ({
-  data
-}: ProductDetailsProps) => {
+const ProductDetails = ({ data }: ProductDetailsProps) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -67,7 +66,9 @@ const ProductDetails = ({
         <div className="flex items-center gap-4 rounded p-4 border border-gray-300">
           <div className="flex flex-col items-center justify-center w-16 h-16 rounded bg-red-50 border border-red-200">
             <FileText className="w-8 h-8 text-red-600" />
-            <span className="text-xs text-red-600 mt-1 font-bold">{ext.toUpperCase()}</span>
+            <span className="text-xs text-red-600 mt-1 font-bold">
+              {ext.toUpperCase()}
+            </span>
           </div>
           <div>
             <p className="font-medium break-all text-red-700">{filename}</p>
@@ -91,7 +92,9 @@ const ProductDetails = ({
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center justify-center w-16 h-16 rounded bg-blue-50 border border-blue-200">
             <FileText className="w-8 h-8 text-blue-600" />
-            <span className="text-xs text-blue-600 mt-1">{ext.toUpperCase()}</span>
+            <span className="text-xs text-blue-600 mt-1">
+              {ext.toUpperCase()}
+            </span>
           </div>
           <div>
             <p className="font-medium break-all text-blue-700">{filename}</p>
@@ -152,12 +155,18 @@ const ProductDetails = ({
               <p className="text-base font-medium">{data.categoryName}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Description</Label>
+              <Label className="text-muted-foreground text-sm">
+                Description
+              </Label>
               <p className="text-base font-medium">{data.description || "-"}</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-muted-foreground text-sm">Created At</Label>
-              <p className="text-base font-medium">{formatDate(data.createdAt)}</p>
+              <Label className="text-muted-foreground text-sm">
+                Created At
+              </Label>
+              <p className="text-base font-medium">
+                {formatDate(data.createdAt)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -168,7 +177,10 @@ const ProductDetails = ({
               <CardTitle className="text-lg">Attached File</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {renderFilePreview(data.fileUrl, data.fileName)}
+              {renderFilePreview(
+                `${env.FILE_URL_ENDPOINT}${data.fileUrl}`,
+                data.fileName
+              )}
             </CardContent>
           </Card>
         )}

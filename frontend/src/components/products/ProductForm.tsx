@@ -11,8 +11,9 @@ import FileUploadSection from "./FileUploadSection";
 import ProductInfoForm from "./ProductInfoForm";
 import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
-import { api } from '@/utils/api';
+import { api } from "@/utils/api";
 import { capitalizeWords } from "@/utils/textFormatting";
+import { env } from "@/config/env";
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -49,7 +50,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     selectedCategoryId,
   } = useProducts();
 
-  // Set initial category ID when editing
   useEffect(() => {
     if (initialData?.categoryId) {
       setSelectedCategoryId(initialData.categoryId);
@@ -70,7 +70,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }));
   };
 
-
   const handleSubmit = async () => {
     if (!productInfo.productName.trim() || !selectedCategoryId) {
       if (!productInfo.productName.trim())
@@ -80,7 +79,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       return;
     }
 
-    // Only require file for new products
     if (!initialData && !file) {
       toast.error("Please upload a product file.");
       return;
@@ -89,32 +87,57 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     const formDataPayload = new FormData();
     formDataPayload.append("name", capitalizeWords(productInfo.productName));
     formDataPayload.append("category_id", selectedCategoryId);
+
     if (productInfo.description.trim()) {
       formDataPayload.append("description", productInfo.description);
     }
+
     if (file) {
       formDataPayload.append("file", file);
-      const uploadFile = await api.upload("/file-upload/upload-file", file, "products");
+      const uploadFile = await api.upload(
+        "/file-upload/upload-file",
+        file,
+        "products"
+      );
       setUploadFile(uploadFile);
-      formDataPayload.append("file_name", uploadFile.filename || productInfo.filename);
-      formDataPayload.append("file_url", uploadFile.url || productInfo.fileUrl);
+
+      // Trim base URL to store only relative path
+      const baseUrl =
+        env.FILE_URL_ENDPOINT ||
+        "http://localhost:8070" ||
+        "https://skillarix.getondataconsulting.in";
+
+      const relativeUrl = uploadFile.url.replace(baseUrl, "");
+
+      formDataPayload.append(
+        "filename",
+        uploadFile.filename || productInfo.filename
+      );
+      formDataPayload.append("file_url", relativeUrl || productInfo.fileUrl);
+
+      console.log("Trimmed File URL:", relativeUrl);
     }
 
     setIsLoading(true);
     try {
       if (initialData) {
-        // For update, we need the product ID
-        const productId = initialData.productId;
+        const productId = initialData.productId!;
         await updateProduct(productId, formDataPayload);
       } else {
         await createProduct(formDataPayload);
-        // Reset form only for create operation
         setFile(null);
-        setProductInfo({ productName: "", description: "", filename: "", fileUrl: "" });
+        setProductInfo({
+          productName: "",
+          description: "",
+          filename: "",
+          fileUrl: "",
+        });
         setSelectedCategoryId("");
       }
+
       onSuccess?.();
-      // Close the sheet by simulating escape key
+
+      // Close the sheet
       const event = new KeyboardEvent("keydown", {
         key: "Escape",
         bubbles: true,
@@ -161,11 +184,10 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
           onCategoryChange={setSelectedCategoryId}
           isLoading={isLoading}
           isEditingMode={isEditMode}
-          onFileChange={handleFileChange} // Pass the file change handler
+          onFileChange={handleFileChange}
         />
 
         <SheetFooter>
-          {" "}
           <Button
             onClick={handleSubmit}
             disabled={isLoading}
