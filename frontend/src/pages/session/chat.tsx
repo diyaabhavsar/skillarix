@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import ChatInterface from "@/components/practice/ChatInterface";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWebsocket } from "@/services/websocketService";
 import { WebSocketErrorMessages } from "@/types/websocket";
@@ -32,7 +31,6 @@ interface EvaluationResults {
 const ChatSessionPage = () => {
   // Navigation and context
   const navigate = useNavigate();
-  const location = useLocation();
   const { token } = useAuth();
 
   // UI state
@@ -72,12 +70,8 @@ const ChatSessionPage = () => {
   }, []);
   // Initialize WebSocket hook first to avoid circular dependency
   const {
-    isConnected,
     connect,
-    send,
-    sendAnswer,
     startSession,
-    endSession,
     cleanup,
   } = useWebsocket({
     debug: true,
@@ -252,127 +246,6 @@ const ChatSessionPage = () => {
       navigate("/session/setup");
     }
   }, [navigate]);
-
-  // Sending messages and session control
-  const sendSalespersonAnswer = useCallback(async () => {
-    if (
-      sessionLoading ||
-      !salespersonInput.trim() ||
-      !currentCustomerQuestion ||
-      !isConnected ||
-      !sessionDetails
-    ) {
-      return;
-    }
-
-    setSessionLoading(true);
-    setSessionError(null);
-
-    const historyPayload = conversationHistory.map((pair, index) => ({
-      visitor_text: pair.visitor_text,
-      salesperson_text:
-        index === conversationHistory.length - 1
-          ? salespersonInput
-          : pair.salesperson_text,
-    }));
-
-    setConversationHistory((prev) => {
-      const updated = [...prev];
-      if (updated.length > 0) {
-        updated[updated.length - 1].salesperson_text = salespersonInput;
-      }
-      return updated;
-    });
-
-    const messageToSend = salespersonInput.trim();
-    setSalespersonInput("");
-    scrollToBottom();
-
-    // Set hasAnsweredFirst to true when sending first answer
-    if (!hasAnsweredFirst) {
-      setHasAnsweredFirst(true);
-      // Initialize the conversation with the first question if it hasn't been added yet
-      if (conversationHistory.length === 0 && currentCustomerQuestion) {
-        setConversationHistory([
-          {
-            visitor_text: currentCustomerQuestion,
-            salesperson_text: salespersonInput.trim(),
-          },
-        ]);
-      }
-    }
-
-    try {
-      const success = await sendAnswer({
-        product_id: sessionDetails.productId,
-        test_configuration_id: sessionDetails.testConfigId,
-        last_question: currentCustomerQuestion,
-        answer: messageToSend,
-        history: historyPayload,
-      });
-
-      if (!success) {
-        setSessionLoading(false);
-        toast.error(WebSocketErrorMessages.SEND_FAILED);
-      }
-    } catch (error) {
-      setSessionLoading(false);
-      toast.error(WebSocketErrorMessages.SEND_FAILED);
-    }
-  }, [
-    sessionLoading,
-    salespersonInput,
-    currentCustomerQuestion,
-    isConnected,
-    conversationHistory,
-    sessionDetails,
-    scrollToBottom,
-    sendAnswer,
-  ]);
-
-  // const handleEndSession = useCallback(async () => {
-  //   if (!sessionDetails || !isConnected || sessionLoading) return;
-
-  //   setSessionLoading(true);
-
-  //   const finalHistory = [...conversationHistory];
-  //   const hasUnsentResponse = salespersonInput.trim().length > 0;
-
-  //   if (hasUnsentResponse && finalHistory.length > 0) {
-  //     finalHistory[finalHistory.length - 1].salesperson_text =
-  //       salespersonInput.trim();
-  //   }
-
-  //   try {
-  //     const success = await endSession({
-  //       product_id: sessionDetails.productId,
-  //       test_configuration_id: sessionDetails.testConfigId,
-  //       last_question: currentCustomerQuestion,
-  //       answer: hasUnsentResponse ? salespersonInput.trim() : "",
-  //       history: finalHistory,
-  //     });
-
-  //     if (!success) {
-  //       setSessionLoading(false);
-  //       toast.error(WebSocketErrorMessages.SEND_FAILED);
-  //     }
-  //     // Don't navigate here - wait for the end_session message response
-  //   } catch (error) {
-  //     setSessionLoading(false);
-  //     toast.error(WebSocketErrorMessages.SEND_FAILED);
-  //   }
-  // }, [
-  //   sessionDetails,
-  //   isConnected,
-  //   sessionLoading,
-  //   conversationHistory,
-  //   currentCustomerQuestion,
-  //   salespersonInput,
-  //   endSession,
-  // ]);
-
-  // We don't need a handleVoiceInput function anymore since
-  // voice handling is managed entirely by the ChatInterface component
 
   const handleEndSession=()=>{
     navigate('/Practice')
