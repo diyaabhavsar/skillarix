@@ -1,26 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWebsocket } from "@/services/websocketService";
-import { WebSocketErrorMessages } from "@/types/websocket";
 import { capitalizeEvaluationTitle } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { SessionCompleteMessage, WebSocketMessage } from "@/types/websocket";
 import VoiceChat from "@/components/practicev1/ChatInterfacev1";
 
 interface ConversationPair {
   visitor_text: string;
   salesperson_text: string;
-}
-
-interface SessionDetails {
-  categoryId: string;
-  productId: string;
-  testConfigId: string;
-  timestamp: string;
 }
 
 interface EvaluationResults {
@@ -31,229 +19,23 @@ interface EvaluationResults {
 const ChatSessionPage = () => {
   // Navigation and context
   const navigate = useNavigate();
-  const { token } = useAuth();
 
   // UI state
   const [isAttemptingToLeave, setIsAttemptingToLeave] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [hasAnsweredFirst, setHasAnsweredFirst] = useState(false);
 
-  // Session state
-  const [sessionDetails, setSessionDetails] = useState<SessionDetails | null>(
-    null
-  );
-  const [sessionLoading, setSessionLoading] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
-  const [hasAnswered, setHasAnswered] = useState(false);
-
-  // Chat state
-  const [conversationHistory, setConversationHistory] = useState<
-    ConversationPair[]
-  >([]);
-  const [currentCustomerQuestion, setCurrentCustomerQuestion] = useState("");
-  const [salespersonInput, setSalespersonInput] = useState("");
   const [evaluationResults, setEvaluationResults] =
     useState<EvaluationResults | null>(null);
 
-  // No local voice state needed - managed by useChatInput hook
-
   // Core utility functions
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTo({
-          top: scrollRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }
-    }, 100);
-  }, []);
-  // Initialize WebSocket hook first to avoid circular dependency
-  const {
-    connect,
-    startSession,
-    cleanup,
-  } = useWebsocket({
-    debug: true,
-    onError: (error) => {
-      console.error("WebSocket error:", error);
-    },
-    onClose: (event) => {
-      setSessionLoading(false);
-      // Only show connection closed error if it wasn't a clean close and we haven't answered
-      if (!event.wasClean && !hasAnswered) {
-        setSessionError(WebSocketErrorMessages.CONNECTION_CLOSED);
-        toast.error(WebSocketErrorMessages.CONNECTION_CLOSED);
-      }
-    },
-  });
 
-  const cleanupSession = useCallback(() => {
-    localStorage.removeItem("currentSession");
-    setConversationHistory([]);
-    setCurrentCustomerQuestion("");
-    setSalespersonInput("");
-    setSessionLoading(false);
-    setHasAnswered(false);
-    setHasAnsweredFirst(false);
-    setEvaluationResults(null);
-    setSessionError(null);
-    cleanup();
-  }, [cleanup]);
+  const handleEndSession = () => {
+    navigate("/Practice");
+  };
 
-  // Message handling
-  const handleMessage = useCallback(
-    (data: WebSocketMessage) => {
-      switch (data.type) {
-        case "question":
-        case "next_question":
-          // Process the first question immediately, subsequent questions only after first answer
-          if (hasAnsweredFirst || conversationHistory.length === 0) {
-        
-            setCurrentCustomerQuestion(data.content || "");
-            setConversationHistory((prev) => [
-              ...prev,
-              { visitor_text: data.content || "", salesperson_text: "" },
-            ]);
-            setSessionLoading(false);
-            scrollToBottom();
-          }
-          break;
-
-        case "evaluation": {
-          setConversationHistory((prev) => {
-            const updated = [...prev];
-            if (updated.length > 0) {
-              updated[updated.length - 1].salesperson_text = salespersonInput;
-            }
-            return updated;
-          });
-          setSalespersonInput("");
-
-          if (data.next_question && hasAnsweredFirst) {
-            setTimeout(() => {
-              setCurrentCustomerQuestion(data.next_question || "");
-              setConversationHistory((prev) => [
-                ...prev,
-                {
-                  visitor_text: data.next_question || "",
-                  salesperson_text: "",
-                },
-              ]);
-              setSessionLoading(false);
-              scrollToBottom();
-            }, 500);
-          } else {
-            setSessionLoading(false);
-          }
-          break;
-        }
-
-        case "session_complete": {
-          const msg = data as SessionCompleteMessage;
-
-          setEvaluationResults({
-            complete: msg.complete_evaluation,
-            additional: msg.additional_criteria_evaluation,
-          });
-
-          cleanupSession();
-          setHasAnswered(true);
-
-          setTimeout(() => {
-            navigate("/practice", {
-              state: { sessionCompleted: true },
-            });
-          }, 2000);
-          break;
-        }
-
-        case "end_session": {
-          cleanupSession();
-          setHasAnswered(true);
-          navigate("/practice", {
-            state: { sessionCompleted: true },
-          });
-          break;
-        }
-
-        case "error": {
-          const errorMessage =
-            data.error || "An error occurred during the session";
-          setSessionError(errorMessage);
-          setSessionLoading(false);
-          toast.error(errorMessage);
-          break;
-        }
-      }
-    },
-    [salespersonInput, navigate, scrollToBottom, cleanupSession]
-  );
-
-  // Configure WebSocket message handler
-  useEffect(() => {
-    if (handleMessage) {
-      // Update the WebSocket message handler through the hook's config
-      connect("/ws/chat", token, {
-        debug: true,
-        onMessage: handleMessage,
-      });
-    }
-  }, [handleMessage, token, connect]);
-
-  // WebSocket connection and session management
-  useEffect(() => {
-    if (!sessionDetails || !token) return;
-
-    const initSession = async () => {
-      try {
-        await connect("/ws/chat", token);
-
-        setSessionLoading(true);
-        const started = await startSession(
-          sessionDetails.productId,
-          sessionDetails.testConfigId
-        );
-
-        if (!started) {
-          setSessionLoading(false);
-          toast.error(WebSocketErrorMessages.CONNECTION_FAILED);
-        }
-      } catch (error) {
-        console.error("[Chat] Connection error:", error);
-        setSessionLoading(false);
-        toast.error(WebSocketErrorMessages.CONNECTION_FAILED);
-      }
-    };
-
-    initSession();
-    return () => cleanup();
-  }, [sessionDetails, token, connect, startSession, cleanup]);
-
-  // Load session details on mount
-  useEffect(() => {
-    const savedSession = localStorage.getItem("currentSession");
-    if (!savedSession) {
-      navigate("/session/setup");
-      return;
-    }
-
-    try {
-      const details = JSON.parse(savedSession) as SessionDetails;
-      setSessionDetails(details);
-    } catch (error) {
-      console.error("Error loading session details:", error);
-      navigate("/session/setup");
-    }
-  }, [navigate]);
-
-  const handleEndSession=()=>{
-    navigate('/Practice')
-  }
   return (
     <div className="fixed inset-0 bg-background min-h-screen flex flex-col">
       <AnimatePresence>
-        {isAttemptingToLeave && !hasAnswered && (
+        {isAttemptingToLeave && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -286,9 +68,7 @@ const ChatSessionPage = () => {
         )}
       </AnimatePresence>
 
-      <VoiceChat
-        onEndSession={handleEndSession}
-      />
+      <VoiceChat onEndSession={handleEndSession} />
 
       {/* Session Complete Dialog */}
       <Dialog

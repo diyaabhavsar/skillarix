@@ -1,4 +1,3 @@
-
 # Project Structure
 
 ```
@@ -47,6 +46,7 @@ src/
 │   │   ├── CustomerQuestion.tsx        # Customer question display
 │   │   ├── SalespersonResponse.tsx     # Salesperson response input
 │   │   ├── PracticeSessionContainer.tsx # Practice session wrapper
+│   │   ├── ChatInterfacev1.tsx         # Voice/AI chat interface for practice session
 │   │   └── ...                         # Other practice components
 │   │
 │   ├── feedback/                       # Feedback-related components
