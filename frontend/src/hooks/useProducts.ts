@@ -101,7 +101,6 @@ export const useProducts = () => {
   const deleteProduct = async (productId: string) => {
     if (!token) throw new Error("Not authenticated");
     try {
-        console.log("Deleting product:", productId);
       await api.delete(`/products/${productId}`);
       setProducts(prev => prev.filter(p => p._id !== productId));
     } catch (error: any) {

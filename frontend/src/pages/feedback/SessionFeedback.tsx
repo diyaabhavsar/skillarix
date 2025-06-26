@@ -32,24 +32,20 @@ const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
-console.log({session})
   useEffect(() => {
     // Try to get the session data from sessionStorage
-    console.log('Looking for session with ID:', sessionId);
+ 
     const storedSession = sessionStorage.getItem(`session-${sessionId}`);
-    console.log('Found stored session:', storedSession ? 'yes' : 'no');
     
     if (storedSession) {
       try {
         const parsedSession = JSON.parse(storedSession);
-        console.log('Successfully parsed session data');
         setSession(parsedSession);
       } catch (error) {
         console.error('Error parsing session data:', error);
         navigate('/practice');
       }
     } else {
-      console.log('No session data found, redirecting to practice');
       // If no session data is found, redirect to practice page
       navigate('/practice');
     }
@@ -203,16 +199,7 @@ console.log({session})
       minute: "2-digit",
     });
   };
-console.log({session})
   const { evaluation_data, conversation_data, created_at } = session;
-
-  // Debug logging
-  console.log('Session data structure:', {
-    evaluation_data,
-    conversation_data,
-    has_pairs: conversation_data?.pairs,
-    has_evaluations: evaluation_data?.individual_evaluations
-  });
 
   // Ensure the data structure is valid
   const validConversationPairs = conversation_data?.pairs || [];

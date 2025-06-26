@@ -70,7 +70,6 @@ const ChatSessionPage = () => {
       }
     }, 100);
   }, []);
-  console.log(salespersonInput);
   // Initialize WebSocket hook first to avoid circular dependency
   const {
     isConnected,
@@ -116,12 +115,7 @@ const ChatSessionPage = () => {
         case "next_question":
           // Process the first question immediately, subsequent questions only after first answer
           if (hasAnsweredFirst || conversationHistory.length === 0) {
-            console.log(
-              "[Chat] Processing question:",
-              conversationHistory.length === 0
-                ? "First question"
-                : "Next question"
-            );
+        
             setCurrentCustomerQuestion(data.content || "");
             setConversationHistory((prev) => [
               ...prev,
@@ -163,7 +157,6 @@ const ChatSessionPage = () => {
 
         case "session_complete": {
           const msg = data as SessionCompleteMessage;
-          console.log("[Chat] Session complete response received:", data);
 
           setEvaluationResults({
             complete: msg.complete_evaluation,
@@ -182,7 +175,6 @@ const ChatSessionPage = () => {
         }
 
         case "end_session": {
-          console.log("[Chat] Session ended successfully");
           cleanupSession();
           setHasAnswered(true);
           navigate("/practice", {
@@ -222,10 +214,6 @@ const ChatSessionPage = () => {
     const initSession = async () => {
       try {
         await connect("/ws/chat", token);
-        console.log("[Chat] Starting session with:", {
-          productId: sessionDetails.productId,
-          testConfigId: sessionDetails.testConfigId,
-        });
 
         setSessionLoading(true);
         const started = await startSession(

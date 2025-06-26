@@ -42,14 +42,12 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
     onConnect: () => console.log("Connected to ElevenLabs"),
     onDisconnect: async () => {
       await evaluateConversation();
-      console.log("Disconnected from ElevenLabs");
     },
     onMessage: (message) => {
       setMessages((prev) => [
         ...prev,
         { text: message.message, source: message.source },
       ]);
-      console.log("Received message:", message);
     },
     onError: (error: string | Error) => {
       setErrorMessage(typeof error === "string" ? error : error.message);

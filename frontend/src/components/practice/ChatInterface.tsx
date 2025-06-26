@@ -90,10 +90,6 @@ const ChatInterface: ForwardRefRenderFunction<
       const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 20;
       if (isAtBottom !== autoScroll) {
         setAutoScroll(isAtBottom);
-        console.log(
-          "[ChatInterface] Auto-scroll:",
-          isAtBottom ? "enabled" : "disabled"
-        );
       }
     }
   }, [autoScroll]);
@@ -145,7 +141,6 @@ const ChatInterface: ForwardRefRenderFunction<
     useAssessmentTimer({
       duration: ASSESSMENT_DURATION,
       onTimeEnd: () => {
-        console.log("[ChatInterface] Assessment time up - auto ending session");
         setIsEndAlertOpen(true);
         // Auto end session after 3 seconds when time is up
         setTimeout(async () => {
@@ -165,9 +160,6 @@ const ChatInterface: ForwardRefRenderFunction<
   // Start timer when first question is received (when conversation history gets its first item)
   useEffect(() => {
     if (!isActive && conversationHistory.length === 1) {
-      console.log(
-        "[ChatInterface] First question received - Starting assessment timer"
-      );
       startTimer();
     }
   }, [isActive, startTimer, conversationHistory.length]);
@@ -181,11 +173,9 @@ const ChatInterface: ForwardRefRenderFunction<
 
   const handleEndConfirm = useCallback(() => {
     if (isEndingAssessment) {
-      console.log("[ChatInterface] Already ending assessment, ignoring click");
       return;
     }
 
-    console.log("[ChatInterface] Starting end assessment process...");
     setIsEndingAssessment(true);
     setIsEndAlertOpen(false);
     stopTimer();
@@ -193,7 +183,6 @@ const ChatInterface: ForwardRefRenderFunction<
     // Use Promise to handle the async operation
     Promise.resolve(onEndSession())
       .then(() => {
-        console.log("[ChatInterface] Assessment ended successfully");
         // Force reload the practice page
         window.location.href = "/Practice";
       })
@@ -216,7 +205,6 @@ const ChatInterface: ForwardRefRenderFunction<
     (open: boolean) => {
       if (!open && !isEndingAssessment) {
         // Only allow closing if not in the process of ending
-        console.log("[ChatInterface] Cancelling end assessment dialog");
         setIsEndAlertOpen(false);
       }
     },
@@ -225,7 +213,6 @@ const ChatInterface: ForwardRefRenderFunction<
 
   // Handle dialog open
   const handleEndDialogOpen = useCallback(() => {
-    console.log("[End Assessment] Opening confirmation dialog...");
     setIsEndAlertOpen(true);
   }, []);
 
@@ -378,7 +365,6 @@ const ChatInterface: ForwardRefRenderFunction<
             {!isEndingAssessment && timeLeft > 0 && (
               <AlertDialogCancel
                 onClick={() => {
-                  console.log("[ChatInterface] Cancelling end assessment");
                   setIsEndAlertOpen(false);
                 }}
               >

@@ -42,7 +42,6 @@ const SessionSetupForm = ({
   isStartButtonDisabled,
   sessionError,
 }: SessionSetupFormProps) => {
-  // console.log({ selectedCategoryId, selectedProductId, selectedTestConfigId });
   return (
     <div className="max-w-2xl mx-auto">
       <div className="space-y-6">

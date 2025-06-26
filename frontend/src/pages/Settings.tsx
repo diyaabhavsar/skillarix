@@ -92,7 +92,6 @@ const Settings = () => {
   };
 
   const handleDeleteAccount = () => {
-    console.log("Account deletion requested");
     // Implementation would delete user account and redirect to login
   };
 

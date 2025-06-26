@@ -115,7 +115,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       );
       formDataPayload.append("file_url", relativeUrl || productInfo.fileUrl);
 
-      console.log("Trimmed File URL:", relativeUrl);
     }
 
     setIsLoading(true);

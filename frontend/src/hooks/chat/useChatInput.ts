@@ -251,7 +251,6 @@ export const useChatInput = ({
     };
 
     recognition.onstart = () => {
-      console.log("🎤 Voice recognition started");
       onVoiceStateChange?.();
       // Don't reset accumulated text on start
       isProcessing = false;
@@ -275,7 +274,6 @@ export const useChatInput = ({
         const currentText = salespersonInput || "";
         const newText = currentText + (currentText ? " " : "") + interimTextRef.current;
         onSalespersonInputChange(newText);
-        console.log("🎤 Speaking...:", interimTextRef.current);
       }
     };
 
