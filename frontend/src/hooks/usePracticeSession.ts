@@ -80,6 +80,17 @@ interface PracticeSessionHook {
     productName: string;
     configName: string;
   } | null;
+
+  // Add chat-related properties for compatibility
+  chatMessages: any[];
+  userResponse: string;
+  isEndEvaluationOpen: boolean;
+  setIsEndEvaluationOpen: (open: boolean) => void;
+  handleResponseChange: (val: string) => void;
+  submitResponse: () => void;
+  handleEndSession: () => void;
+  handleNewSession: () => void;
+  waitingForLLM: boolean;
 }
 
 export const usePracticeSession = (): PracticeSessionHook => {
@@ -222,6 +233,16 @@ export const usePracticeSession = (): PracticeSessionHook => {
     }
   }, [state.selectedProductId]);
 
+  const chatMessages: any[] = [];
+  const userResponse = "";
+  const isEndEvaluationOpen = false;
+  const setIsEndEvaluationOpen = () => {};
+  const handleResponseChange = () => {};
+  const submitResponse = () => {};
+  const handleEndSession = () => {};
+  const handleNewSession = () => {};
+  const waitingForLLM = false;
+
   return {
     // Data
     categories: state.categories,
@@ -242,6 +263,16 @@ export const usePracticeSession = (): PracticeSessionHook => {
     
     // Helpers
     isSelectionValid,
-    getSelectedConfig
+    getSelectedConfig,
+    // Add stubs for chat-related values so PracticeSessionContainer doesn't error
+    chatMessages,
+    userResponse,
+    isEndEvaluationOpen,
+    setIsEndEvaluationOpen,
+    handleResponseChange,
+    submitResponse,
+    handleEndSession,
+    handleNewSession,
+    waitingForLLM
   };
 };

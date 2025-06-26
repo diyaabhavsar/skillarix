@@ -1,19 +1,19 @@
 import React, { useState, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { Mic, MicOff } from "lucide-react";
-import chatbotEmptyState from "./chatbot-empty-state.svg";
+import chatbotEmptyState from "../../../public/chatbot-empty-state.svg";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ChatHeading from "./ChatHeading";
 import ChatMessage from "./ChatMessage";
 import ListeningBars from "./ListeningBars";
-import "./ChatInterfacev1.css";
-import { useAutoScroll } from "./hooks/useAutoScroll";
-import { useLatestRef } from "./hooks/useLatestRef";
-import { useStartConversation } from "./hooks/useStartConversation";
-import { useEvaluateConversation } from "./hooks/useEvaluateConversation";
+import "../../styles/ChatInterfacev1.css";
+import { useAutoScroll } from "@/hooks/chat/useAutoScroll";
+import { useStartConversation } from "@/hooks/chat/useStartConversation";
+import { useEvaluateConversation } from "@/hooks/chat/useEvaluateConversation";
 import LeftDrawer from "./LeftDrawer";
 import { getSessionContext } from "./session";
 import { Button } from "../ui/button";
+import { useLatestRef } from "@/hooks/chat/useLatestRef";
 
 interface VoiceChatProps {
   onEndSession: () => void;
