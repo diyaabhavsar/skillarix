@@ -1,196 +1,237 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+"use client";
+
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Users,
-  UserCheck,
-  Package,
-  BarChart2,
-  Percent,
-  User,
-} from "lucide-react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/utils/api";
+import {
+  DashboardStats,
+  DashboardUser,
+  DashboardSession,
+} from "@/types/dashboard";
+import { motion } from "framer-motion";
+import AppCard from "@/components/AppCard";
 
-const statCards = [
-  {
-    title: "Total Users",
-    value: 1240,
-    icon: <Users className="w-6 h-6 text-blue-500" />,
-  },
-  {
-    title: "Active Users",
-    value: 980,
-    icon: <UserCheck className="w-6 h-6 text-green-500" />,
-  },
-  {
-    title: "Products",
-    value: 12,
-    icon: <Package className="w-6 h-6 text-purple-500" />,
-  },
-  {
-    title: "Sessions Completed",
-    value: 3200,
-    icon: <BarChart2 className="w-6 h-6 text-orange-500" />,
-  },
-  {
-    title: "Average Score (%)",
-    value: "78%",
-    icon: <Percent className="w-6 h-6 text-yellow-500" />,
-  },
-];
-
-const latestUsers = [
-  {
-    name: "Alice Smith",
-    email: "alice@company.com",
-    role: "Admin",
-    active: true,
-  },
-  { name: "Bob Lee", email: "bob@company.com", role: "Employee", active: true },
-  {
-    name: "Carol Jones",
-    email: "carol@company.com",
-    role: "Employee",
-    active: false,
-  },
-  {
-    name: "David Kim",
-    email: "david@company.com",
-    role: "Employee",
-    active: true,
-  },
-];
-
-const latestSessions = [
-  {
-    user: "Alice Smith",
-    product: "CloudGuard Pro",
-    score: 85,
-    date: "2025-06-20",
-  },
-  { user: "Bob Lee", product: "DataSync 360", score: 65, date: "2025-06-19" },
-  { user: "Carol Jones", product: "DevOpsFlow", score: 28, date: "2025-06-18" },
-  {
-    user: "David Kim",
-    product: "CloudGuard Pro",
-    score: 72,
-    date: "2025-06-17",
-  },
-];
-
-function getScoreColor(score: number) {
-  if (score > 70) return "bg-green-100 text-green-800";
-  if (score >= 30) return "bg-yellow-100 text-yellow-800";
-  return "bg-red-100 text-red-800";
-}
-
-const AdminDashboard = () => (
-  <div className="container p-6">
-    {/* Stat Cards */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-      {statCards.map((stat) => (
-        <Card
-          key={stat.title}
-          className="rounded-xl border shadow-sm flex flex-col items-center p-4 gap-2"
-        >
-          <div className="flex items-center gap-2">
-            {stat.icon}
-            <span className="font-bold text-sm text-muted-foreground">
-              {stat.title}
-            </span>
-          </div>
-          <div className="text-3xl font-bold mt-2">{stat.value}</div>
-        </Card>
-      ))}
-    </div>
-
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Latest Users */}
-      <Card className="rounded-xl border shadow-sm flex flex-col">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-bold">Latest Users</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-64 px-4">
-            <div className="flex flex-col gap-4 py-4">
-              {latestUsers.map((u, i) => (
-                <div
-                  key={u.email}
-                  className="flex items-center justify-between border-b pb-3 last:border-b-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback>{u.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {u.email}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge
-                      className={
-                        u.active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }
-                    >
-                      {u.active ? "Active" : "Inactive"}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {u.role}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-          <Button variant="ghost" className="w-full mt-4" asChild>
-            <Link to="/admin/users">View All Users</Link>
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Latest Sessions */}
-      <Card className="rounded-xl border shadow-sm flex flex-col">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-bold">Latest Sessions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-64 px-4">
-            <div className="flex flex-col gap-4 py-4">
-              {latestSessions.map((s, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between border-b pb-3 last:border-b-0 last:pb-0"
-                >
-                  <div>
-                    <div className="font-medium">{s.user}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {s.product}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Badge className={getScoreColor(s.score)}>{s.score}%</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(s.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-          <Button variant="ghost" className="w-full mt-4" asChild>
-            <Link to="/practice">View All Sessions</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+// Optional: Custom spinner or use your own component
+const Spinner = () => (
+  <div className="flex justify-center items-center space-x-2">
+    <div className="w-4 h-4 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+    <div className="w-4 h-4 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+    <div className="w-4 h-4 rounded-full bg-primary animate-bounce" />
   </div>
 );
+
+const AdminDashboard = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+
+  const [stats, setStats] = useState<DashboardStats>({
+    total_users: 0,
+    sessions_completed: 0,
+    average_score: 0,
+    products: 0,
+  });
+
+  const [latestUsers, setLatestUsers] = useState<DashboardUser[]>([]);
+  const [latestSessions, setLatestSessions] = useState<DashboardSession[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [statsRes, usersRes, sessionsRes] = await Promise.all([
+          api.get("/users/admin/stats"),
+          api.get("/users/admin/latest-users"),
+          api.get("/users/admin/latest-sessions"),
+        ]);
+
+        if (typeof statsRes === "object" && statsRes !== null) {
+          setStats(statsRes as DashboardStats);
+        }
+        if (Array.isArray(usersRes)) {
+          setLatestUsers(usersRes as DashboardUser[]);
+        }
+        if (Array.isArray(sessionsRes)) {
+          setLatestSessions(sessionsRes as DashboardSession[]);
+        }
+      } catch (err) {
+        console.error("Dashboard fetch failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const statData = [
+    { label: "Total Users", value: stats.total_users },
+    { label: "Active Users", value: stats.total_users - 1 },
+    { label: "Sessions Completed", value: stats.sessions_completed },
+    { label: "Average Score", value: `${stats.average_score}%` },
+    { label: "Products", value: stats.products },
+  ];
+
+  const cardColors = [
+    "bg-purple-50",
+    "bg-green-50",
+    "bg-yellow-50",
+    "bg-blue-50",
+    "bg-pink-50",
+  ];
+
+  // ⏳ Modern loading screen
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col justify-center items-center text-center space-y-4">
+        <Spinner />
+        <p className="text-muted-foreground text-base font-medium">
+          Loading dashboard...
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container px-6 py-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">
+            Welcome back,{" "}
+            <span className="font-semibold">{user?.name || "Admin"}</span>
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" asChild>
+            <Link to="/admin/users">Manage Users</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/products">Add Product</Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Stat Cards */}
+      <motion.div
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
+        {statData.map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            whileHover={{ scale: 1.03 }}
+            transition={{ delay: i * 0.05 }}
+          >
+            <Card
+              className={`${
+                cardColors[i % cardColors.length]
+              } shadow-md hover:shadow-lg transition`}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold text-muted-foreground">
+                  {stat.label}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Tabbed Content */}
+      <Tabs
+        defaultValue="overview"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Latest Users */}
+            <AppCard title="Latest Users" description="Newest registered users">
+              <div className="space-y-4">
+                {latestUsers.map((u) => (
+                  <div
+                    key={u._id}
+                    className="flex justify-between items-center border-b pb-2"
+                  >
+                    <div>
+                      <p className="font-medium">{u.username}</p>
+                      <p className="text-sm text-muted-foreground">{u.email}</p>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          u.active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {u.active ? "Active" : "Inactive"}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {u.role.charAt(0).toUpperCase() + u.role.slice(1)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" className="w-full mt-4" asChild>
+                <Link to="/admin/users">View All Users</Link>
+              </Button>
+            </AppCard>
+
+            {/* Latest Sessions */}
+            <AppCard
+              title="Latest Sessions"
+              description="Most recent completed sessions"
+            >
+              <div className="space-y-4">
+                {latestSessions.map((s) => (
+                  <div
+                    key={s._id}
+                    className="flex justify-between items-center border-b pb-2"
+                  >
+                    <div>
+                      <p className="font-medium">{s.user_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {s.product_name}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          s.score >= 80
+                            ? "bg-green-100 text-green-800"
+                            : s.score >= 60
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        {s.score ?? 0}%
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(s.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" className="w-full mt-4" asChild>
+                <Link to="/Practice">View All Sessions</Link>
+              </Button>
+            </AppCard>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
 
 export default AdminDashboard;
