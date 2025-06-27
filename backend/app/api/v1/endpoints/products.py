@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 from ....database import db
+import os
 
 
 product_collection = db["products"]
@@ -31,6 +32,8 @@ async def get_products_by_user(token = Depends(verify_bearer_token)):
                 prod["created_by"] = str(prod["created_by"])
             if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
                 prod["updated_by"] = str(prod["updated_by"])
+            if "file_url" in prod:
+                prod["file_url"] = os.getenv('BACKEND_URL') + prod["file_url"]
         return products
     except Exception as e:
         print(f"Error fetching products for user {token['id']}: {e}")

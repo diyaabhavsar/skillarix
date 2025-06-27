@@ -178,7 +178,7 @@ const ProductDetails = ({ data }: ProductDetailsProps) => {
             </CardHeader>
             <CardContent className="space-y-3">
               {renderFilePreview(
-                `${env.FILE_URL_ENDPOINT}${data.fileUrl}`,
+                data.fileUrl,
                 data.fileName
               )}
             </CardContent>
