@@ -101,19 +101,11 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       );
       setUploadFile(uploadFile);
 
-      // Trim base URL to store only relative path
-      const baseUrl =
-        env.FILE_URL_ENDPOINT ||
-        "http://localhost:8070" ||
-        "https://skillarix.getondataconsulting.in";
-
-      const relativeUrl = uploadFile.url.replace(baseUrl, "");
-
       formDataPayload.append(
         "file_name",
         uploadFile.filename || productInfo.filename
       );
-      formDataPayload.append("file_url", relativeUrl || productInfo.fileUrl);
+      formDataPayload.append("file_url", `/uploads/products/${uploadFile.filename}`);
 
     }
 
