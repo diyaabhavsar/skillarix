@@ -106,6 +106,7 @@ const ProductInfoForm = ({
             Attachment (optional)
           </Label>
           {productInfo.fileUrl && productInfo.filename ? (
+            // Add file details
             <div className="flex items-center gap-3 bg-slate-50 border rounded px-3 py-2 mb-2">
               <FileDown className="w-5 h-5 text-blue-600" />
               <a
