@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from ....database import db
 import os
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 
 product_collection = db["products"]
@@ -166,3 +168,19 @@ async def delete_product(
 
     product_collection.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
     return {"message": "Product deleted successfully."}
+
+backend_dir = Path(__file__).parent.parent.parent.parent.parent
+UPLOAD_DIR = os.path.join(backend_dir, "uploads", "products")
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    print(file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found on server")
+
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"}
+    )
