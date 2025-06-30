@@ -40,6 +40,7 @@ export const useProducts = () => {
     try {
         
       const data = await api.get("/products") as Product[];
+      // Set file url for display
       data.map((product: any) => {
         if (product.file_url) {
           product.file_url = `${env.API_URL}${product.file_url}`;
