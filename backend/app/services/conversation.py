@@ -490,6 +490,7 @@ def save_conversation(product_id: ObjectId, conversation_data: dict, evaluation_
 def save_conversation(
     product_id: ObjectId,
     category_id: ObjectId,
+    test_config_id: ObjectId,
     conversation_data: dict,
     user_id: str,
     evaluation_data: dict = None,
@@ -500,6 +501,7 @@ def save_conversation(
     conversation_doc = {
         "product_id": product_id,
         "category_id": category_id,
+        "test_config_id":test_config_id,
         "user_id": ObjectId(user_id),
         "conversation_data": conversation_data,
         "evaluation_data": evaluation_data if evaluation_data is not None else {},

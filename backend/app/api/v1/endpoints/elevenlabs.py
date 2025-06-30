@@ -242,6 +242,7 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         saved_conversation_result = save_conversation(
             ObjectId(product_id_str),
             ObjectId(product["category_id"]),
+            ObjectId(test_config_id_str),
             {"pairs": transcript_text},
             ObjectId(token["id"]),
             evaluation_data,
