@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from ....database import db
 import os
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 
 product_collection = db["products"]
@@ -33,7 +35,8 @@ async def get_products_by_user(token = Depends(verify_bearer_token)):
             if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
                 prod["updated_by"] = str(prod["updated_by"])
             if "file_url" in prod:
-                prod["file_url"] = os.getenv('BACKEND_URL') + prod["file_url"]
+                prod["file_url"] = '/products/download/' + prod["file_name"]
+                # prod["file_url"] = os.getenv('BACKEND_URL') + prod["file_url"]
         return products
     except Exception as e:
         print(f"Error fetching products for user {token['id']}: {e}")
@@ -165,3 +168,19 @@ async def delete_product(
 
     product_collection.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
     return {"message": "Product deleted successfully."}
+
+backend_dir = Path(__file__).parent.parent.parent.parent.parent
+UPLOAD_DIR = os.path.join(backend_dir, "uploads", "products")
+@router.get("/download/{filename}")
+async def download_file(filename: str):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    print(file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"}
+    )

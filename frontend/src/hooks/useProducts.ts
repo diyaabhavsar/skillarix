@@ -39,8 +39,13 @@ export const useProducts = () => {
     setIsLoading(true);
     try {
         
-      const data = await api.get("/products");
-      setProducts(data as Product[]);
+      const data = await api.get("/products") as Product[];
+      data.map((product: any) => {
+        if (product.file_url) {
+          product.file_url = `${env.API_URL}${product.file_url}`;
+        }
+      });
+      setProducts(data);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
