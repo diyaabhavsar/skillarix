@@ -94,7 +94,7 @@ def authenticate_user(email: str, password: str):
         return False
     user_collection.update_one(
         {"_id": ObjectId(user.id)},  # Use ObjectId to query by _id
-        {"$set": {"last_login": datetime.now(timezone.utc)}},
+        {"$set": {"last_login": datetime.now()}},
     )
     print("Authentication successful.")
     return user

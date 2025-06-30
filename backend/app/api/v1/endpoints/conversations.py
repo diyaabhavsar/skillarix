@@ -321,7 +321,7 @@ async def soft_delete_conversation(
             {
                 "$set": {
                     "is_deleted": True,
-                    "updated_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(),
                     "updated_by": ObjectId(token["id"])
                 }
             }

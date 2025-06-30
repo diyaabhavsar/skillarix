@@ -79,7 +79,7 @@ async def edit_user(
         update_fields["active"] = user_update["active"]
     if not update_fields:
         raise HTTPException(status_code=400, detail="No valid fields to update")
-    update_fields["updated_at"] = datetime.now(timezone.utc)
+    update_fields["updated_at"] = datetime.now()
     result = user_collection.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": update_fields}

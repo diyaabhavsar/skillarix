@@ -128,7 +128,7 @@ async def update_product(
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
     # Always update the updated_at field
-    update_data["updated_at"] = datetime.now(timezone.utc)
+    update_data["updated_at"] = datetime.now()
     update_data["updated_by"] = token["id"]
 
     result = product_collection.update_one(
