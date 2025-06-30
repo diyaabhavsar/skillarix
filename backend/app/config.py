@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str
     API_V1_STR: str
-    BACKEND_URL: str
 
     # Security
     SECRET_KEY: str
@@ -17,6 +16,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     MODEL: int
+    MODEL_NAME: str
 
     # MongoDB
     MONGODB_URL: str
@@ -24,7 +24,6 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list
-    
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

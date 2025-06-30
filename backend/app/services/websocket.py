@@ -1,8 +1,17 @@
-from .conversation import format_conversation_history, client
+from .conversation import format_conversation_history
+from openai import OpenAI
+from groq import Groq
 from typing import List
 import json
 from fastapi import HTTPException
+from ..config import settings
 import re
+
+client = Groq(api_key=settings.GROQ_API_KEY)
+openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+FLAG = settings.MODEL
+MODEL_NAME = settings.MODEL_NAME
 
 def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
     conversation_context = ""
@@ -14,76 +23,180 @@ Previous conversation:
     is_follow_up = len(conversation_history) > 0
     # Base prompt for customer persona and context
     # This part will be the common system objective and guidelines
+# Here the conersastion always start with "Exchange #" as a verbage under each Exchange, you have understand start with "Customer:" as a question from agent and line starts with "Salesperson" is an asnwer of that question.
     base_system_prompt = f"""
-System Objective:
-You are an intelligent AI simulation system for exhibition training. Your role is to play the part of a potential visitor at a booth. Your job is to simulate realistic buyer conversations to assess the sales representative's readiness, product knowledge, and soft skills.
-You will use the provided customer persona, product context, and conversation history to ask either:
-- An initial greeting and question (first interaction), or
-- A follow-up question based on the salesperson's last response.
-Tone and complexity should match the persona and evolve during the conversation.
-Guidelines for All Output:
-- Be natural and human in tone
-- Align closely with the visitor persona
-- Do not repeat prior questions unless requested
-- Progressively deepen the conversation
-- Use the salesperson's last response to guide your next message
-Optional Persona Attributes (to vary behavior):
-- Tone: polite | skeptical | rushed | confident | shy
-- Industry knowledge: novice | intermediate | expert
-- Interest level: browsing | serious | ready to buy
-- Behavioral quirks: interrupting | multi-tasking | short-tempered
-Customer Persona:
+We are in a simulation designed to evaluate the skills of a sales representative.
+ Each exchange contains a question from the customer (denoted by “Customer:”) and a response from the sales rep (denoted by “Salesperson:”).
+The agent (customer) should only ask questions to the sales rep about the product based on the provided product description and visitor persona.
+ The agent must not answer any product or service-related questions. The agent is here as a visitor, not a salesperson.
+Your task is:
+To generate the next follow-up question the customer might ask based on the complete history of the conversation (all prior exchanges).
+Ensure the follow-up question is natural, relevant, and continues the flow of the conversation.
+
+
+product description: {product_context}
+
+Visitor Persona (who is actually an agent):
 {json.dumps(persona, indent=2)}
-Product Documentation:
-{product_context}
+
+Exchanges:
 {conversation_context}
+
+
+### 📝 Final Output Instructions
+
+* Do **not** include any labels, metadata, or formatting
+* The message must:
+
+  * Be contextual and in-character
+  * Respect the simulation and role constraints
 """
+    base_system_prompt1 = """
+    Greet the salesperson naturally (e.g., “Hi there!”).
+    """
     if is_follow_up:
-        prompt = f"""{base_system_prompt}
-Modules:
-2. Generate a realistic follow-up question based on the salesperson's last response. Ensure it:
-   - Follows logically from the last exchange
-   - Reflects increasing depth as the conversation progresses
-   - Can express confusion, curiosity, objections, or enthusiasm
-   - Matches the buyer's tone and intent
-   - If the salesperson asks to repeat the last question, repeat it verbatim
-   - If the salesperson asks for information or requirements, provide a relevant answer based on the persona, instead of just asking another question.
-   Constraints:
-   - Ask only one question
-   - Do not break character
-   - Output only the visitor's message
-Your follow-up question or response:
-"""
+        prompt = base_system_prompt
     else:
-        prompt = f"""{base_system_prompt}
-Modules:
-1. Generate a natural, conversational opening greeting and a relevant first question that:
-   - Aligns with the visitor persona (intent, behavior, and knowledge level)
-   - Reflects early-stage buyer curiosity
-   - Avoids technical jargon unless the persona expects it
-   - Opens the door to deeper discussion
-   - If the salesperson asks for information or requirements, provide a relevant answer based on the persona, instead of just asking another question.
-   Constraints:
-   - Ask only one question
-   - Be polite, engaging, and human-like
-   - Do not mention being an AI or simulator
-   - Output only the visitor's message
-Your initial question or greeting:
-"""
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    return full_response.strip()
+        prompt = base_system_prompt1
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        return full_response.strip()
+# def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
+#     conversation_context = ""
+#     if conversation_history:
+#         conversation_context = f"""
+# Previous conversation:
+# {format_conversation_history(conversation_history)}
+# """
+#     is_follow_up = len(conversation_history) > 0
+#     # Base prompt for customer persona and context
+#     # This part will be the common system objective and guidelines
+#     base_system_prompt = f"""
+# System Objective:
+# -We are in a simulation to evaluate sales rep skills. It's important to ask relevant questions. Based on the persona and the complete question and answer history, generate the followup question to the sales rep. The agent is asking the question to the sales rep about the product. The agent is not at all supposed to answer any question related to the product or services because he is here as a visitor and not a sels rep. The sales rep answers the questions.
+# Optional Persona Attributes (to vary behavior):
+# - Tone: polite | skeptical | rushed | confident | shy
+# - Industry knowledge: novice | intermediate | expert
+# - Interest level: browsing | serious | ready to buy
+# - Behavioral quirks: interrupting | multi-tasking | short-tempered
+# Customer Persona:
+# {json.dumps(persona, indent=2)}
+# Product Documentation:
+# {product_context}
+# {conversation_context}
+# """
+#     base_system_prompt1 = f"""
+# System Objective:
+# You are an intelligent AI simulation system for exhibition training. Your role is to play the part of a potential visitor at a booth. Your job is to simulate realistic buyer conversations to assess the sales representative's readiness, product knowledge, and soft skills.
+# You will use the provided customer persona, product context, and conversation history to ask either:
+# - An initial greeting and question (first interaction), or
+# - A follow-up question based on the salesperson's last response.
+# Tone and complexity should match the persona and evolve during the conversation.
+# Guidelines for All Output:
+# - Be natural and human in tone
+# - Align closely with the visitor persona
+# - Do not repeat prior questions unless requested
+# - Progressively deepen the conversation
+# - Use the salesperson's last response to guide your next message
+# Optional Persona Attributes (to vary behavior):
+# - Tone: polite | skeptical | rushed | confident | shy
+# - Industry knowledge: novice | intermediate | expert
+# - Interest level: browsing | serious | ready to buy
+# - Behavioral quirks: interrupting | multi-tasking | short-tempered
+# Customer Persona:
+# {json.dumps(persona, indent=2)}
+# Product Documentation:
+# {product_context}
+# {conversation_context}
+# """
+#     if is_follow_up:
+#         prompt = f"""{base_system_prompt1}
+# 1. -We are in a simulation to evaluate sales rep skills. It's important to ask relevant questions. Based on the persona and the complete question and answer history, generate the followup question to the sales rep. The agent is asking the question to the sales rep about the product. The agent is not at all supposed to answer any question related to the product or services because he is here as a visitor and not a sels rep. The sales rep answers the questions.
+# Modules:
+#    Constraints:
+#    - Ask only one question
+#    - Do not break character
+#    - Output only the visitor's message
+# """
+#     else:
+#         prompt = f"""{base_system_prompt1}
+# Modules:
+# 1. Generate a natural, conversational opening greeting and a relevant first question that:
+#    - Aligns with the visitor persona (intent, behavior, and knowledge level)
+#    - Reflects early-stage buyer curiosity
+#    - Avoids technical jargon unless the persona expects it
+#    - Opens the door to deeper discussion
+#    - If the salesperson asks for information or requirements, provide a relevant answer based on the persona, instead of just asking another question.
+#    Constraints:
+#    - Ask only one question
+#    - Be polite, engaging, and human-like
+#    - Do not mention being an AI or simulator
+#    - Output only the visitor's message
+# Your initial question or greeting:
+# """
+#     if FLAG == 1:
+#         # Streaming OpenAI Chat completion
+#         response_stream = openai_client.chat.completions.create(
+#             model="gpt-3.5-turbo",  # or gpt-3.5-turbo / gpt-3.5-turbo
+#             messages=[
+#                 {"role": "user", "content": prompt}
+#             ],
+#             temperature=1,
+#             top_p=1,
+#             max_tokens=1024,
+#             stream=True,
+#         )
+#         full_response = ""
+#         for chunk in response_stream:
+#             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+#                 full_response += chunk.choices[0].delta.content
+
+#         return full_response.strip()
+#     else:
+#         completion = client.chat.completions.create(
+#             model="meta-llama/llama-4-scout-17b-16e-instruct",
+#             messages=[{"role": "user", "content": prompt}],
+#             temperature=0.7,
+#             max_completion_tokens=1024,
+#             top_p=1,
+#             stream=True,
+#             stop=None,
+#         )
+#         full_response = ""
+#         for chunk in completion:
+#             if chunk.choices[0].delta.content:
+#                 full_response += chunk.choices[0].delta.content
+#         return full_response.strip()
 
 def evaluate_complete_conversation(full_conversation: List[dict], context: str, persona: dict) -> str:
     """
@@ -175,23 +288,42 @@ IMPORTANT INSTRUCTIONS:
   }}
 }}
 """
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
 
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 # Helper function to remove invalid control characters from a string
 def remove_invalid_json_chars(raw_string: str) -> str:
@@ -293,24 +425,43 @@ Conversation:
 
 Your evaluation:
 """
-    
-    # Generate evaluation using Groq
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": full_prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": full_prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
+
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:   
+        # Generate evaluation using Groq
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": full_prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 def evaluate_mid_conversation(recent_exchanges: List[dict], context: str, persona: dict) -> str:
     """
@@ -379,20 +530,39 @@ Provide:
 
 Your evaluation:
 """
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
 
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()

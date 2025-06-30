@@ -10,7 +10,7 @@ from ....services.websocket import (
 )
 from ....database import db
 import json
-from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_conversation
+from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_transcript_conversation
 
 
 test_configurations_collection = db["test_configurations"]
@@ -239,7 +239,7 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         cat_name = category["name"] if category else None
         test_name = test_config["name"] if test_config else None
 
-        saved_conversation_result = save_conversation(
+        saved_conversation_result = save_transcript_conversation(
             ObjectId(product_id_str),
             ObjectId(product["category_id"]),
             ObjectId(test_config_id_str),
