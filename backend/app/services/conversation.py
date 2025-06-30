@@ -1,16 +1,24 @@
 from fastapi import HTTPException
 from typing import List
 from groq import Groq
+from openai import OpenAI
+import openai
 import re
 from datetime import datetime, timezone
 from bson import ObjectId
 from ..database import db
 import json
+from ..config import settings
+
 
 conversation_collection = db["conversations"]
 
 # Initialize Groq Client
-client = Groq(api_key="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")
+client = Groq(api_key=settings.GROQ_API_KEY)
+# Initialize OpenAI Client
+openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+FLAG = settings.MODEL
+MODEL_NAME = settings.MODEL_NAME
 
 def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     try:
@@ -72,23 +80,42 @@ Remember:
 
 Your response:
 """
-        
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1,
-            max_completion_tokens=1024,
-            top_p=1,
-            stream=True,
-            stop=None,
-        )   
-        
-        full_response = ""
-        for chunk in completion:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-        
-        return full_response.strip()
+        if FLAG == 1:
+            # Streaming OpenAI Chat completion
+            response_stream = openai_client.chat.completions.create(
+                model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=1,
+                top_p=1,
+                max_tokens=1024,
+                stream=True,
+            )
+
+            full_response = ""
+            for chunk in response_stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+
+            return full_response.strip()
+        else:
+            completion = client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=1,
+                max_completion_tokens=1024,
+                top_p=1,
+                stream=True,
+                stop=None,
+            )   
+            
+            full_response = ""
+            for chunk in completion:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+            
+            return full_response.strip()
         
     except Exception as e:
         # Use HTTPException only in API endpoints, not here.
@@ -185,23 +212,42 @@ IMPORTANT INSTRUCTIONS:
   }}
 }}
 """
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
 
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 def evaluate_mid_conversation(recent_exchanges: List[dict], context: str):
     """
@@ -250,23 +296,42 @@ Provide:
 
 Your evaluation:
 """
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
 
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 def evaluate_complete_conversation(full_conversation: List[dict], context: str) -> str:
     """
@@ -310,23 +375,42 @@ Provide:
 
 Your evaluation:
 """
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
 
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 def evaluate_additional_criteria(conversation: List[dict], criteria: str, context: str):
     """
@@ -408,24 +492,43 @@ Conversation:
 
 Your evaluation:
 """
-    
-    # Generate evaluation using Groq
-    completion = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "user", "content": full_prompt}],
-        temperature=0.7,
-        max_completion_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-    
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
+    if FLAG == 1:
+        # Streaming OpenAI Chat completion
+        response_stream = openai_client.chat.completions.create(
+            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
+            messages=[
+                {"role": "user", "content": full_prompt}
+            ],
+            temperature=1,
+            top_p=1,
+            max_tokens=1024,
+            stream=True,
+        )
+
+        full_response = ""
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+
+        return full_response.strip()
+    else:
+        # Generate evaluation using Groq
+        completion = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{"role": "user", "content": full_prompt}],
+            temperature=0.7,
+            max_completion_tokens=1024,
+            top_p=1,
+            stream=True,
+            stop=None,
+        )
+        
+        full_response = ""
+        for chunk in completion:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+        
+        return full_response.strip()
 
 def extract_score(evaluation_text: str) -> float:
     try:
@@ -506,12 +609,41 @@ def save_conversation(
         "test_name": test_name,
         "prod_name": prod_name,
         "cat_name": cat_name,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
         "is_deleted": False # Add is_deleted field here
     }
     result = conversation_collection.insert_one(conversation_doc)
     return result.inserted_id
+
+def save_transcript_conversation(
+    product_id: ObjectId,
+    category_id: ObjectId,
+    test_config_id_str: ObjectId,
+    conversation_data: dict,
+    user_id: str,
+    evaluation_data: dict = None,
+    test_name: str = None,
+    prod_name: str = None,
+    cat_name: str = None
+):
+    conversation_doc = {
+        "product_id": product_id,
+        "category_id": category_id,
+        "user_id": ObjectId(user_id),
+        "test_config_id":test_config_id_str,
+        "conversation_data": conversation_data,
+        "evaluation_data": evaluation_data if evaluation_data is not None else {},
+        "test_name": test_name,
+        "prod_name": prod_name,
+        "cat_name": cat_name,
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+        "is_deleted": False # Add is_deleted field here
+    }
+    result = conversation_collection.insert_one(conversation_doc)
+    return result.inserted_id
+
 
 def get_conversations_by_product(product_id: ObjectId, token):
     """Get all conversations for a product with their evaluations."""

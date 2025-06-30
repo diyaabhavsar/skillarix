@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     MODEL: int
+    MODEL_NAME: str
 
     # MongoDB
     MONGODB_URL: str
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list
+    
     
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)

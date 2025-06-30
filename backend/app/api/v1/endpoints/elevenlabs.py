@@ -10,7 +10,7 @@ from ....services.websocket import (
 )
 from ....database import db
 import json
-from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_conversation
+from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_transcript_conversation
 
 
 test_configurations_collection = db["test_configurations"]
@@ -132,85 +132,85 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         additional_criteria_evaluation = "No additional criteria selected for this test configuration."
 
     individual_evaluations = []
-    for idx, exchange in enumerate(transcript_text):
-        rag_answer = generate_answer_rag(
-            combined_product_context,
-            exchange["visitor_text"],
-            current_persona,
-            idx == 0,
-            transcript_text[:idx]
-        )
-        indiv_eval = evaluate_individual_answer(
-            rag_answer,
-            exchange["salesperson_text"],
-            exchange["visitor_text"],
-            current_persona,
-            idx == 0,
-            transcript_text[:idx]
-        )
+    # for idx, exchange in enumerate(transcript_text):
+    #     rag_answer = generate_answer_rag(
+    #         combined_product_context,
+    #         exchange["visitor_text"],
+    #         current_persona,
+    #         idx == 0,
+    #         transcript_text[:idx]
+    #     )
+    #     indiv_eval = evaluate_individual_answer(
+    #         rag_answer,
+    #         exchange["salesperson_text"],
+    #         exchange["visitor_text"],
+    #         current_persona,
+    #         idx == 0,
+    #         transcript_text[:idx]
+    #     )
         
-        # --- MODIFIED PARSING START ---
-        individual_eval_obj = None # Initialize to None
-        parsed_evaluation_text = indiv_eval # Default to raw text on failure
-        parsed_rating = None # Default rating to None
+    #     # --- MODIFIED PARSING START ---
+    #     individual_eval_obj = None # Initialize to None
+    #     parsed_evaluation_text = indiv_eval # Default to raw text on failure
+    #     parsed_rating = None # Default rating to None
 
-        try:
-            # --- Apply cleaning here ---
-            cleaned_indiv_eval = remove_invalid_json_chars(indiv_eval)
-            # print(f"Cleaned individual evaluation {idx}:", repr(cleaned_indiv_eval))
+    #     try:
+    #         # --- Apply cleaning here ---
+    #         cleaned_indiv_eval = remove_invalid_json_chars(indiv_eval)
+    #         # print(f"Cleaned individual evaluation {idx}:", repr(cleaned_indiv_eval))
 
-            # Attempt to parse the cleaned string
-            parsed_json = json.loads(cleaned_indiv_eval)
-            # If successful, extract the specific keys using .get()
-            parsed_evaluation_text = parsed_json.get("evaluation", cleaned_indiv_eval) # Fallback to raw if "evaluation" key is missing
-            parsed_rating = parsed_json.get("rating") # Can be None if "rating" key is missing
+    #         # Attempt to parse the cleaned string
+    #         parsed_json = json.loads(cleaned_indiv_eval)
+    #         # If successful, extract the specific keys using .get()
+    #         parsed_evaluation_text = parsed_json.get("evaluation", cleaned_indiv_eval) # Fallback to raw if "evaluation" key is missing
+    #         parsed_rating = parsed_json.get("rating") # Can be None if "rating" key is missing
 
-            # Construct the object to append, now including the reference answer
-            individual_eval_obj = {
-                "evaluation": parsed_evaluation_text,
-                "rating": parsed_rating,  # Store the parsed rating (could be None)
-                "reference_answer": rag_answer  # <-- Add this line
-            }
+    #         # Construct the object to append, now including the reference answer
+    #         individual_eval_obj = {
+    #             "evaluation": parsed_evaluation_text,
+    #             "rating": parsed_rating,  # Store the parsed rating (could be None)
+    #             "reference_answer": rag_answer  # <-- Add this line
+    #         }
 
-        except json.JSONDecodeError as e:
-            # Handle JSON parsing errors specifically
-            print(f"JSON decode error for individual evaluation {idx}: {e}")
-            # Keep parsed_evaluation_text as raw indiv_eval
-            # Keep parsed_rating as None
-            individual_eval_obj = {
-                "evaluation": parsed_evaluation_text,
-                "rating": { # Provide a default rating structure on parsing error
-                    "question_relevance": {"score": 0, "max": 3},
-                    "technical_accuracy": {"score": 0, "max": 3},
-                    "sales_effectiveness": {"score": 0, "max": 4},
-                    "total": {"score": 0, "max": 10}
-                },
-                "reference_answer": rag_answer
-            }
-        except Exception as e:
-            # Handle any other unexpected errors during parsing/extraction
-            print(f"Unexpected error parsing individual evaluation {idx}: {e}")
-            # Keep parsed_evaluation_text as raw indiv_eval
-            # Keep parsed_rating as None
-            individual_eval_obj = {
-                "evaluation": parsed_evaluation_text,
-                "rating": { # Provide a default rating structure on other errors
-                    "question_relevance": {"score": 0, "max": 3},
-                    "technical_accuracy": {"score": 0, "max": 3},
-                    "sales_effectiveness": {"score": 0, "max": 4},
-                    "total": {"score": 0, "max": 10}
-                },
-                "reference_answer": rag_answer
-            }
+    #     except json.JSONDecodeError as e:
+    #         # Handle JSON parsing errors specifically
+    #         print(f"JSON decode error for individual evaluation {idx}: {e}")
+    #         # Keep parsed_evaluation_text as raw indiv_eval
+    #         # Keep parsed_rating as None
+    #         individual_eval_obj = {
+    #             "evaluation": parsed_evaluation_text,
+    #             "rating": { # Provide a default rating structure on parsing error
+    #                 "question_relevance": {"score": 0, "max": 3},
+    #                 "technical_accuracy": {"score": 0, "max": 3},
+    #                 "sales_effectiveness": {"score": 0, "max": 4},
+    #                 "total": {"score": 0, "max": 10}
+    #             },
+    #             "reference_answer": rag_answer
+    #         }
+    #     except Exception as e:
+    #         # Handle any other unexpected errors during parsing/extraction
+    #         print(f"Unexpected error parsing individual evaluation {idx}: {e}")
+    #         # Keep parsed_evaluation_text as raw indiv_eval
+    #         # Keep parsed_rating as None
+    #         individual_eval_obj = {
+    #             "evaluation": parsed_evaluation_text,
+    #             "rating": { # Provide a default rating structure on other errors
+    #                 "question_relevance": {"score": 0, "max": 3},
+    #                 "technical_accuracy": {"score": 0, "max": 3},
+    #                 "sales_effectiveness": {"score": 0, "max": 4},
+    #                 "total": {"score": 0, "max": 10}
+    #             },
+    #             "reference_answer": rag_answer
+    #         }
         
-        # Append the resulting object
-        individual_evaluations.append(individual_eval_obj)
+    #     # Append the resulting object
+    #     individual_evaluations.append(individual_eval_obj)
         # --- MODIFIED PARSING END ---
 
-    mid_evaluations = []
-    for i in range(3, len(transcript_text), 4):
-        mid_eval = evaluate_mid_conversation(transcript_text[:i+1], combined_product_context, current_persona)
-        mid_evaluations.append(mid_eval)
+    # mid_evaluations = []
+    # for i in range(3, len(transcript_text), 4):
+    #     mid_eval = evaluate_mid_conversation(transcript_text[:i+1], combined_product_context, current_persona)
+    #     mid_evaluations.append(mid_eval)
 
     # 3. Complete evaluation (already done)
     # complete_evaluation = evaluate_complete_conversation(conversation_history, product["content"])
@@ -222,7 +222,7 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
     # 5. Save everything
     evaluation_data = {
         "individual_evaluations": individual_evaluations,
-        "mid_evaluations": mid_evaluations,
+        # "mid_evaluations": mid_evaluations,
         "complete_evaluation": complete_evaluation_to_save, # Use the potentially parsed object or raw text
         "complete_rating": complete_rating_to_save,       # Use the potentially parsed object or default structure
         "additional_criteria_evaluation": additional_criteria_evaluation,
@@ -239,9 +239,10 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         cat_name = category["name"] if category else None
         test_name = test_config["name"] if test_config else None
 
-        saved_conversation_result = save_conversation(
+        saved_conversation_result = save_transcript_conversation(
             ObjectId(product_id_str),
             ObjectId(product["category_id"]),
+            ObjectId(test_config_id_str),
             {"pairs": transcript_text},
             ObjectId(token["id"]),
             evaluation_data,

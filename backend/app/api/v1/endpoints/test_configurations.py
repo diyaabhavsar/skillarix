@@ -100,7 +100,7 @@ async def update_test_configuration(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-    update_data["updated_at"] = datetime.now(timezone.utc)
+    update_data["updated_at"] = datetime.now()
     update_data["updated_by"] = token["id"]
 
     result = test_configurations_collection.update_one(
