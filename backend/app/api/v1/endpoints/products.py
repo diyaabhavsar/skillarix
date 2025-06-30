@@ -33,7 +33,8 @@ async def get_products_by_user(token = Depends(verify_bearer_token)):
             if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
                 prod["updated_by"] = str(prod["updated_by"])
             if "file_url" in prod:
-                prod["file_url"] = os.getenv('BACKEND_URL') + prod["file_url"]
+                # set file url
+                prod["file_url"] = '/products/download/' + prod["file_name"]
         return products
     except Exception as e:
         print(f"Error fetching products for user {token['id']}: {e}")

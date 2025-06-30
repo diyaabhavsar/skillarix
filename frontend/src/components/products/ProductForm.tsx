@@ -85,7 +85,8 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     }
 
     const formDataPayload = new FormData();
-    formDataPayload.append("name", capitalizeWords(productInfo.productName));
+    // formDataPayload.append("name", capitalizeWords(productInfo.productName));
+    formDataPayload.append("name", productInfo.productName);
     formDataPayload.append("category_id", selectedCategoryId);
 
     if (productInfo.description.trim()) {
