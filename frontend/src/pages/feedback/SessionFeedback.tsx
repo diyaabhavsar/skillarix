@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,47 +7,54 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { 
-  ChevronLeft, 
-  Star, 
-  ClipboardList, 
-  MessageCircle, 
-  BarChart, 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  ChevronLeft,
+  Star,
+  ClipboardList,
+  MessageCircle,
+  BarChart,
   CheckCircle2,
-  History
+  History,
 } from "lucide-react";
 import { marked } from "marked";
-import { ConversationEvaluation, Rating } from '@/types/conversations';
+import { ConversationEvaluation, Rating } from "@/types/conversations";
 
 // Component imports
-import OverallPerformance from '@/components/feedback/OverallPerformance';
-import CompleteEvaluation from '@/components/feedback/CompleteEvaluation';
-import ConversationDisplay from '@/components/feedback/ConversationDisplay';
-import ExchangeEvaluations from '@/components/feedback/ExchangeEvaluations';
-import AdditionalCriteria from '@/components/feedback/AdditionalCriteria';
-import MidEvaluations from '@/components/feedback/MidEvaluations';
+import OverallPerformance from "@/components/feedback/OverallPerformance";
+import CompleteEvaluation from "@/components/feedback/CompleteEvaluation";
+import ConversationDisplay from "@/components/feedback/ConversationDisplay";
+import ExchangeEvaluations from "@/components/feedback/ExchangeEvaluations";
+import AdditionalCriteria from "@/components/feedback/AdditionalCriteria";
+import MidEvaluations from "@/components/feedback/MidEvaluations";
+import { useTests } from "@/hooks/useTests";
 
 const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const { fetchTestById } = useTests();
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
   useEffect(() => {
     // Try to get the session data from sessionStorage
- 
+
     const storedSession = sessionStorage.getItem(`session-${sessionId}`);
-    
+
     if (storedSession) {
       try {
         const parsedSession = JSON.parse(storedSession);
         setSession(parsedSession);
       } catch (error) {
-        console.error('Error parsing session data:', error);
-        navigate('/practice');
+        console.error("Error parsing session data:", error);
+        navigate("/practice");
       }
     } else {
       // If no session data is found, redirect to practice page
-      navigate('/practice');
+      navigate("/practice");
     }
   }, [sessionId, navigate]);
 
@@ -71,8 +78,8 @@ const SessionFeedback: React.FC = () => {
   const getRatingValue = (rating: any): Rating => {
     if (!rating || typeof rating !== "object") return { score: 0, max: 0 };
     return {
-      score: typeof rating.score === 'number' ? rating.score : 0,
-      max: typeof rating.max === 'number' ? rating.max : 0,
+      score: typeof rating.score === "number" ? rating.score : 0,
+      max: typeof rating.max === "number" ? rating.max : 0,
     };
   };
 
@@ -199,30 +206,32 @@ const SessionFeedback: React.FC = () => {
       minute: "2-digit",
     });
   };
-  const { evaluation_data, conversation_data, created_at } = session;
+  const { evaluation_data, conversation_data, created_at, test_id } = session;
 
   // Ensure the data structure is valid
   const validConversationPairs = conversation_data?.pairs || [];
-  const validIndividualEvaluations = evaluation_data?.individual_evaluations || [];
+  const validIndividualEvaluations =
+    evaluation_data?.individual_evaluations || [];
+  const test = fetchTestById(test_id);
 
   return (
     <div className="space-y-6 container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-8">
         <Button
           variant="ghost"
-          onClick={() => navigate('/practice')}
+          onClick={() => navigate("/practice")}
           className="hover:bg-slate-100 hover:text-primary text-sm"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
         <div className="flex items-center gap-4">
-          <p className="text-sm text-slate-500">
-            {formatDate(created_at)}
-          </p>
+          <p className="text-sm text-slate-500">{formatDate(created_at)}</p>
           <Button
             variant="default"
-            onClick={() => navigate(`/test-configurations/${session?.testConfigurationId}`)}
+            onClick={() =>
+              navigate(`/test-configurations/${session?.testConfigurationId}`)
+            }
             className="bg-primary text-white hover:bg-primary-dark text-sm px-6 py-3 rounded-md shadow-md"
           >
             Test Configuration
@@ -232,43 +241,43 @@ const SessionFeedback: React.FC = () => {
 
       <Tabs defaultValue="overall-performance" className="w-full">
         <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg space-x-1">
-          <TabsTrigger 
-            value="overall-performance" 
+          <TabsTrigger
+            value="overall-performance"
             className="flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all"
           >
             <Star className="h-4 w-4" />
             Overall Performance
           </TabsTrigger>
-          <TabsTrigger 
-            value="complete-evaluation" 
+          <TabsTrigger
+            value="complete-evaluation"
             className="flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all"
           >
             <ClipboardList className="h-4 w-4" />
             Complete Evaluation
           </TabsTrigger>
-          <TabsTrigger 
-            value="conversation" 
+          <TabsTrigger
+            value="conversation"
             className="flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all"
           >
             <MessageCircle className="h-4 w-4" />
             Conversation
           </TabsTrigger>
-          <TabsTrigger 
-            value="exchange-evaluations" 
+          <TabsTrigger
+            value="exchange-evaluations"
             className="flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all"
           >
             <BarChart className="h-4 w-4" />
             Exchange Evaluations
           </TabsTrigger>
-          <TabsTrigger 
-            value="additional-criteria" 
+          <TabsTrigger
+            value="additional-criteria"
             className="flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all"
           >
             <CheckCircle2 className="h-4 w-4" />
             Additional Criteria
           </TabsTrigger>
-          <TabsTrigger 
-            value="mid-evaluations" 
+          <TabsTrigger
+            value="mid-evaluations"
             className="flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all"
           >
             <History className="h-4 w-4" />
@@ -277,11 +286,7 @@ const SessionFeedback: React.FC = () => {
         </TabsList>
 
         <AnimatePresence mode="wait">
-          <TabsContent 
-            value="overall-performance" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="overall-performance" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -298,11 +303,7 @@ const SessionFeedback: React.FC = () => {
             </motion.div>
           </TabsContent>
 
-          <TabsContent 
-            value="complete-evaluation" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="complete-evaluation" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -318,11 +319,7 @@ const SessionFeedback: React.FC = () => {
             </motion.div>
           </TabsContent>
 
-          <TabsContent 
-            value="conversation" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="conversation" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -340,11 +337,7 @@ const SessionFeedback: React.FC = () => {
             </motion.div>
           </TabsContent>
 
-          <TabsContent 
-            value="exchange-evaluations" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="exchange-evaluations" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -360,11 +353,7 @@ const SessionFeedback: React.FC = () => {
             </motion.div>
           </TabsContent>
 
-          <TabsContent 
-            value="additional-criteria" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="additional-criteria" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -373,18 +362,16 @@ const SessionFeedback: React.FC = () => {
             >
               <div className="p-1">
                 <AdditionalCriteria
-                  criteriaEvaluation={evaluation_data.additional_criteria_evaluation}
+                  criteriaEvaluation={
+                    evaluation_data.additional_criteria_evaluation
+                  }
                   formatAIGeneratedText={formatAIGeneratedText}
                 />
               </div>
             </motion.div>
           </TabsContent>
 
-          <TabsContent 
-            value="mid-evaluations" 
-            className="mt-6"
-            asChild
-          >
+          <TabsContent value="mid-evaluations" className="mt-6" asChild>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
