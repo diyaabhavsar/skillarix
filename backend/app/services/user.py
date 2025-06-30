@@ -78,7 +78,7 @@ def register(username: str, email: str, password: str, role: str, active: bool) 
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
         "active": active,
-        "last_login": datetime.now(timezone.utc),
+        "last_login": datetime.now(),
         "is_deleted": False,
         "updated_by": None
     }

@@ -609,8 +609,8 @@ def save_conversation(
         "test_name": test_name,
         "prod_name": prod_name,
         "cat_name": cat_name,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
         "is_deleted": False # Add is_deleted field here
     }
     result = conversation_collection.insert_one(conversation_doc)
@@ -637,8 +637,8 @@ def save_transcript_conversation(
         "test_name": test_name,
         "prod_name": prod_name,
         "cat_name": cat_name,
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
         "is_deleted": False # Add is_deleted field here
     }
     result = conversation_collection.insert_one(conversation_doc)
