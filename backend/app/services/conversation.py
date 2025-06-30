@@ -631,7 +631,7 @@ def save_transcript_conversation(
         "product_id": product_id,
         "category_id": category_id,
         "user_id": ObjectId(user_id),
-        "test_config_id_str":ObjectId(test_config_id_str),
+        "test_config_id":test_config_id_str,
         "conversation_data": conversation_data,
         "evaluation_data": evaluation_data if evaluation_data is not None else {},
         "test_name": test_name,
