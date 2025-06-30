@@ -108,7 +108,6 @@ const ProductInfoForm = ({
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-700 underline text-sm break-all"
-              download={productInfo.filename}
             >
               {productInfo.filename}
             </a>

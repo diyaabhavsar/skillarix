@@ -112,7 +112,6 @@ const Products = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-800 hover:underline flex items-center"
-            download={row.file_name}
             title={row.file_name}
           >
             <FileDown />
