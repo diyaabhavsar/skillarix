@@ -1,5 +1,5 @@
 from fastapi import APIRouter,UploadFile, File, Form, Depends, HTTPException
-from ....services.product import read_pdf, create_product_process, list_products_category_wise
+from ....services.product import read_pdf, create_product_process, list_products_category_wise, get_product
 from ....services.auth import verify_bearer_token
 from ....services.test_configuration import convert_objectids_to_strings
 from typing import Optional
@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 product_collection = db["products"]
+test_configurations_collection = db["test_configurations"]
 
 router = APIRouter()
 
@@ -110,6 +111,11 @@ async def update_product(
     Update product fields: name, description, and file (PDF).
     Does NOT update category_id.
     """
+    product = get_product(product_id)
+    test_config = test_configurations_collection.find({"category_id":product["category_id"]})
+    if test_config:
+        return {"message":"Test Configurtion of this product exist"}
+    
     update_data = {}
     if category_id is not None:
         update_data["category_id"] = ObjectId(category_id)
