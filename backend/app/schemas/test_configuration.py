@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 # Add Pydantic models for Test Configuration
@@ -23,6 +23,7 @@ class TestConfigurationCreate(BaseModel):
     additionalCriteria: AdditionalCriteria
     name: str
     category_id: str
+    assessment: Optional[bool] = False
 
 class TestConfiguration(BaseModel):
     id: str = Field(alias="_id")  # Expect string ID for output
@@ -34,3 +35,4 @@ class TestConfiguration(BaseModel):
     created_by: str  # Expect string ID for output
     created_at: datetime
     is_deleted: bool = False  # Add this line
+    assessment: bool

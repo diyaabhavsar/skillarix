@@ -71,6 +71,8 @@ async def get_all_test_configurations(
 @router.put("/{test_config_id}")
 async def update_test_configuration(
     test_config_id: str,
+    product_id: str = Body(None),
+    category_id: str = Body(None),
     name: str = Body(None),
     visitorPersona: dict = Body(None),
     additionalCriteria: dict = Body(None),
@@ -96,6 +98,10 @@ async def update_test_configuration(
         update_data["visitorPersona"] = visitorPersona
     if additionalCriteria is not None:
         update_data["additionalCriteria"] = additionalCriteria
+    if product_id is not None and test_config["assessment"] == False:
+        update_data["product_id"] = product_id
+    if category_id is not None and test_config["assessment"] == False:
+        update_data["category_id"] = category_id
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
