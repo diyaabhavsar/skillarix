@@ -22,11 +22,7 @@ interface TestConfigurationTableProps {
 
 const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
   tests,
-  deleteTest,
   fetchTests,
-  products,
-  fetchAllProducts,
-  testToDelete,
   setTestToDelete,
   handleDelete,
   formatDate,
