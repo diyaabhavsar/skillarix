@@ -17,7 +17,7 @@ export interface ConversationEvaluation {
   category_id: string;
   user_id: string;
   test_name: string;
-  test_id?: string;
+  test_config_id?: string;
   prod_name: string;
   cat_name: string;
   conversation_data: {
