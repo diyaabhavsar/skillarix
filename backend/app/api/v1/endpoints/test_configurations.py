@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Body
 from ....schemas.test_configuration import TestConfigurationCreate, TestConfiguration
 from ....services.test_configuration import save_test_configuration, get_test_configurations_by_product, convert_objectids_to_strings
 from ....services.auth import verify_bearer_token
+from ....services.user import convert_object_ids
 from typing import List
 from bson import ObjectId
 from ....database import db
@@ -142,3 +143,17 @@ async def delete_test_configuration(
         {"$set": {"is_deleted": True}}
     )
     return {"message": "Test configuration soft deleted successfully."}
+
+@router.get("/config/{test_config_id}")
+async def get_test_configuration(
+    test_config_id: str,
+    token = Depends(verify_bearer_token)
+):
+    """
+    Update name, visitorPersona, and additionalCriteria for a test configuration.
+    Only the creator (or admin) can update.
+    """
+    # Fetch the test config
+    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    configs = convert_object_ids(test_config)    
+    return configs
