@@ -16,7 +16,8 @@ def save_test_configuration(config_data: TestConfigurationCreate, token):
         "name": config_data.name,
         "created_by": ObjectId(token["id"]),
         "created_at": datetime.now(),
-        "is_deleted": False  # Add this line
+        "is_deleted": False,  # Add this line
+        "assessment":False
     }
     result = test_configurations_collection.insert_one(test_config)
     return result.inserted_id
