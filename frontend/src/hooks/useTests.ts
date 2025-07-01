@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { api } from "@/utils/api";
 import { Test } from "@/types/testconfig";
 
-
 export const useTests = () => {
   const [tests, setTests] = useState<Test[]>([]);
   const [isLoading, setIsLoading] = useState(false);

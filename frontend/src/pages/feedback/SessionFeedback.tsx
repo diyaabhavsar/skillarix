@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import {
   ChevronLeft,
   Star,
@@ -158,12 +159,19 @@ const SessionFeedback: React.FC = () => {
     return JSON.stringify(inputVal);
   };
 
-  const formatAIGeneratedText = (text: string) =>
-    text ? (
-      <div dangerouslySetInnerHTML={{ __html: marked.parse(text) }} />
-    ) : (
-      ""
+  const formatAIGeneratedText = (text: string) => {
+    if (!text) return "";
+    
+    // Parse markdown to HTML synchronously
+    const htmlContent = marked(text) as string;
+    
+    // Sanitize the HTML to prevent XSS attacks
+    const sanitizedHtml = DOMPurify.sanitize(htmlContent);
+    
+    return (
+      <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
     );
+  };
 
   useEffect(() => {
     const storedSession = sessionStorage.getItem(`session-${sessionId}`);

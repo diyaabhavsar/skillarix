@@ -145,36 +145,40 @@ export const api = {
     file: File,
     subfolder: string
   ): Promise<R> => {
-    const token = api.getToken();
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("subfolder", subfolder);
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (!response.ok)
-      throw new Error((await response.json()).detail || "Upload failed");
-    return response.json();
+    try {
+      const token = api.getToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("subfolder", subfolder);
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   deleteFile: async <R = any>(
     endpoint: string,
     fileUrl: string
   ): Promise<R> => {
-    const token = api.getToken();
-    const formData = new FormData();
-    formData.append("file_url", fileUrl);
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-      credentials: "include",
-    });
-    if (!response.ok)
-      throw new Error((await response.json()).detail || "Delete failed");
-    return response.json();
+    try {
+      const token = api.getToken();
+      const formData = new FormData();
+      formData.append("file_url", fileUrl);
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+        credentials: "include",
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   // Form data submission method
@@ -182,17 +186,17 @@ export const api = {
     endpoint: string,
     formData: FormData
   ): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
-    if (!response.ok)
-      throw new Error(
-        (await response.json()).detail || "Form submission failed"
-      );
-    return response.json();
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   // Add new method for URL-encoded form submissions
@@ -200,18 +204,20 @@ export const api = {
     endpoint: string,
     formData: URLSearchParams
   ): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
-    });
-    if (!response.ok)
-      throw new Error((await response.json()).detail || "API request failed");
-    return response.json();
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   // Caching layer

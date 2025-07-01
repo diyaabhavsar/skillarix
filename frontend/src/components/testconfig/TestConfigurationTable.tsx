@@ -8,11 +8,7 @@ import TestConfigurationActions from "./TestConfigurationActions";
 
 interface TestConfigurationTableProps {
   tests: Test[];
-  deleteTest: (id: string) => Promise<void>;
   fetchTests: () => Promise<void>;
-  products: Product[];
-  fetchAllProducts: () => Promise<void>;
-  testToDelete: string | null;
   setTestToDelete: React.Dispatch<React.SetStateAction<string | null>>;
   handleDelete: () => Promise<void>;
   formatDate: (dateString: string) => string;
