@@ -22,9 +22,9 @@ async def login_for_access_token(username: str = Form(...), password: str = Form
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    # Token will not expire, so do not pass expires_delta
     access_token = create_access_token(
-        data={"username":user.username,"email": user.email, "id":user.id, "role":user.role}, expires_delta=access_token_expires
+        data={"username":user.username,"email": user.email, "id":user.id, "role":user.role}
     )
     return {
         "access_token": access_token,

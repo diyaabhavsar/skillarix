@@ -10,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { UserRole } from "@/types/session";
 import { authService } from "@/services/authService";
-import { sessionService } from "@/services/sessionService";
 import { env } from "@/config/env";
 
 // Define types for our auth context
@@ -85,20 +84,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const storedUser = localStorage.getItem("user");
         const storedToken = localStorage.getItem(env.TOKEN_KEY);
-        
         if (!storedUser || !storedToken) {
-          // No stored credentials, clear everything to be safe
           localStorage.removeItem("user");
           localStorage.removeItem(env.TOKEN_KEY);
           setUser(null);
           setToken(null);
           return;
         }
-
         try {
           setUser(JSON.parse(storedUser));
           setToken(storedToken);
-          sessionService.initSession(); // Initialize session monitoring
         } catch (parseError) {
           console.error("Error parsing stored user:", parseError);
           localStorage.removeItem("user");
@@ -108,7 +103,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } catch (error) {
         console.error("Error checking auth status:", error);
-        // Clear everything on error
         localStorage.removeItem("user");
         localStorage.removeItem(env.TOKEN_KEY);
         setUser(null);
@@ -117,9 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
       }
     };
-
     checkAuthStatus();
-    return () => sessionService.cleanup();
   }, []);
 
   const login = useCallback(
@@ -128,18 +120,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(true);
         const response = await authService.login(email, password);
         setToken(response.access_token);
-        // Ensure user data has all required fields
         setUser({
           ...response.user,
-          username: response.user.name, // Use name as username if not provided
+          username: response.user.name,
         });
-        sessionService.setSession({
-          token: response.access_token,
-          user: {
-            ...response.user,
-            username: response.user.name, // Use name as username if not provided
-          },
-        });
+        // Store in localStorage
+        localStorage.setItem(env.TOKEN_KEY, response.access_token);
+        localStorage.setItem("user", JSON.stringify({
+          ...response.user,
+          username: response.user.name,
+        }));
         navigate("/dashboard");
       } catch (error: any) {
         console.error("Login failed:", error);
@@ -155,7 +145,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = useCallback(() => {
     setUser(null);
     setToken(null);
-    sessionService.clearSession();
+    localStorage.removeItem("user");
+    localStorage.removeItem(env.TOKEN_KEY);
     navigate("/auth");
   }, [navigate]);
 
