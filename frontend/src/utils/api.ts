@@ -19,10 +19,18 @@ class ApiError extends Error {
 }
 
 const handleApiError = (error: unknown) => {
+  // Handle session expiration (401/403 status codes)
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    localStorage.clear();
+    window.location.href = '/auth';
+    throw new Error('Session expired. Please login again.');
+  }
+  
   if (error instanceof TypeError && error.message === "Failed to fetch") {
     toast.error("Network error. Please check your connection.");
     throw error;
   }
+  
   const message =
     (error as ApiError).detail ||
     (error as Error).message ||
@@ -65,54 +73,70 @@ export const api = {
   },
 
   post: async <T = any, R = any>(endpoint: string, data: T): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    return api.handleResponse<R>(response);
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   put: async <T = any, R = any>(endpoint: string, data: T): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    return api.handleResponse<R>(response);
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   patch: async <T = any, R = any>(endpoint: string, data: T): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    return api.handleResponse<R>(response);
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   delete: async <R = any>(endpoint: string): Promise<R> => {
-    const token = api.getToken();
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-    return api.handleResponse<R>(response);
+    try {
+      const token = api.getToken();
+      const response = await fetch(`${BASE_URL}${endpoint}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return api.handleResponse<R>(response);
+    } catch (error) {
+      return handleApiError(error) as Promise<R>;
+    }
   },
 
   // File upload method

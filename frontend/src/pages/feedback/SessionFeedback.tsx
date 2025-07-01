@@ -243,6 +243,19 @@ const SessionFeedback: React.FC = () => {
     },
   ].filter(tab => tab.hasData);
 
+  // Color class mapping to avoid dynamic class generation
+  const getTabClasses = (color: string) => {
+    const colorClasses = {
+      violet: "flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all",
+      blue: "flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all",
+      green: "flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all",
+      orange: "flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all",
+      pink: "flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all",
+      teal: "flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all",
+    };
+    return colorClasses[color as keyof typeof colorClasses] || colorClasses.violet;
+  };
+
   // Get the first available tab as default
   const defaultTab = availableTabs[0]?.value || "overall-performance";
 
@@ -287,7 +300,7 @@ const SessionFeedback: React.FC = () => {
             <TabsTrigger
               key={value}
               value={value}
-              className={`flex items-center gap-2 text-${color}-600 hover:text-${color}-700 data-[state=active]:bg-${color}-50 data-[state=active]:text-${color}-900 data-[state=active]:font-medium transition-all`}
+              className={getTabClasses(color)}
             >
               <Icon className="h-4 w-4" /> {label}
             </TabsTrigger>
