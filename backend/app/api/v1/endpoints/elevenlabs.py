@@ -250,6 +250,7 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
             prod_name=prod_name,
             cat_name=cat_name
         )
+        test_configurations_collection.update_one({"assessment":True})
         conversation_db_id = str(saved_conversation_result)
         print(f"Conversation saved with ID: {conversation_db_id}")
         
