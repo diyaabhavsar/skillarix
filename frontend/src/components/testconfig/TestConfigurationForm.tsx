@@ -45,7 +45,6 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
     additionalCriteria:
       initialData?.additionalCriteria || defaultAdditionalCriteria,
   });
-
   const {
     products,
     categories,
@@ -153,6 +152,7 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
       <div className="grid gap-4">
         <BasicInformationSection
           name={formData.name}
+          isAssessmentPresent={initialData?.assessment || false}
           categoryId={formData.visitorPersona.category}
           productId={formData.product_id}
           categories={categories}

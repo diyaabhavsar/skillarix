@@ -59,6 +59,73 @@ const Products = () => {
     });
   };
 
+  // Actions dropdown component to handle local state for each row
+  const ProductActionsDropdown = ({ row }: { row: any }) => {
+    const [open, setOpen] = React.useState(false);
+    const [sheetType, setSheetType] = React.useState<null | 'view' | 'edit'>(null);
+    const closeMenu = () => setOpen(false);
+    const closeSheet = () => setSheetType(null);
+    return (
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <Sheet open={sheetType === 'view'} onOpenChange={(val) => { if (!val) { closeSheet(); closeMenu(); } }}>
+            <SheetTrigger asChild>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSheetType('view'); }}>
+                <Eye className="h-4 w-4 mr-2" />
+                View
+              </DropdownMenuItem>
+            </SheetTrigger>
+            <ProductDetails
+              data={{
+                name: row.name,
+                description: row.description || "",
+                categoryId: row.category_id,
+                categoryName:
+                  categories.find((cat) => cat.id === row.category_id)
+                    ?.name || "Unknown",
+                fileUrl: row.file_url,
+                fileName: row.file_name,
+                createdAt: row.created_at,
+              }}
+            />
+          </Sheet>
+          <Sheet open={sheetType === 'edit'} onOpenChange={(val) => { if (!val) { closeSheet(); closeMenu(); } }}>
+            <SheetTrigger asChild>
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSheetType('edit'); }}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+            </SheetTrigger>
+            <ProductForm
+              onSuccess={() => {
+                fetchProducts();
+                console.log("done")
+                toast.success("Product updated successfully");
+              }}
+              initialData={{
+                productId: row._id,
+                productName: row.name,
+                description: row.description || "",
+                categoryId: row.category_id,
+                filename: row.file_name || "",
+                fileUrl: row.file_url || "",
+              }}
+            />
+          </Sheet>
+          <DropdownMenuItem onClick={() => { setProductToDelete(row._id); closeMenu(); }}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   const columns: ShadcnColumn<any>[] = [
     {
       key: "name",
@@ -131,68 +198,8 @@ const Products = () => {
     {
       key: "actions",
       header: "Actions",
-      className: "py-3 text-right w-[150px] text-slate-700",
-      render: (_, row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <Sheet>
-              <SheetTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </DropdownMenuItem>
-              </SheetTrigger>
-              <ProductDetails
-                data={{
-                  name: row.name,
-                  description: row.description || "",
-                  categoryId: row.category_id,
-                  categoryName:
-                    categories.find((cat) => cat.id === row.category_id)
-                      ?.name || "Unknown",
-                  fileUrl: row.file_url,
-                  fileName: row.file_name,
-                  createdAt: row.created_at,
-                }}
-              />
-            </Sheet>
-
-            <Sheet>
-              <SheetTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-              </SheetTrigger>
-
-              <ProductForm
-                onSuccess={() => {
-                  fetchProducts();
-                  toast.success("Product updated successfully");
-                }}
-                initialData={{
-                  productId: row._id,
-                  productName: row.name,
-                  description: row.description || "",
-                  categoryId: row.category_id,
-                  filename: row.file_name || "",
-                  fileUrl: row.file_url || "",
-                }}
-              />
-            </Sheet>
-
-            <DropdownMenuItem onClick={() => setProductToDelete(row._id)}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      className: "py-3 text-center text-slate-700",
+      render: (_, row) => <ProductActionsDropdown row={row} />,
     },
   ];
 

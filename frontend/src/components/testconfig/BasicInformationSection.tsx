@@ -20,6 +20,7 @@ interface BasicInformationProps {
   onCategoryChange: (value: string) => void;
   onProductChange: (value: string) => void;
   isLoading: boolean;
+  isAssessmentPresent: boolean;
 }
 
 export const BasicInformationSection: React.FC<BasicInformationProps> = ({
@@ -32,6 +33,7 @@ export const BasicInformationSection: React.FC<BasicInformationProps> = ({
   onCategoryChange,
   onProductChange,
   isLoading,
+  isAssessmentPresent,
 }) => {
   return (
     <div className="grid gap-4">
@@ -47,11 +49,12 @@ export const BasicInformationSection: React.FC<BasicInformationProps> = ({
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="category">Category</Label>
+        <Label htmlFor="category">Select Category</Label>
         <Select
           value={categoryId}
           onValueChange={onCategoryChange}
-          disabled={isLoading}
+          disabled={isLoading || isAssessmentPresent}
+          required
         >
           <SelectTrigger id="category">
             <SelectValue placeholder="Select category" />
@@ -70,7 +73,8 @@ export const BasicInformationSection: React.FC<BasicInformationProps> = ({
         <Select
           value={productId}
           onValueChange={onProductChange}
-          disabled={isLoading || !categoryId}
+          disabled={isLoading || !categoryId || isAssessmentPresent}
+          required
         >
           <SelectTrigger id="product">
             <SelectValue placeholder="Select a product" />

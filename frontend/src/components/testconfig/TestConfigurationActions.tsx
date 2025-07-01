@@ -49,17 +49,21 @@ const TestConfigurationActions: React.FC<TestConfigurationActionsProps> = ({
   formatValue,
   getProductName,
 }) => {
+  const [open, setOpen] = React.useState(false);
+  const [sheetType, setSheetType] = React.useState<null | 'view' | 'edit'>(null);
+  const closeMenu = () => setOpen(false);
+  const closeSheet = () => setSheetType(null);
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <Sheet>
+        <Sheet open={sheetType === 'view'} onOpenChange={(val) => { if (!val) { closeSheet(); closeMenu(); } }}>
           <SheetTrigger asChild>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSheetType('view'); }}>
               <Eye className="mr-2 h-4 w-4" />
               View
             </DropdownMenuItem>
@@ -71,9 +75,9 @@ const TestConfigurationActions: React.FC<TestConfigurationActionsProps> = ({
             getProductName={getProductName}
           />
         </Sheet>
-        <Sheet>
+        <Sheet open={sheetType === 'edit'} onOpenChange={(val) => { if (!val) { closeSheet(); closeMenu(); } }}>
           <SheetTrigger asChild>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSheetType('edit'); }}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
@@ -94,6 +98,7 @@ const TestConfigurationActions: React.FC<TestConfigurationActionsProps> = ({
                   product_id: test.product_id,
                   visitorPersona: test.visitorPersona,
                   additionalCriteria: test.additionalCriteria,
+                  assessment: test.assessment
                 }}
                 onSuccess={() => {
                   fetchTests();
@@ -106,7 +111,7 @@ const TestConfigurationActions: React.FC<TestConfigurationActionsProps> = ({
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <DropdownMenuItem
-              onSelect={(e) => e.preventDefault()}
+              onSelect={(e) => { e.preventDefault(); closeMenu(); }}
               onClick={() => setTestToDelete(test._id)}
             >
               <Trash2 className="mr-2 h-4 w-4" />

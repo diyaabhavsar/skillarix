@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,6 +17,7 @@ export interface ProductInfoFormProps {
     description: string;
     filename: string;
     fileUrl: string;
+    category_id: string
   };
   onProductInfoChange: (
     field: "productName" | "description",
@@ -40,6 +41,13 @@ const ProductInfoForm = ({
   onFileChange, // <-- Use this prop
   isEditingMode = false, // Default to false if not provided
 }: ProductInfoFormProps) => {
+
+  useEffect(()=>{
+    if(productInfo.category_id){
+      onCategoryChange(productInfo.category_id)
+    }
+  }, [])
+  
   return (
     <div className="grid gap-4">
       <div className="text-lg font-medium">Product Information</div>
