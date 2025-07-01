@@ -1,3 +1,5 @@
+import { Sheet, SheetTrigger } from "@/components/ui/sheet";
+import TestConfigurationDetails from "@/components/testconfig/TestConfigurationDetails";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,12 +26,26 @@ import ExchangeEvaluations from "@/components/feedback/ExchangeEvaluations";
 import AdditionalCriteria from "@/components/feedback/AdditionalCriteria";
 import MidEvaluations from "@/components/feedback/MidEvaluations";
 import { useTests } from "@/hooks/useTests";
+import { useProducts } from "@/hooks/useProducts";
 
 const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { fetchTestById } = useTests();
+  
+    const { products } = useProducts();
+  console.log({fetchTestById})
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
+
+  const formatValue = (value: string): string => {
+    if (!value) return "-";
+    // First replace underscores with spaces, then handle hyphens
+    return value
+      .split(/[-_]/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   useEffect(() => {
     // Try to get the session data from sessionStorage
 
@@ -63,6 +79,11 @@ const SessionFeedback: React.FC = () => {
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
+  };
+
+    const getProductName = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.name || "Unknown Product";
   };
 
   // Helper functions to safely get values
@@ -204,6 +225,8 @@ const SessionFeedback: React.FC = () => {
   const validIndividualEvaluations =
     evaluation_data?.individual_evaluations || [];
   const test = fetchTestById(test_id);
+console.log({test})
+  // Defensive: don't render TestConfigurationDetails if test is undefined
 
   return (
     <div className="space-y-6 container mx-auto px-4 py-6">
@@ -218,15 +241,27 @@ const SessionFeedback: React.FC = () => {
         </Button>
         <div className="flex items-center gap-4">
           <p className="text-sm text-slate-500">{formatDate(created_at)}</p>
-          <Button
-            variant="default"
-            onClick={() =>
-              navigate(`/test-configurations/${session?.testConfigurationId}`)
-            }
-            className="bg-primary text-white hover:bg-primary-dark text-sm px-6 py-3 rounded-md shadow-md"
-          >
-            Test Configuration
-          </Button>
+          {/* Test Configuration Sheet Button */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button
+                variant="default"
+                className="bg-primary text-white hover:bg-primary-dark text-sm px-6 py-3 rounded-md shadow-md"
+              >
+                Test Configuration
+              </Button>
+            </SheetTrigger>
+            {test ? (
+              <TestConfigurationDetails
+                test={test}
+                formatDate={formatDate}
+                formatValue={formatValue}
+                getProductName={getProductName}
+              />
+            ) : (
+              <div className="p-6 text-center text-muted-foreground">Test configuration not found.</div>
+            )}
+          </Sheet>
         </div>
       </div>
 
