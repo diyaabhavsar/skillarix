@@ -4,14 +4,14 @@ import { usePracticeSession } from "@/hooks/usePracticeSession";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 const SessionSetupPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [isAttemptingToLeave, setIsAttemptingToLeave] = useState(false);
-  
+
   const {
     categories,
     products,
@@ -30,42 +30,51 @@ const SessionSetupPage = () => {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = '';
+      e.returnValue = "";
     };
 
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
       setIsAttemptingToLeave(true);
-      if (window.confirm("Are you sure you want to leave? Any progress will be lost.")) {
-        navigate('/practice');
+      if (
+        window.confirm(
+          "Are you sure you want to leave? Any progress will be lost."
+        )
+      ) {
+        navigate("/practice");
       } else {
-        window.history.pushState(null, '', location.pathname);
+        window.history.pushState(null, "", location.pathname);
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
     };
   }, [navigate, location.pathname]);
 
   const handleStartSession = () => {
     if (!isSelectionValid || isSelectionLoading) {
-      setSessionError("Please ensure all selections are valid before starting.");
+      setSessionError(
+        "Please ensure all selections are valid before starting."
+      );
       return;
     }
 
     try {
       // Save session details in localStorage for chat page
-      localStorage.setItem('currentSession', JSON.stringify({
-        categoryId: selectedCategoryId,
-        productId: selectedProductId,
-        testConfigId: selectedTestConfigId,
-        timestamp: new Date().toISOString()
-      }));
+      localStorage.setItem(
+        "currentSession",
+        JSON.stringify({
+          categoryId: selectedCategoryId,
+          productId: selectedProductId,
+          testConfigId: selectedTestConfigId,
+          timestamp: new Date().toISOString(),
+        })
+      );
 
       // Navigate to chat page
       navigate("/session/chat");
@@ -91,7 +100,9 @@ const SessionSetupPage = () => {
               exit={{ scale: 0.95 }}
               className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4"
             >
-              <h2 className="text-xl font-semibold mb-4">Are you sure you want to leave?</h2>
+              <h2 className="text-xl font-semibold mb-4">
+                Are you sure you want to leave?
+              </h2>
               <p className="text-muted-foreground mb-6">
                 Your assessment setup progress will be lost.
               </p>
@@ -103,7 +114,7 @@ const SessionSetupPage = () => {
                   Stay
                 </button>
                 <button
-                  onClick={() => navigate('/practice')}
+                  onClick={() => navigate("/practice")}
                   className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
                 >
                   Leave
@@ -114,15 +125,28 @@ const SessionSetupPage = () => {
         )}
       </AnimatePresence>
 
-      <main className={cn(
-        "flex-1 container max-w-6xl mx-auto px-4 py-8",
-        "relative z-10"
-      )}>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Setup Assessment Session</h1>
-          <p className="text-muted-foreground">
-            Select category, product, and scenario to begin your assessment
-          </p>
+      <main
+        className={cn(
+          "flex-1 container max-w-6xl mx-auto px-4 py-8",
+          "relative z-10"
+        )}
+      >
+        <div className="mb-8 flex items-center gap-4 relative">
+          <Button
+            onClick={() => navigate(-1)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center px-6 py-2 text-white bg-[#7c3aed] hover:bg-[#6d28d9] font-semibold rounded-lg shadow"
+            style={{ minWidth: 80 }}
+          >
+            Back
+          </Button>
+          <div className="flex-1 flex flex-col items-center">
+            <h1 className="text-3xl font-bold text-center">
+              Setup Assessment Session
+            </h1>
+            <p className="text-muted-foreground text-center">
+              Select category, product, and scenario to begin your assessment
+            </p>
+          </div>
         </div>
 
         <SessionSetupForm

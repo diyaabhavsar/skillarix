@@ -4,9 +4,7 @@ import { useTests } from "@/hooks/useTests";
 import { useProducts } from "@/hooks/useProducts";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Plus,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -101,11 +99,7 @@ const TestSetup = () => {
 
         <TestConfigurationTable
           tests={tests}
-          deleteTest={deleteTest}
           fetchTests={fetchTests}
-          products={products}
-          fetchAllProducts={fetchAllProducts}
-          testToDelete={testToDelete}
           setTestToDelete={setTestToDelete}
           handleDelete={handleDelete}
           formatDate={formatDate}

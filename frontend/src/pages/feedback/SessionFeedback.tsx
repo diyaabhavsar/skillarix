@@ -1,86 +1,103 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { 
-  ChevronLeft, 
-  Star, 
-  ClipboardList, 
-  MessageCircle, 
-  BarChart, 
-  CheckCircle2,
-  History
-} from "lucide-react";
 import { marked } from "marked";
-import { ConversationEvaluation, Rating } from '@/types/conversations';
+import DOMPurify from "dompurify";
+import {
+  ChevronLeft,
+  Star,
+  ClipboardList,
+  MessageCircle,
+  BarChart,
+  CheckCircle2,
+  History,
+} from "lucide-react";
 
-// Component imports
-import OverallPerformance from '@/components/feedback/OverallPerformance';
-import CompleteEvaluation from '@/components/feedback/CompleteEvaluation';
-import ConversationDisplay from '@/components/feedback/ConversationDisplay';
-import ExchangeEvaluations from '@/components/feedback/ExchangeEvaluations';
-import AdditionalCriteria from '@/components/feedback/AdditionalCriteria';
-import MidEvaluations from '@/components/feedback/MidEvaluations';
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetTrigger } from "@/components/ui/sheet";
+
+// App Components
+import TestConfigurationDetails from "@/components/testconfig/TestConfigurationDetails";
+import OverallPerformance from "@/components/feedback/OverallPerformance";
+import CompleteEvaluation from "@/components/feedback/CompleteEvaluation";
+import ConversationDisplay from "@/components/feedback/ConversationDisplay";
+import ExchangeEvaluations from "@/components/feedback/ExchangeEvaluations";
+import AdditionalCriteria from "@/components/feedback/AdditionalCriteria";
+import MidEvaluations from "@/components/feedback/MidEvaluations";
+
+// Hooks & Types
+import { useTests } from "@/hooks/useTests";
+import { useProducts } from "@/hooks/useProducts";
+import { ConversationEvaluation, Rating } from "@/types/conversations";
 
 const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
+  const { getTestById } = useTests();
+  const { products } = useProducts();
+
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
-  useEffect(() => {
-    // Try to get the session data from sessionStorage
- 
-    const storedSession = sessionStorage.getItem(`session-${sessionId}`);
-    
-    if (storedSession) {
-      try {
-        const parsedSession = JSON.parse(storedSession);
-        setSession(parsedSession);
-      } catch (error) {
-        console.error('Error parsing session data:', error);
-        navigate('/practice');
-      }
-    } else {
-      // If no session data is found, redirect to practice page
-      navigate('/practice');
-    }
-  }, [sessionId, navigate]);
+  const [test, setTest] = useState<any>(null);
 
-  if (!session) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const formatValue = (value: string): string =>
+    value
+      ? value
+          .split(/[-_]/)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ")
+      : "-";
 
-  // Helper function to format rating keys for display
-  const formatRatingKey = (key: string) => {
-    return key
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatRatingKey = (key: string) =>
+    key
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
-  };
 
-  // Helper functions to safely get values
-  const getRatingValue = (rating: any): Rating => {
-    if (!rating || typeof rating !== "object") return { score: 0, max: 0 };
-    return {
-      score: typeof rating.score === 'number' ? rating.score : 0,
-      max: typeof rating.max === 'number' ? rating.max : 0,
-    };
+  const getProductName = (productId: string) =>
+    products.find((p) => p._id === productId)?.name || "Unknown Product";
+
+  const getRatingValue = (rating: any): Rating => ({
+    score: rating?.score ?? 0,
+    max: rating?.max ?? 0,
+  });
+
+  const renderRating = (rating: any) => {
+    const { score, max } = getRatingValue(rating);
+    const percentage = max > 0 ? (score / max) * 100 : 0;
+
+    return (
+      <div className="space-y-0.5 max-w-[200px] ml-auto">
+        <div className="flex justify-end items-center text-xs">
+          <span className="font-medium text-slate-600">
+            {score}/{max}
+          </span>
+        </div>
+        <div className="relative h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="absolute left-0 top-0 h-full bg-blue-400/70 rounded-full transition-all"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+      </div>
+    );
   };
 
   const formatEvaluationValue = (value: any) => {
     if (!value) return "";
     if (typeof value === "string") return value;
-    if (typeof value === "object" && !Array.isArray(value)) {
-      // Render as vertical table
+    if (typeof value === "object") {
       return (
         <div className="border rounded bg-slate-50 p-3 my-2">
           <table className="w-full text-sm">
@@ -110,295 +127,295 @@ const SessionFeedback: React.FC = () => {
       try {
         inputVal = JSON.parse(value);
       } catch {
-        return value; // Not a valid JSON string, return as-is
+        return value;
       }
     }
-
-    if (typeof inputVal === "string") return inputVal;
-
-    if (typeof inputVal === "object" && !Array.isArray(inputVal)) {
+    if (typeof inputVal === "object") {
       return (
         <div className="border rounded bg-slate-50 p-3 my-2">
           <table className="w-full text-sm">
             <tbody>
-              {Object.entries(inputVal).map(([k, v]) => {
-                let displayValue: React.ReactNode;
-
-                if (
-                  typeof v === "string" ||
-                  typeof v === "number" ||
-                  typeof v === "boolean"
-                ) {
-                  displayValue = v.toString();
-                } else if (typeof v === "object") {
-                  try {
-                    displayValue = (
+              {Object.entries(inputVal).map(([k, v]) => (
+                <tr key={k}>
+                  <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
+                    {k.replace(/_/g, " ")}:
+                  </td>
+                  <td className="py-1 text-slate-600">
+                    {typeof v === "object" ? (
                       <pre className="whitespace-pre-wrap">
                         {JSON.stringify(v, null, 2)}
                       </pre>
-                    );
-                  } catch {
-                    displayValue = "Unserializable object";
-                  }
-                } else {
-                  displayValue = String(v);
-                }
-
-                return (
-                  <tr key={k}>
-                    <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
-                      {k.replace(/_/g, " ")}:
-                    </td>
-                    <td className="py-1 text-slate-600">{displayValue}</td>
-                  </tr>
-                );
-              })}
+                    ) : (
+                      v.toString()
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       );
     }
-
-    return JSON.stringify(inputVal, null, 2);
+    return JSON.stringify(inputVal);
   };
 
-  const formatAIGeneratedText = (text) => {
+  const formatAIGeneratedText = (text: string) => {
     if (!text) return "";
-    const cleanHTML = marked.parse(text); // Converts Markdown to HTML
-    return <div dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
-  };
-
-  // Render rating as a progress bar with score and max
-  const renderRating = (rating: any) => {
-    const { score, max } = getRatingValue(rating);
-    const percentage = max > 0 ? (score / max) * 100 : 0;
-
+    
+    // Parse markdown to HTML synchronously
+    const htmlContent = marked(text) as string;
+    
+    // Sanitize the HTML to prevent XSS attacks
+    const sanitizedHtml = DOMPurify.sanitize(htmlContent);
+    
     return (
-      <div className="space-y-0.5 max-w-[200px] ml-auto">
-        <div className="flex justify-end items-center text-xs">
-          <span className="font-medium text-slate-600">
-            {score}/{max}
-          </span>
-        </div>
-        <div className="relative h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-          <div
-            className="absolute left-0 top-0 h-full bg-blue-400/70 rounded-full transition-all"
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-      </div>
+      <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
     );
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-  const { evaluation_data, conversation_data, created_at } = session;
+  useEffect(() => {
+    const storedSession = sessionStorage.getItem(`session-${sessionId}`);
+    if (storedSession) {
+      try {
+        setSession(JSON.parse(storedSession));
+      } catch {
+        navigate("/practice");
+      }
+    } else {
+      navigate("/practice");
+    }
+  }, [sessionId, navigate]);
 
-  // Ensure the data structure is valid
+  useEffect(() => {
+    if (session?.test_config_id) {
+      getTestById(session.test_config_id).then(setTest).catch(console.error);
+    }
+  }, [session?.test_config_id]);
+
+  if (!session) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const { evaluation_data, conversation_data, created_at } = session;
   const validConversationPairs = conversation_data?.pairs || [];
-  const validIndividualEvaluations = evaluation_data?.individual_evaluations || [];
+  const validIndividualEvaluations =
+    evaluation_data?.individual_evaluations || [];
+
+  // Define available tabs based on data
+  const availableTabs = [
+    {
+      value: "overall-performance",
+      label: "Overall Performance",
+      icon: Star,
+      color: "violet",
+      hasData: !!evaluation_data?.complete_rating,
+    },
+    {
+      value: "complete-evaluation",
+      label: "Complete Evaluation",
+      icon: ClipboardList,
+      color: "blue",
+      hasData: !!evaluation_data?.complete_evaluation,
+    },
+    {
+      value: "conversation",
+      label: "Conversation",
+      icon: MessageCircle,
+      color: "green",
+      hasData: validConversationPairs.length > 0,
+    },
+    {
+      value: "exchange-evaluations",
+      label: "Exchange Evaluations",
+      icon: BarChart,
+      color: "orange",
+      hasData: validIndividualEvaluations.length > 0,
+    },
+    {
+      value: "additional-criteria",
+      label: "Additional Criteria",
+      icon: CheckCircle2,
+      color: "pink",
+      hasData: !!evaluation_data?.additional_criteria_evaluation,
+    },
+    {
+      value: "mid-evaluations",
+      label: "Mid Evaluations",
+      icon: History,
+      color: "teal",
+      hasData: evaluation_data?.mid_evaluations?.length > 0,
+    },
+  ].filter(tab => tab.hasData);
+
+  // Color class mapping to avoid dynamic class generation
+  const getTabClasses = (color: string) => {
+    const colorClasses = {
+      violet: "flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all",
+      blue: "flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all",
+      green: "flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all",
+      orange: "flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all",
+      pink: "flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all",
+      teal: "flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all",
+    };
+    return colorClasses[color as keyof typeof colorClasses] || colorClasses.violet;
+  };
+
+  // Get the first available tab as default
+  const defaultTab = availableTabs[0]?.value || "overall-performance";
 
   return (
     <div className="space-y-6 container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-8">
         <Button
           variant="ghost"
-          onClick={() => navigate('/practice')}
+          onClick={() => navigate("/practice")}
           className="hover:bg-slate-100 hover:text-primary text-sm"
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
         <div className="flex items-center gap-4">
-          <p className="text-sm text-slate-500">
-            {formatDate(created_at)}
-          </p>
-          <Button
-            variant="default"
-            onClick={() => navigate(`/test-configurations/${session?.testConfigurationId}`)}
-            className="bg-primary text-white hover:bg-primary-dark text-sm px-6 py-3 rounded-md shadow-md"
-          >
-            Test Configuration
-          </Button>
+          <p className="text-sm text-slate-500">{formatDate(created_at)}</p>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button className="bg-primary text-white text-sm px-6 py-3 rounded-md shadow-md">
+                Test Configuration
+              </Button>
+            </SheetTrigger>
+            {test && test._id ? (
+              <TestConfigurationDetails
+                test={test}
+                formatDate={formatDate}
+                formatValue={formatValue}
+                getProductName={getProductName}
+              />
+            ) : (
+              <div className="p-6 text-center text-muted-foreground">
+                Test configuration not found.
+              </div>
+            )}
+          </Sheet>
         </div>
       </div>
 
-      <Tabs defaultValue="overall-performance" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg space-x-1">
-          <TabsTrigger 
-            value="overall-performance" 
-            className="flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all"
-          >
-            <Star className="h-4 w-4" />
-            Overall Performance
-          </TabsTrigger>
-          <TabsTrigger 
-            value="complete-evaluation" 
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all"
-          >
-            <ClipboardList className="h-4 w-4" />
-            Complete Evaluation
-          </TabsTrigger>
-          <TabsTrigger 
-            value="conversation" 
-            className="flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Conversation
-          </TabsTrigger>
-          <TabsTrigger 
-            value="exchange-evaluations" 
-            className="flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all"
-          >
-            <BarChart className="h-4 w-4" />
-            Exchange Evaluations
-          </TabsTrigger>
-          <TabsTrigger 
-            value="additional-criteria" 
-            className="flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Additional Criteria
-          </TabsTrigger>
-          <TabsTrigger 
-            value="mid-evaluations" 
-            className="flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all"
-          >
-            <History className="h-4 w-4" />
-            Mid Evaluations
-          </TabsTrigger>
+          {availableTabs.map(({ value, label, icon: Icon, color }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className={getTabClasses(color)}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <AnimatePresence mode="wait">
-          <TabsContent 
-            value="overall-performance" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "overall-performance") && (
+            <TabsContent value="overall-performance" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <OverallPerformance
                   completeRating={evaluation_data.complete_rating}
                   formatRatingKey={formatRatingKey}
                   renderRating={renderRating}
                 />
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
 
-          <TabsContent 
-            value="complete-evaluation" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "complete-evaluation") && (
+            <TabsContent value="complete-evaluation" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <CompleteEvaluation
                   completeEvaluation={evaluation_data.complete_evaluation}
                   formatEvaluationValue={formatEvaluationValue}
                 />
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
 
-          <TabsContent 
-            value="conversation" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "conversation") && (
+            <TabsContent value="conversation" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <ScrollArea className="h-[600px] pr-4">
                   <ConversationDisplay
                     conversationPairs={validConversationPairs}
                     individualEvaluations={validIndividualEvaluations}
                   />
                 </ScrollArea>
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
 
-          <TabsContent 
-            value="exchange-evaluations" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "exchange-evaluations") && (
+            <TabsContent value="exchange-evaluations" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <ExchangeEvaluations
                   evaluations={evaluation_data.individual_evaluations}
                   formatEvaluationData={formatEvaluationData}
                 />
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
 
-          <TabsContent 
-            value="additional-criteria" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "additional-criteria") && (
+            <TabsContent value="additional-criteria" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <AdditionalCriteria
-                  criteriaEvaluation={evaluation_data.additional_criteria_evaluation}
+                  criteriaEvaluation={
+                    evaluation_data.additional_criteria_evaluation
+                  }
                   formatAIGeneratedText={formatAIGeneratedText}
                 />
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
 
-          <TabsContent 
-            value="mid-evaluations" 
-            className="mt-6"
-            asChild
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className="p-1">
+          {availableTabs.find(tab => tab.value === "mid-evaluations") && (
+            <TabsContent value="mid-evaluations" className="mt-6" asChild>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
                 <MidEvaluations
                   evaluations={evaluation_data.mid_evaluations}
                   formatAIGeneratedText={formatAIGeneratedText}
                 />
-              </div>
-            </motion.div>
-          </TabsContent>
+              </motion.div>
+            </TabsContent>
+          )}
         </AnimatePresence>
       </Tabs>
     </div>

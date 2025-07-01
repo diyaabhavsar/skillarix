@@ -36,7 +36,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register: registerUser, isLoading, loginWithDemo } = useAuth();
+  const { register: registerUser, isLoading } = useAuth();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -57,13 +57,7 @@ const RegisterForm = () => {
     }
   };
 
-  const handleDemoLogin = async (role: UserRole = "employee") => {
-    try {
-      await loginWithDemo(role);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+
 
   const passwordStrength = (password: string): { score: number; text: string } => {
     if (!password) return { score: 0, text: "Very Weak" };
@@ -283,40 +277,7 @@ const RegisterForm = () => {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        <div className="relative w-full">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or try the demo
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 w-full">
-          <Button 
-            variant="outline" 
-            type="button" 
-            className="w-full"
-            onClick={() => handleDemoLogin("employee")}
-            disabled={isLoading}
-          >
-            <UserRound className="mr-2 h-4 w-4" />
-            Demo Employee
-          </Button>
-          <Button 
-            variant="outline" 
-            type="button" 
-            className="w-full bg-primary/10 hover:bg-primary/20"
-            onClick={() => handleDemoLogin("admin")}
-            disabled={isLoading}
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Demo Admin
-          </Button>
-        </div>
-      </CardFooter>
+      {/* No demo credentials UI */}
     </Card>
   );
 };

@@ -9,6 +9,8 @@ export const useTests = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { token } = useAuth();
 
+
+  // Fetch all test configurations
   const fetchTests = async () => {
     if (!token) return;
     setIsLoading(true);
@@ -23,6 +25,8 @@ export const useTests = () => {
     }
   };
 
+
+  // Create a new test configuration
   const createTest = async (formData: any) => {
     if (!token) throw new Error("Not authenticated");
     try {
@@ -36,6 +40,8 @@ export const useTests = () => {
     }
   };
 
+
+  // Update a test configuration
   const updateTest = async (id: string, formData: any) => {
     if (!token) throw new Error("Not authenticated");
     try {
@@ -54,6 +60,8 @@ export const useTests = () => {
     }
   };
 
+
+  // Delete a test configuration
   const deleteTest = async (id: string) => {
     if (!token) throw new Error("Not authenticated");
     try {
@@ -66,13 +74,33 @@ export const useTests = () => {
     }
   };
 
-  const fetchTestById=(id: string)=>tests.find(test=>test._id===id)
 
+  // Find a test in the local state by id
+  const fetchTestById = (id: string) => tests.find(test => test._id === id);
 
-   const getTestName = (testId: string) => {
+  // Fetch a single test configuration by id using the /config/:id endpoint
+  const getTestById = async (id: string): Promise<Test | undefined> => {
+    if (!token) return undefined;
+    setIsLoading(true);
+    try {
+      const data = await api.get<Test>(`/test-configurations/config/${id}`);
+
+      return data;
+    } catch (error: any) {
+      console.error("Error fetching test by id:", error);
+      toast.error(`Failed to load test: ${error.message}`);
+      return undefined;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get the name of a test by id
+  const getTestName = (testId: string) => {
     const test = tests.find((t) => t._id === testId);
     return test?.name || "Unknown Test";
   };
+
 
   useEffect(() => {
     if (token) {
@@ -88,6 +116,7 @@ export const useTests = () => {
     deleteTest,
     fetchTests,
     fetchTestById,
+    getTestById,
     getTestName
   };
 };

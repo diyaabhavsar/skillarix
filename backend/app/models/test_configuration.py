@@ -1,3 +1,6 @@
+from pydantic import BaseModel, Field
+from datetime import datetime
+
 class VisitorPersona(BaseModel):
     background: str
     pain_points: str
