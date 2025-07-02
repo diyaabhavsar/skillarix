@@ -14,6 +14,13 @@ import { toast } from "sonner";
 import { api } from "@/utils/api";
 import { capitalizeWords } from "@/utils/textFormatting";
 import { env } from "@/config/env";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogAction,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -38,11 +45,14 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
     description: initialData?.description || "",
     filename: initialData?.filename || "",
     fileUrl: initialData?.fileUrl || "",
+    category_id: initialData?.categoryId || "",
   });
+  const [showNotPossibleModal, setShowNotPossibleModal] = useState(false);
 
   const {
     categories,
     isLoading,
+    fetchProducts,
     setIsLoading,
     createProduct,
     updateProduct,
@@ -68,6 +78,11 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const onModalClose = () => {
+    setShowNotPossibleModal(false);
+    setSelectedCategoryId(initialData?.categoryId);
   };
 
   const handleSubmit = async () => {
@@ -106,23 +121,36 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         "file_name",
         uploadFile.filename || productInfo.filename
       );
-      formDataPayload.append("file_url", `/uploads/products/${uploadFile.filename}`);
-
+      formDataPayload.append(
+        "file_url",
+        `/uploads/products/${uploadFile.filename}`
+      );
     }
 
     setIsLoading(true);
     try {
       if (initialData) {
         const productId = initialData.productId!;
-        await updateProduct(productId, formDataPayload);
+        const response = await updateProduct(productId, formDataPayload);
+        if (
+          response &&
+          typeof response === "object" &&
+          "message" in response &&
+          response.message === "Test Configurtion of this product exist"
+        ) {
+          setShowNotPossibleModal(true);
+          return;
+        }
       } else {
         await createProduct(formDataPayload);
+        fetchProducts();
         setFile(null);
         setProductInfo({
           productName: "",
           description: "",
           filename: "",
           fileUrl: "",
+          category_id: "",
         });
         setSelectedCategoryId("");
       }
@@ -135,9 +163,11 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         bubbles: true,
       });
       document.dispatchEvent(event);
-    } catch (err: any) {
+    } catch (err) {
       toast.error(
-        `${initialData ? "Update" : "Upload"} failed: ${err.message}`
+        `${initialData ? "Update" : "Upload"} failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`
       );
     } finally {
       setIsLoading(false);
@@ -193,6 +223,19 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
           </Button>
         </SheetFooter>
       </div>
+      <AlertDialog open={showNotPossibleModal}>
+        <AlertDialogContent className="flex flex-col items-center justify-center">
+          <AlertDialogTitle className="text-lg">
+            This product is linked to an existing test configuration and cannot
+            be edited.
+          </AlertDialogTitle>
+          <div className="w-full flex justify-end">
+            <AlertDialogAction onClick={() => onModalClose()}>
+              OK
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </SheetContent>
   );
 };

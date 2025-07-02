@@ -26,6 +26,7 @@ export type Test = {
   updated_at: string;
   updated_by: string;
   category_id?: string;
+  assessment?: boolean;
 };
 
 export type TestConfigurationFormProps = {
@@ -36,6 +37,7 @@ export type TestConfigurationFormProps = {
     category_id: string;
     visitorPersona: VisitorPersona;
     additionalCriteria: AdditionalCriteria;
+    assessment?: boolean;
   };
   onSuccess?: () => void;
 };
