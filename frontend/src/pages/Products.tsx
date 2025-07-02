@@ -43,7 +43,6 @@ const Products = () => {
     try {
       await deleteProduct(productToDelete);
       toast.success("Product deleted successfully");
-      fetchProducts();
     } catch (error: any) {
       toast.error(error.message || "Failed to delete product");
     } finally {

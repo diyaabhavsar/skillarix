@@ -5,7 +5,7 @@ import SideSheet from "@/components/SideSheet";
 import { useState } from "react";
 import ProductForm from "./ProductForm";
 
-const SetupHeader = ({}: { onProductAdded?: () => void }) => {
+const SetupHeader = ({ onProductAdded }: { onProductAdded?: () => void }) => {
   const [showProductForm, setShowProductForm] = useState(false);
 
   const handleAddNewProduct = () => {
@@ -34,6 +34,7 @@ const SetupHeader = ({}: { onProductAdded?: () => void }) => {
         <ProductForm
           onSuccess={() => {
             setShowProductForm(false);
+            onProductAdded?.();
           }}
         />
       </SideSheet>

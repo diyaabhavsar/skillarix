@@ -143,7 +143,6 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         }
       } else {
         await createProduct(formDataPayload);
-        fetchProducts();
         setFile(null);
         setProductInfo({
           productName: "",

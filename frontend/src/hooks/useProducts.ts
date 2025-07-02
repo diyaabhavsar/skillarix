@@ -46,7 +46,9 @@ export const useProducts = () => {
           product.file_url = `${env.API_URL}${product.file_url}`;
         }
       });
-      setProducts(data);
+      // Sort products by created_at in descending order (latest first)
+      const sortedData = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProducts(sortedData);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
@@ -61,7 +63,9 @@ export const useProducts = () => {
     try {
         
       const data = await api.get(`/products/all`);
-      setProducts(data as Product[]);
+      // Sort products by created_at in descending order (latest first)
+      const sortedData = (data as Product[]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProducts(sortedData);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
@@ -74,7 +78,8 @@ export const useProducts = () => {
     if (!token) throw new Error("Not authenticated");
     try {
       const newProduct = await api.submitForm("/products", formData);
-      setProducts(prev => [...prev, newProduct as Product]);
+      // Fetch the latest products from server to ensure consistency
+      await fetchProducts();
       return newProduct;
     } catch (error: any) {
       console.error("Error creating product:", error);
@@ -95,7 +100,11 @@ export const useProducts = () => {
         body: formData,
       });
       const updatedProduct = await api.handleResponse(response) as Product;
-      setProducts(prev => prev.map(p => p._id === productId ? updatedProduct : p));
+      // Update local state and maintain sorting order
+      setProducts(prev => {
+        const updated = prev.map(p => p._id === productId ? updatedProduct : p);
+        return updated.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
       return updatedProduct;
     } catch (error: any) {
       console.error("Error updating product:", error);
@@ -124,7 +133,9 @@ export const useProducts = () => {
     setIsLoading(true);
     try {
       const data = await api.get(`/products/${categoryId}`);
-      setProducts(data as Product[]);
+      // Sort products by created_at in descending order (latest first)
+      const sortedData = (data as Product[]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProducts(sortedData);
     } catch (error: any) {
       console.error("Error fetching products by category:", error);
       toast.error(`Failed to load products: ${error.message}`);
