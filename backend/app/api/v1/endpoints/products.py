@@ -1,5 +1,10 @@
-from fastapi import APIRouter,UploadFile, File, Form, Depends, HTTPException
-from ....services.product import read_pdf, create_product_process, list_products_category_wise, get_product
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from ....services.product import (
+    read_pdf,
+    create_product_process,
+    list_products_category_wise,
+    get_product,
+)
 from ....services.auth import verify_bearer_token
 from ....services.test_configuration import convert_objectids_to_strings, ensure_object_id
 from typing import Optional
@@ -16,14 +21,31 @@ test_configurations_collection = db["test_configurations"]
 
 router = APIRouter()
 
+
+# Pagination-enabled products endpoint
+from fastapi import Query
+
+
 @router.get("")
-async def get_products_by_user(token = Depends(verify_bearer_token)):
+async def get_products_by_user(
+    page: int = Query(1, ge=1, description="Page number starting from 1"),
+    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    token=Depends(verify_bearer_token),
+):
     """
-    List all products created by the current logged-in user (irrespective of category).
+    List all products created by the current logged-in user (irrespective of category), paginated.
     """
     try:
-        # Find all products where created_by matches the current user's ObjectId
-        products_cursor = product_collection.find({"is_deleted": False})
+        base_query = {"is_deleted": False}
+        skip = (page - 1) * limit
+        total_count = product_collection.count_documents(base_query)
+        total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
+        products_cursor = (
+            product_collection.find(base_query)
+            .sort("created_at", -1)
+            .skip(skip)
+            .limit(limit)
+        )
         products = list(products_cursor)
         # Convert ObjectId fields to strings for JSON serialization
         for prod in products:
@@ -36,17 +58,22 @@ async def get_products_by_user(token = Depends(verify_bearer_token)):
             if "updated_by" in prod and isinstance(prod["updated_by"], ObjectId):
                 prod["updated_by"] = str(prod["updated_by"])
             if "file_url" in prod:
-                # set file url
-                prod["file_url"] = '/products/download/' + prod["file_name"]
-        return products
+                prod["file_url"] = "/products/download/" + prod["file_name"]
+        return {
+            "data": products,
+            "page": page,
+            "limit": limit,
+            "count": len(products),
+            "total_count": total_count,
+            "total_pages": total_pages,
+        }
     except Exception as e:
         print(f"Error fetching products for user {token['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
 
+
 @router.get("/all")
-async def get_products_by_user(
-    token = Depends(verify_bearer_token)
-):
+async def get_products_by_user(token=Depends(verify_bearer_token)):
     """
     List all products created by the current logged-in user (irrespective of category).
     """
@@ -68,6 +95,8 @@ async def get_products_by_user(
     except Exception as e:
         print(f"Error fetching products for user {token['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch products for user")
+
+
 @router.post("")
 async def create_product(
     name: str = Form(...),
@@ -76,13 +105,24 @@ async def create_product(
     file: UploadFile = File(...),
     file_name: str = Form(...),
     file_url: str = Form(...),
-    token = Depends(verify_bearer_token)):
-        pdf_content, metadata = read_pdf(file.file)
-        created_product = create_product_process(name, category_id, pdf_content, metadata, token, description, file_name, file_url)
-        return {"message":"Products Added Successfully", "new_product": created_product}
+    token=Depends(verify_bearer_token),
+):
+    pdf_content, metadata = read_pdf(file.file)
+    created_product = create_product_process(
+        name,
+        category_id,
+        pdf_content,
+        metadata,
+        token,
+        description,
+        file_name,
+        file_url,
+    )
+    return {"message": "Products Added Successfully", "new_product": created_product}
+
 
 @router.get("/{category_id}")
-async def get_products(category_id: str, _ = Depends(verify_bearer_token)):
+async def get_products(category_id: str, _=Depends(verify_bearer_token)):
     products = list(list_products_category_wise(category_id))
     # Convert ObjectId to string for JSON serialization
     for product in products:
@@ -90,11 +130,12 @@ async def get_products(category_id: str, _ = Depends(verify_bearer_token)):
             product["_id"] = str(product["_id"])
         if "category_id" in product:
             product["category_id"] = str(product["category_id"])
-        if 'updated_by' in product and product['updated_by'] is not None:
-            product['updated_by'] = str(product['updated_by'])
-        if 'created_by' in product and product['created_by'] is not None:
-            product['created_by'] = str(product['created_by'])
+        if "updated_by" in product and product["updated_by"] is not None:
+            product["updated_by"] = str(product["updated_by"])
+        if "created_by" in product and product["created_by"] is not None:
+            product["created_by"] = str(product["created_by"])
     return products
+
 
 @router.put("/{product_id}")
 async def update_product(
@@ -103,9 +144,9 @@ async def update_product(
     name: str = Form(None),
     description: str = Form(None),
     file: UploadFile = File(None),
-    file_name: Optional [str] = Form(None),
+    file_name: Optional[str] = Form(None),
     file_url: Optional[str] = Form(None),
-    token = Depends(verify_bearer_token)
+    token=Depends(verify_bearer_token),
 ):
     """
     Update product fields: name, description, and file (PDF).
@@ -142,8 +183,7 @@ async def update_product(
     update_data["updated_by"] = token["id"]
 
     result = product_collection.update_one(
-        {"_id": ObjectId(product_id)},
-        {"$set": update_data}
+        {"_id": ObjectId(product_id)}, {"$set": update_data}
     )
 
     if result.matched_count == 0:
@@ -156,12 +196,8 @@ async def update_product(
     return updated_product
 
 
-
 @router.delete("/{product_id}")
-async def delete_product(
-    product_id: str,
-    token = Depends(verify_bearer_token)
-):
+async def delete_product(product_id: str, token=Depends(verify_bearer_token)):
     """
     Delete a product by its ID.
     """
@@ -171,13 +207,20 @@ async def delete_product(
 
     # Only allow the creator and admin to delete
     if token["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized to delete this product.")
+        raise HTTPException(
+            status_code=403, detail="Not authorized to delete this product."
+        )
 
-    product_collection.update_one({"_id": ObjectId(product_id)},{"$set": {"is_deleted": True}})
+    product_collection.update_one(
+        {"_id": ObjectId(product_id)}, {"$set": {"is_deleted": True}}
+    )
     return {"message": "Product deleted successfully."}
+
 
 backend_dir = Path(__file__).parent.parent.parent.parent.parent
 UPLOAD_DIR = os.path.join(backend_dir, "uploads", "products")
+
+
 @router.get("/download/{filename}")
 async def download_file(filename: str):
     file_path = os.path.join(UPLOAD_DIR, filename)
@@ -189,5 +232,5 @@ async def download_file(filename: str):
         path=file_path,
         filename=filename,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename={filename}"}
+        headers={"Content-Disposition": f"inline; filename={filename}"},
     )
