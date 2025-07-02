@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Body
 from ....schemas.test_configuration import TestConfigurationCreate, TestConfiguration
-from ....services.test_configuration import save_test_configuration, get_test_configurations_by_product, convert_objectids_to_strings
+from ....services.test_configuration import save_test_configuration, get_test_configurations_by_product, convert_objectids_to_strings, ensure_object_id
 from ....services.auth import verify_bearer_token
 from ....services.user import convert_object_ids
 from typing import List
@@ -38,7 +38,7 @@ async def get_test_configurations(
     Retrieves test configurations for a given product.
     """
     try:
-        configs = get_test_configurations_by_product(ObjectId(product_id))
+        configs = get_test_configurations_by_product(product_id)  # Let the service handle ObjectId conversion
         return [TestConfiguration(**config) for config in configs]
     except Exception as e:
         print(f"Error fetching test configurations for product {product_id}: {e}")
@@ -84,7 +84,7 @@ async def update_test_configuration(
     Only the creator (or admin) can update.
     """
     # Fetch the test config
-    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    test_config = test_configurations_collection.find_one({"_id": ensure_object_id(test_config_id)})
     if not test_config:
         raise HTTPException(status_code=404, detail="Test configuration not found.")
 
@@ -99,19 +99,23 @@ async def update_test_configuration(
         update_data["visitorPersona"] = visitorPersona
     if additionalCriteria is not None:
         update_data["additionalCriteria"] = additionalCriteria
-    if product_id is not None and test_config["assessment"] == False:
-        update_data["product_id"] = product_id
-    if category_id is not None and test_config["assessment"] == False:
-        update_data["category_id"] = category_id
+    if product_id is not None:
+        update_data["product_id"] = ensure_object_id(product_id)
+    if category_id is not None:
+        update_data["category_id"] = ensure_object_id(category_id)
+    if product_id is not None:
+        update_data["product_id"] = ensure_object_id(product_id)
+    if category_id is not None:
+        update_data["category_id"] = ensure_object_id(category_id)
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields provided for update.")
 
-    update_data["updated_at"] = datetime.now()
-    update_data["updated_by"] = token["id"]
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    update_data["updated_by"] = ensure_object_id(token["id"])
 
     result = test_configurations_collection.update_one(
-        {"_id": ObjectId(test_config_id)},
+        {"_id": ensure_object_id(test_config_id)},
         {"$set": update_data}
     )
 
@@ -119,7 +123,7 @@ async def update_test_configuration(
         raise HTTPException(status_code=404, detail="Test configuration not found.")
 
     # Return the updated test configuration
-    updated_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    updated_config = test_configurations_collection.find_one({"_id": ensure_object_id(test_config_id)})
     updated_config = convert_objectids_to_strings(updated_config)
     return updated_config
 
@@ -131,7 +135,7 @@ async def delete_test_configuration(
     """
     Soft delete a test configuration by its ID (set is_deleted=True).
     """
-    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    test_config = test_configurations_collection.find_one({"_id": ensure_object_id(test_config_id)})
     if not test_config:
         raise HTTPException(status_code=404, detail="Test configuration not found.")
 
@@ -139,7 +143,7 @@ async def delete_test_configuration(
         raise HTTPException(status_code=403, detail="Not authorized to delete this test configuration.")
 
     test_configurations_collection.update_one(
-        {"_id": ObjectId(test_config_id)},
+        {"_id": ensure_object_id(test_config_id)},
         {"$set": {"is_deleted": True}}
     )
     return {"message": "Test configuration soft deleted successfully."}
@@ -150,10 +154,9 @@ async def get_test_configuration(
     token = Depends(verify_bearer_token)
 ):
     """
-    Update name, visitorPersona, and additionalCriteria for a test configuration.
-    Only the creator (or admin) can update.
+    Get a specific test configuration by its ID.
     """
     # Fetch the test config
-    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+    test_config = test_configurations_collection.find_one({"_id": ensure_object_id(test_config_id)})
     configs = convert_object_ids(test_config)    
     return configs

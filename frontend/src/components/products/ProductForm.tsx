@@ -225,8 +225,8 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       <AlertDialog open={showNotPossibleModal}>
         <AlertDialogContent className="flex flex-col items-center justify-center">
           <AlertDialogTitle className="text-lg">
-            This product is linked to an existing test configuration and cannot
-            be edited.
+            This product is associated with a test configuration and cannot be
+            edited.
           </AlertDialogTitle>
           <div className="w-full flex justify-end">
             <AlertDialogAction onClick={() => onModalClose()}>

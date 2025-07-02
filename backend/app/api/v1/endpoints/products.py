@@ -1,7 +1,7 @@
 from fastapi import APIRouter,UploadFile, File, Form, Depends, HTTPException
 from ....services.product import read_pdf, create_product_process, list_products_category_wise, get_product
 from ....services.auth import verify_bearer_token
-from ....services.test_configuration import convert_objectids_to_strings
+from ....services.test_configuration import convert_objectids_to_strings, ensure_object_id
 from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -112,14 +112,14 @@ async def update_product(
     Does NOT update category_id.
     """
     product = get_product(product_id)
-    isCategoryChanged=ObjectId(category_id)!=product["category_id"]
-    test_config = test_configurations_collection.find({"category_id":product["category_id"]})
-    if isCategoryChanged and list(test_config)!=[]:
+    isCategoryChanged = ensure_object_id(category_id) != product["category_id"]
+    test_config = test_configurations_collection.find({"category_id": product["category_id"]})
+    if isCategoryChanged and list(test_config) != []:
         return {"message":"Test Configuration of this product exist"}
     
     update_data = {}
     if category_id is not None:
-        update_data["category_id"] = ObjectId(category_id)
+        update_data["category_id"] = ensure_object_id(category_id)
     if name is not None:
         update_data["name"] = name
     if description is not None:
