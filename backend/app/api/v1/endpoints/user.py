@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from ....services.auth import verify_bearer_token, get_password_hash
 from ....schemas.user import UserCreate
 from ....services.user import register, convert_object_ids
@@ -13,39 +13,63 @@ product_collection = db["products"]
 
 router = APIRouter()
 
+
 @router.post("")
 async def register_user(user: UserCreate):
     if register(user.username, user.email, user.password, user.role, user.active):
         return {"message": "User registered successfully"}
     raise HTTPException(status_code=409, detail="Username or email already exists")
 
+
 @router.get("")
-async def get_users_list(token = Depends(verify_bearer_token)):
+async def get_users_list(
+    page: int = Query(1, ge=1, description="Page number starting from 1"),
+    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    token=Depends(verify_bearer_token),
+):
     """
-    Get a list of all users (admin only).
+    Get a paginated list of all users (admin only).
     """
     if token["role"] != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to access the users list")
-    users = list(user_collection.find({"is_deleted": False}).sort("created_at", -1))
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to access the users list"
+        )
+    skip = (page - 1) * limit
+    total_count = user_collection.count_documents({"is_deleted": False})
+    total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
+    users_cursor = (
+        user_collection.find({"is_deleted": False})
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+    )
+    users = list(users_cursor)
     # Convert ObjectId fields to strings and remove sensitive info
     for user in users:
         user["_id"] = str(user["_id"])
-        if 'updated_by' in user and user['updated_by'] is not None:
-                user['updated_by'] = str(user['updated_by'])
+        if "updated_by" in user and user["updated_by"] is not None:
+            user["updated_by"] = str(user["updated_by"])
         user.pop("password", None)
         user.pop("hashed_password", None)
-    return users
+    return {
+        "data": users,
+        "page": page,
+        "limit": limit,
+        "count": len(users),
+        "total_count": total_count,
+        "total_pages": total_pages,
+    }
+
 
 @router.get("/{user_id}")
-async def get_user_by_id(
-    user_id: str,
-    token = Depends(verify_bearer_token)
-):
+async def get_user_by_id(user_id: str, token=Depends(verify_bearer_token)):
     """
     Get a specific user (admin only).
     """
     if token["role"] != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to access this user")
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to access this user"
+        )
     user = user_collection.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -54,18 +78,19 @@ async def get_user_by_id(
     user.pop("hashed_password", None)
     return user
 
+
 @router.put("/{user_id}")
 async def edit_user(
-    user_id: str,
-    user_update: dict = Body(...),
-    token = Depends(verify_bearer_token)
+    user_id: str, user_update: dict = Body(...), token=Depends(verify_bearer_token)
 ):
     """
     Edit an existing user (admin only).
     Accepts any subset of username, email, password, role.
     """
     if token["role"] != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to edit users")
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to edit users"
+        )
     update_fields = {}
     if "username" in user_update:
         update_fields["username"] = user_update["username"]
@@ -81,37 +106,39 @@ async def edit_user(
         raise HTTPException(status_code=400, detail="No valid fields to update")
     update_fields["updated_at"] = datetime.now()
     result = user_collection.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": update_fields}
+        {"_id": ObjectId(user_id)}, {"$set": update_fields}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     user = user_collection.find_one({"_id": ObjectId(user_id)})
     print(user)
     user["_id"] = str(user["_id"])
-    if 'updated_by' in user and user['updated_by'] is not None:
-        user['updated_by'] = str(user['updated_by'])
+    if "updated_by" in user and user["updated_by"] is not None:
+        user["updated_by"] = str(user["updated_by"])
     user.pop("password", None)
     user.pop("hashed_password", None)
     return user
 
+
 @router.delete("/{user_id}")
-async def delete_user(
-    user_id: str,
-    token = Depends(verify_bearer_token)
-):
+async def delete_user(user_id: str, token=Depends(verify_bearer_token)):
     """
     Delete a user (admin only).
     """
     if token["role"] != "admin":
-        raise HTTPException(status_code=403, detail="You don't have permission to delete users")
-    result = user_collection.update_one({"_id": ObjectId(user_id)},{"$set": {"is_deleted": True}})
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to delete users"
+        )
+    result = user_collection.update_one(
+        {"_id": ObjectId(user_id)}, {"$set": {"is_deleted": True}}
+    )
     if not result:
         raise HTTPException(status_code=404, detail="User not found")
     return {"detail": "User deleted"}
 
+
 @router.get("/admin/stats")
-async def get_admin_stats(token = Depends(verify_bearer_token)):
+async def get_admin_stats(token=Depends(verify_bearer_token)):
     """
     Get admin dashboard stats: total users, active users, sessions completed, average score, products.
     Admin only.
@@ -121,7 +148,9 @@ async def get_admin_stats(token = Depends(verify_bearer_token)):
 
     total_users = user_collection.count_documents({})
     active_users = user_collection.count_documents({"active": True})
-    total_sessions = conversation_collection.count_documents({"evaluation_data.is_complete": True})
+    total_sessions = conversation_collection.count_documents(
+        {"evaluation_data.is_complete": True}
+    )
     # Calculate average score from all conversations (if available)
     scores = []
     for conv in conversation_collection.find({}):
@@ -143,8 +172,9 @@ async def get_admin_stats(token = Depends(verify_bearer_token)):
         "products": total_products,
     }
 
+
 @router.get("/admin/latest-users")
-async def get_latest_users(token = Depends(verify_bearer_token)):
+async def get_latest_users(token=Depends(verify_bearer_token)):
     """
     Get the latest 5 registered users (admin only).
     """
@@ -153,18 +183,23 @@ async def get_latest_users(token = Depends(verify_bearer_token)):
     users = list(user_collection.find({}).sort("created_at", -1).limit(5))
     for user in users:
         user["_id"] = str(user["_id"])
-        if 'updated_by' in user and user['updated_by'] is not None:
-            user['updated_by'] = str(user['updated_by'])
+        if "updated_by" in user and user["updated_by"] is not None:
+            user["updated_by"] = str(user["updated_by"])
         user.pop("password", None)
         user.pop("hashed_password", None)
     return users
 
+
 @router.get("/admin/latest-sessions")
-async def get_latest_sessions(token = Depends(verify_bearer_token)):
+async def get_latest_sessions(token=Depends(verify_bearer_token)):
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    sessions = list(conversation_collection.find({"evaluation_data.is_complete": True}).sort("created_at", -1).limit(5))
+    sessions = list(
+        conversation_collection.find({"evaluation_data.is_complete": True})
+        .sort("created_at", -1)
+        .limit(5)
+    )
 
     for session in sessions:
         # Add user info
