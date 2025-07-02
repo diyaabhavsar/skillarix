@@ -7,27 +7,23 @@ import ShadcnTable, {
   renderStatus,
 } from "@/components/ui/shadcn-table";
 import { ConversationEvaluation, Rating } from "@/types/conversations";
+import { formatDateTimeToIndianSeparate } from "@/utils/dateUtils";
 
 import { FeedbackViewButton } from "./FeedbackViewButton";
 
 // Memoized date renderer component
 const DateTimeRenderer = React.memo(({ value }: { value: string }) => {
-  const date = new Date(value);
-  const formattedDate = date.toLocaleDateString();
-  const formattedTime = date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const { date, time } = formatDateTimeToIndianSeparate(value);
 
   return (
     <div className="flex flex-col">
       <div className="flex items-center text-sm font-medium">
         <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-        {formattedDate}
+        {date}
       </div>
       <div className="flex items-center text-xs text-muted-foreground mt-1">
         <Clock className="mr-2 h-3 w-3" />
-        {formattedTime}
+        {time}
       </div>
     </div>
   );

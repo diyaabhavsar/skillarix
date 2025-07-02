@@ -31,7 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { env } from "@/config/env";
+import { formatDateToIndianDateOnly } from "@/utils/dateUtils";
 
 const Products = () => {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -51,11 +51,7 @@ const Products = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    return formatDateToIndianDateOnly(dateString);
   };
 
   // Actions dropdown component to handle local state for each row

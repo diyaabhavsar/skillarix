@@ -33,6 +33,9 @@ import { useTests } from "@/hooks/useTests";
 import { useProducts } from "@/hooks/useProducts";
 import { ConversationEvaluation, Rating } from "@/types/conversations";
 
+// Utils
+import { formatDateToIndianTime } from "@/utils/dateUtils";
+
 const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -51,12 +54,13 @@ const SessionFeedback: React.FC = () => {
       : "-";
 
   const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString("en-US", {
+    formatDateToIndianTime(dateString, {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
 
   const formatRatingKey = (key: string) =>
@@ -199,7 +203,7 @@ const SessionFeedback: React.FC = () => {
       </div>
     );
   }
-
+  
   const { evaluation_data, conversation_data, created_at } = session;
   const validConversationPairs = conversation_data?.pairs || [];
   const validIndividualEvaluations =
@@ -279,7 +283,17 @@ const SessionFeedback: React.FC = () => {
           Back
         </Button>
         <div className="flex items-center gap-4">
-          <p className="text-sm text-slate-500">{formatDate(created_at)}</p>
+          <p className="text-sm text-slate-500">
+            {formatDateToIndianTime(created_at, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+              timeZoneName: "short"
+            })}
+          </p>
           <Sheet>
             <SheetTrigger asChild>
               <Button className="bg-primary text-white text-sm px-6 py-3 rounded-md shadow-md">

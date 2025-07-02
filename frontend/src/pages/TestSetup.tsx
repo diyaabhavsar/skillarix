@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { TestSetupHeader } from "@/components/products/SetupHeader";
 import { useTests } from "@/hooks/useTests";
 import { useProducts } from "@/hooks/useProducts";

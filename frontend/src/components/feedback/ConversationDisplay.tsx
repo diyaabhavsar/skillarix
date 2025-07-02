@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ReferenceAnswer } from './ReferenceAnswer';
-import { 
-  MessageCircle, 
-  MessageSquare, 
-  ChevronLeft, 
+import { ReferenceAnswer } from "./ReferenceAnswer";
+import {
+  MessageCircle,
+  MessageSquare,
+  ChevronLeft,
   ChevronRight,
   BookOpen,
-  Menu
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,18 +42,22 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        setSelectedIndex(prev => Math.min(prev + 1, totalQuestions - 1));
-      } else if (e.key === 'ArrowUp') {
-        setSelectedIndex(prev => Math.max(prev - 1, 0));
+      if (e.key === "ArrowDown") {
+        setSelectedIndex((prev) => Math.min(prev + 1, totalQuestions - 1));
+      } else if (e.key === "ArrowUp") {
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [totalQuestions]);
 
-  if (!conversationPairs || !Array.isArray(conversationPairs) || conversationPairs.length === 0) {
+  if (
+    !conversationPairs ||
+    !Array.isArray(conversationPairs) ||
+    conversationPairs.length === 0
+  ) {
     return (
       <Card>
         <CardHeader className="border-b">
@@ -76,9 +80,9 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1,
+      },
+    },
   };
 
   const itemVariants = {
@@ -90,9 +94,9 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
         duration: 0.3,
         type: "spring",
         stiffness: 260,
-        damping: 20
-      }
-    }
+        damping: 20,
+      },
+    },
   };
 
   const QuestionsList = () => (
@@ -103,7 +107,8 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
           initial={false}
           animate={{
             scale: selectedIndex === index ? 1.02 : 1,
-            backgroundColor: selectedIndex === index ? "var(--accent-80)" : "transparent"
+            backgroundColor:
+              selectedIndex === index ? "var(--accent-80)" : "transparent",
           }}
           onClick={() => {
             setSelectedIndex(index);
@@ -115,7 +120,10 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
           )}
         >
           <div className="flex items-start gap-3">
-            <Badge variant="secondary" className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full">
+            <Badge
+              variant="secondary"
+              className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full"
+            >
               {index + 1}
             </Badge>
             <p className="text-sm leading-tight">{pair.visitor_text}</p>
@@ -133,7 +141,7 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
             <MessageSquare className="h-6 w-6 mr-3 text-primary" />
             Conversations
           </CardTitle>
-          
+
           {/* Mobile Question Selector */}
           <div className="md:hidden">
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -191,7 +199,9 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
                         transition={{ duration: 0.3, delay: 0.2 }}
                         className="bg-blue-50 px-4 py-2 rounded-2xl w-fit max-w-[80%] self-start shadow-sm"
                       >
-                        <p className="text-xs font-medium text-blue-800 mb-1">Visitor</p>
+                        <p className="text-xs font-medium text-blue-800 mb-1">
+                          Visitor
+                        </p>
                         <p className="text-sm text-slate-700">
                           {conversationPairs[selectedIndex].visitor_text}
                         </p>
@@ -203,41 +213,51 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
                         transition={{ duration: 0.3, delay: 0.3 }}
                         className="bg-green-50 px-4 py-2 rounded-2xl w-fit max-w-[80%] self-end shadow-sm"
                       >
-                        <p className="text-xs font-medium text-green-800 mb-1">Salesperson</p>
+                        <p className="text-xs font-medium text-green-800 mb-1">
+                          Salesperson
+                        </p>
                         <p className="text-sm text-slate-700">
                           {conversationPairs[selectedIndex].salesperson_text}
                         </p>
                       </motion.div>
 
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: 0.4 }}
-                        className="bg-yellow-50 px-4 py-2 rounded-2xl shadow-sm border border-yellow-200"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="h-4 w-4 text-yellow-600" />
-                          <Badge variant="secondary" className="font-medium">
-                            Reference Answer
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-700 italic">
-                          <ReferenceAnswer
-                            text={(() => {
-                              const evaluation = individualEvaluations[selectedIndex];
-                              if (
-                                typeof evaluation === "object" &&
-                                evaluation !== null &&
-                                "reference_answer" in evaluation &&
-                                typeof evaluation.reference_answer === "string"
-                              ) {
-                                return evaluation.reference_answer || "No reference answer available";
-                              }
-                              return "No reference answer available";
-                            })()}
-                          />
-                        </p>
-                      </motion.div>
+                      {(() => {
+                        const evaluation = individualEvaluations[selectedIndex];
+                        const hasReferenceAnswer =
+                          typeof evaluation === "object" &&
+                          evaluation !== null &&
+                          "reference_answer" in evaluation &&
+                          typeof evaluation.reference_answer === "string" &&
+                          evaluation.reference_answer.trim() !== "";
+
+                        if (!hasReferenceAnswer) {
+                          return null;
+                        }
+
+                        return (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: 0.4 }}
+                            className="bg-yellow-50 px-4 py-2 rounded-2xl shadow-sm border border-yellow-200"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <BookOpen className="h-4 w-4 text-yellow-600" />
+                              <Badge
+                                variant="secondary"
+                                className="font-medium"
+                              >
+                                Reference Answer
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-slate-700 italic">
+                              <ReferenceAnswer
+                                text={evaluation.reference_answer}
+                              />
+                            </p>
+                          </motion.div>
+                        );
+                      })()}
                     </div>
                   </motion.div>
                 </motion.div>
