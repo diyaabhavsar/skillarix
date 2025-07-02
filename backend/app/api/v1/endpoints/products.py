@@ -112,9 +112,10 @@ async def update_product(
     Does NOT update category_id.
     """
     product = get_product(product_id)
+    isCategoryChanged=ObjectId(category_id)!=product["category_id"]
     test_config = test_configurations_collection.find({"category_id":product["category_id"]})
-    if test_config:
-        return {"message":"Test Configurtion of this product exist"}
+    if isCategoryChanged and list(test_config)!=[]:
+        return {"message":"Test Configuration of this product exist"}
     
     update_data = {}
     if category_id is not None:

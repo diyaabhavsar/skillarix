@@ -136,7 +136,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
           response &&
           typeof response === "object" &&
           "message" in response &&
-          response.message === "Test Configurtion of this product exist"
+          response.message === "Test Configuration of this product exist"
         ) {
           setShowNotPossibleModal(true);
           return;
