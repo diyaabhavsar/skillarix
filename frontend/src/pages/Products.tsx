@@ -3,7 +3,7 @@ import ProductSetupBreadcrumb from "@/components/products/ProductSetupBreadcrumb
 import { SetupHeader } from "@/components/products/SetupHeader";
 import { useProducts as useProductsOnly } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
+import ShadcnTable from "@/components/ui/shadcnTable/shadcn-table";
 import { Eye, MoreHorizontal, Pencil, Trash2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatDateToIndianDateOnly } from "@/utils/dateUtils";
+import { ShadcnColumn } from "@/types/table-types";
 
 interface PaginationData {
   skip: number;
@@ -54,6 +55,7 @@ const Products = () => {
   });
   const { products, deleteProduct, fetchProducts, productsResponse, isLoading } = useProductsOnly();
   const { categories, fetchAllCategories, getCategoryName } = useCategories();
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   // Function to handle page changes
   const handlePageChange = async (page: number) => {
@@ -82,23 +84,24 @@ const Products = () => {
   // Load initial products and categories
   useEffect(() => {
     const loadData = async () => {
-      await Promise.all([
-        fetchProducts(currentPage),
-        fetchAllCategories()
-      ]);
+      try {
+        setIsLoadingCategories(true);
+        // First load categories
+        await fetchAllCategories();
+        // Then load products
+        await fetchProducts(currentPage);
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+        toast.error("Failed to load initial data");
+      } finally {
+        setIsLoadingCategories(false);
+      }
     };
     loadData();
   }, []);
 
-  // Ensure categories are loaded if they're empty
-  useEffect(() => {
-    if (categories.length === 0) {
-      fetchAllCategories();
-    }
-  }, [categories.length]);
-
-// Debug logs - remove in production
-console.log({products, categories})
+  // Debug logs - remove in production
+  console.log({products, categories})
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
 
@@ -203,7 +206,10 @@ console.log({products, categories})
       key: "category_id",
       header: "Category",
       className: "py-3 text-slate-700",
-      render: (value) => getCategoryName(value),
+      render: (value) => {
+        if (isLoadingCategories) return <span className="text-slate-400">Loading...</span>;
+        return getCategoryName(value);
+      },
     },
     {
       key: "description",

@@ -1,13 +1,27 @@
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { api } from '@/utils/api';
-import { Category, CategoryResponse, PaginatedResponse } from '@/types/categories';
+import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { api } from "@/utils/api";
+import {
+  Category,
+  CategoryResponse,
+  PaginatedResponse,
+} from "@/types/categories";
+
+interface ApiResponse {
+  data: CategoryResponse[];
+  page?: number;
+  limit?: number;
+  count?: number;
+  total_count?: number;
+  total_pages?: number;
+}
 
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [categoriesResponse, setCategoriesResponse] = useState<PaginatedResponse<CategoryResponse> | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [categoriesResponse, setCategoriesResponse] =
+    useState<PaginatedResponse<CategoryResponse> | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const { token } = useAuth();
 
@@ -24,20 +38,17 @@ export const useCategories = () => {
     if (!token) return;
     setIsCategoriesLoading(true);
     try {
-      const response = await api.get(`/categories?page=${page}&limit=${limit}`);
-      const data = response as PaginatedResponse<CategoryResponse>;
-      
-      if (data.data && Array.isArray(data.data)) {
-        const formattedCategories = data.data.map(formatCategory);
+      const response = (await api.get(
+        `/categories?page=${page}&limit=${limit}`
+      )) as ApiResponse;
+      if (response && Array.isArray(response.data)) {
+        const formattedCategories = response.data.map(formatCategory);
         setCategories(formattedCategories);
-        setCategoriesResponse(data);
-        if (formattedCategories.length > 0 && !selectedCategoryId) {
-          setSelectedCategoryId(formattedCategories[0].id);
-        }
+        setCategoriesResponse(response as PaginatedResponse<CategoryResponse>);
       }
     } catch (error: any) {
       console.error("Error fetching categories:", error);
-      // Error toast is handled by api utility
+      throw error;
     } finally {
       setIsCategoriesLoading(false);
     }
@@ -45,29 +56,56 @@ export const useCategories = () => {
 
   const fetchAllCategories = async () => {
     if (!token) return;
+    setIsCategoriesLoading(true);
     try {
-      const response = await api.get('/categories?limit=1000');
-      const data = response as PaginatedResponse<CategoryResponse>;
-      
-      if (data.data && Array.isArray(data.data)) {
-        const formattedCategories = data.data.map(formatCategory);
+      const response = await api.get("/categories");
+
+      // Handle case where response is an array directly
+      if (Array.isArray(response)) {
+        const formattedCategories = response.map((cat: CategoryResponse) =>
+          formatCategory(cat)
+        );
         setCategories(formattedCategories);
-        if (formattedCategories.length > 0 && !selectedCategoryId) {
-          setSelectedCategoryId(formattedCategories[0].id);
-        }
+        return;
       }
+
+      // Handle case where response is an object with data property
+      if (
+        response &&
+        typeof response === "object" &&
+        "data" in response &&
+        Array.isArray(response.data)
+      ) {
+        const formattedCategories = response.data.map(formatCategory);
+        setCategories(formattedCategories);
+        return;
+      }
+
+      throw new Error("Invalid response format from categories API");
     } catch (error: any) {
       console.error("Error fetching all categories:", error);
+      toast.error("Failed to load categories");
+      throw error;
+    } finally {
+      setIsCategoriesLoading(false);
     }
+  };
+
+  const getCategoryName = (categoryId: string): string => {
+    if (!categoryId) return "Not Assigned";
+    if (categories.length === 0) return "Loading...";
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category ? category.name : "Unknown Category";
   };
 
   const createCategory = async (name: string, currentPage: number = 1) => {
     if (!token) throw new Error("Not authenticated");
     try {
-      const newCategory = await api.post('/categories', { name }) as CategoryResponse;
-      // Refresh the current page after creation
+      const newCategory = (await api.post("/categories", {
+        name,
+      })) as CategoryResponse;
       await fetchCategories(currentPage);
-      toast.success('Category created successfully');
+      toast.success("Category created successfully");
       return formatCategory(newCategory);
     } catch (error: any) {
       console.error("Error creating category:", error);
@@ -76,13 +114,18 @@ export const useCategories = () => {
     }
   };
 
-  const updateCategory = async (categoryId: string, name: string, currentPage: number = 1) => {
+  const updateCategory = async (
+    categoryId: string,
+    name: string,
+    currentPage: number = 1
+  ) => {
     if (!token) throw new Error("Not authenticated");
     try {
-      const updatedCategory = await api.put(`/categories/${categoryId}`, { name }) as CategoryResponse;
-      // Refresh the current page after update
+      const updatedCategory = (await api.put(`/categories/${categoryId}`, {
+        name,
+      })) as CategoryResponse;
       await fetchCategories(currentPage);
-      toast.success('Category updated successfully');
+      toast.success("Category updated successfully");
       return formatCategory(updatedCategory);
     } catch (error: any) {
       console.error("Error updating category:", error);
@@ -91,27 +134,20 @@ export const useCategories = () => {
     }
   };
 
-  const deleteCategory = async (categoryId: string, currentPage: number = 1) => {
+  const deleteCategory = async (
+    categoryId: string,
+    currentPage: number = 1
+  ) => {
     if (!token) throw new Error("Not authenticated");
     try {
       await api.delete(`/categories/${categoryId}`);
-      // Refresh the current page after deletion
       await fetchCategories(currentPage);
-      toast.success('Category deleted successfully');
+      toast.success("Category deleted successfully");
     } catch (error: any) {
       console.error("Error deleting category:", error);
       toast.error(`Failed to delete category: ${error.message}`);
       throw error;
     }
-  };
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((cat) => cat.id === categoryId);
-    return category?.name || "Unknown Category";
-  };
-
-  const getCategoryById = (categoryId: string) => {
-    return categories.find((cat) => cat.id === categoryId);
   };
 
   return {
@@ -127,6 +163,6 @@ export const useCategories = () => {
     updateCategory,
     deleteCategory,
     getCategoryName,
-    getCategoryById
+    getCategoryById: (id: string) => categories.find((cat) => cat.id === id),
   };
 };

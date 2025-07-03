@@ -67,15 +67,30 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
   const isLoading = productsLoading;
 
   useEffect(() => {
-    // Fetch all categories when component mounts
-    fetchAllCategories();
+    const loadCategories = async () => {
+      try {
+        await fetchAllCategories();
+        // If we have initialData with categoryId, set it
+        if (initialData?.categoryId) {
+          setSelectedCategoryId(initialData.categoryId);
+        }
+        // If we don't have an initial category but categories exist, select the first one
+        else if (categories.length > 0) {
+          setSelectedCategoryId(categories[0].id);
+        }
+      } catch (error) {
+        console.error("Error loading categories:", error);
+        toast.error("Failed to load categories");
+      }
+    };
+    loadCategories();
   }, []);
 
   useEffect(() => {
-    if (initialData?.categoryId) {
-      setSelectedCategoryId(initialData.categoryId);
+    if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
     }
-  }, [initialData?.categoryId]);
+  }, [categories, selectedCategoryId]);
 
   const handleFileChange = async (uploadedFile: File | null) => {
     setFile(uploadedFile);
