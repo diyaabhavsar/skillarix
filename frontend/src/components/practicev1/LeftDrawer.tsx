@@ -4,7 +4,10 @@ import { useTests } from "@/hooks/useTests";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/utils/textFormatting";
 import { useProducts } from "@/hooks/useProducts";
-import { VISITOR_PERSONA_OPTIONS, visitorPersonaFields } from "@/data/visitPersona";
+import {
+  VISITOR_PERSONA_OPTIONS,
+  visitorPersonaFields,
+} from "@/data/visitPersona";
 import { renderFilePreview } from "@/components/ui/filePreview";
 
 interface LeftDrawerProps {
@@ -15,11 +18,7 @@ interface LeftDrawerProps {
 const DRAWER_WIDTH = 400;
 // const DRAWER_MIN_WIDTH = 0;
 
-const LeftDrawer: React.FC<LeftDrawerProps> = ({
-  open,
-  onClose,
-  testId,
-}) => {
+const LeftDrawer: React.FC<LeftDrawerProps> = ({ open, onClose, testId }) => {
   const { fetchTestById } = useTests();
   const test = fetchTestById(testId);
   const { getProductById } = useProducts();
@@ -27,8 +26,8 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
   // Dummy product info for demonstration; replace with real product fetch logic
   const product = getProductById(test?.product_id);
   // File preview logic from ProductDetails
- 
-  const heading=`${test?.name || "Test Configuration"} Details`
+
+  const heading = `${test?.name || "Test Configuration"} Details`;
   return (
     <div
       className={`transition-all duration-300 h-full bg-white border-r shadow-lg flex flex-col relative`}
@@ -50,9 +49,7 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
       {/* Header and close button */}
       {open && (
         <div className="flex items-center justify-between px-4 py-2 border-b bg-white sticky top-0 z-10">
-          <span className="font-semibold text-lg">
-            {heading}
-          </span>
+          <span className="font-semibold text-lg">{heading}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -68,7 +65,9 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
         <div className="overflow-y-auto h-[calc(100vh-3.5rem)] p-4 space-y-6">
           {product && (
             <div className="bg-gray-50 rounded-lg shadow p-4 mb-4">
-              <div className="font-semibold text-lg mb-2">Product Information</div>
+              <div className="font-semibold text-lg mb-2">
+                Product Information
+              </div>
               <div className="space-y-4">
                 <div className="flex flex-col bg-gray-100 rounded p-2">
                   <div className="text-xs text-gray-500">Name</div>
@@ -77,7 +76,9 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                 <div className="flex flex-col bg-gray-100 rounded p-2">
                   <div className="text-xs text-gray-500">Description</div>
                   <div className="text-sm">
-                    {product.description && product.description.length > 100 && !showFullDescription ? (
+                    {product.description &&
+                    product.description.length > 100 &&
+                    !showFullDescription ? (
                       <>
                         {product.description.slice(0, 100)}...
                         <button
@@ -90,14 +91,15 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                     ) : (
                       <>
                         {product.description}
-                        {product.description && product.description.length > 100 && (
-                          <button
-                            className="text-blue-600 underline ml-1 text-s font-medium"
-                            onClick={() => setShowFullDescription(false)}
-                          >
-                            Show less
-                          </button>
-                        )}
+                        {product.description &&
+                          product.description.length > 100 && (
+                            <button
+                              className="text-blue-600 underline ml-1 text-s font-medium"
+                              onClick={() => setShowFullDescription(false)}
+                            >
+                              Show less
+                            </button>
+                          )}
                       </>
                     )}
                   </div>
@@ -105,7 +107,9 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                 {product.file_url && (
                   <div className="flex flex-col bg-gray-100 rounded p-2">
                     <div className="text-xs text-gray-500">Attached File</div>
-                    <div className="text-base">{renderFilePreview(product.file_url, product.file_name)}</div>
+                    <div className="text-base">
+                      {renderFilePreview(product.file_url, product.file_name)}
+                    </div>
                   </div>
                 )}
               </div>
@@ -121,11 +125,16 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                   let displayValue = value;
                   // If the field has options, map value to label
                   if (VISITOR_PERSONA_OPTIONS[field.key]) {
-                    const option = VISITOR_PERSONA_OPTIONS[field.key].find((opt) => opt.value === value);
+                    const option = VISITOR_PERSONA_OPTIONS[field.key].find(
+                      (opt) => opt.value === value
+                    );
                     displayValue = option ? option.label : value;
                   }
                   return (
-                    <div key={field.key} className="flex flex-col bg-gray-100 rounded p-2">
+                    <div
+                      key={field.key}
+                      className="flex flex-col bg-gray-100 rounded p-2"
+                    >
                       <div className="text-xs text-gray-500">{field.label}</div>
                       <div className="text-base">{displayValue}</div>
                     </div>
@@ -144,7 +153,9 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                   Distraction Handling
                 </div>
                 <div className="text-base">
-                  {test?.additionalCriteria?.distraction_handling ? "Yes" : "No"}
+                  {test?.additionalCriteria?.distraction_handling
+                    ? "Yes"
+                    : "No"}
                 </div>
               </div>
               <div className="flex flex-col bg-gray-100 rounded p-2">
@@ -152,7 +163,9 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
                   Communication Simplicity
                 </div>
                 <div className="text-base">
-                  {test?.additionalCriteria?.communication_simplicity ? "Yes" : "No"}
+                  {test?.additionalCriteria?.communication_simplicity
+                    ? "Yes"
+                    : "No"}
                 </div>
               </div>
             </div>
