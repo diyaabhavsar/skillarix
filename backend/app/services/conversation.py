@@ -124,51 +124,6 @@ Your response:
         print(f"Error generating RAG answer: {str(e)}")
         raise # Re-raise the exception
 
-def dynamic_generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None):
-    prompt_doc = prompt_collection.find_one({"title":"Generate Rag Answer"})
-    prompt_dict = build_prompt_dict(prompt["prompt"])
-    
-    prompt = prompt_dict["prompt_text"]
-    
-    customer_persona = json.dumps(persona, indent=2)
-    conversation_context = ""
-    if conversation_history and len(conversation_history) > 0:
-        conversation_context = prompt_dict["previous_conversation_context"].format(conversation_history = format_conversation_history(conversation_history))
-    
-    greeting_instruction = ""
-    if is_first_exchange:
-        greeting_instruction = prompt_dict["first_exchange"]
-    else:
-        greeting_instruction = prompt_dict["not_first_exchange"]
-    
-    
-    filled_prompt = prompt.format(
-        persona_dict=json.dumps(customer_persona, indent=2),
-        context=context,
-        conversation_context=conversation_context,
-        customer_question=question,
-        greeting_instruction=greeting_instruction
-    )
-    
-    
-    
-    completion = client.chat.completions.create(
-    model="meta-llama/llama-4-scout-17b-16e-instruct",
-    messages=[{"role": "user", "content": filled_prompt}],
-    temperature=1,
-    max_completion_tokens=1024,
-    top_p=1,
-    stream=True,
-    stop=None,
-)   
-        
-    full_response = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    
-    return full_response.strip()
-
 def format_conversation_history(history: List[dict]):
     formatted = []
     for i, exchange in enumerate(history, 1):
