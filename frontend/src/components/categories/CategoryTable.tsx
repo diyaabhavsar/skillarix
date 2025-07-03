@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { CategoryActions } from "@/components/categories/CategoryActions";
 import { formatDate } from "@/utils/textFormatting";
 import { Category } from "@/types/categories";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
 
 interface CategoryTableProps {
   categories: Category[];
@@ -15,7 +15,16 @@ interface CategoryTableProps {
   onCancelEdit: () => void;
   onEditCategory: (id: string) => void;
   onDeleteCategory: (id: string) => void;
-  loading: boolean; // Add this line
+  loading: boolean;
+  currentPage?: number;
+  paginationData?: {
+    skip: number;
+    limit: number;
+    count: number;
+    total_count: number;
+    total_pages: number;
+  };
+  onPageChange?: (page: number) => void;
 }
 
 export const CategoryTable: React.FC<CategoryTableProps> = ({
@@ -27,7 +36,10 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
   onCancelEdit,
   onEditCategory,
   onDeleteCategory,
-  loading, // Add this line
+  loading,
+  currentPage,
+  paginationData,
+  onPageChange,
 }) => {
   const columns: ShadcnColumn<Category>[] = [
     {
@@ -86,13 +98,15 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
   ];
 
   return (
-    <div className="rounded-md border mt-8 bg-white">
+    <div className="bg-card rounded-lg border shadow">
       <ShadcnTable
         columns={columns}
         data={categories}
-        isLoading={loading}
-        emptyMessage="No categories found."
-        className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+        currentPage={currentPage}
+        paginationData={paginationData}
+        onPageChange={onPageChange}
+        emptyMessage="No categories available."
+        className="w-full"
       />
     </div>
   );

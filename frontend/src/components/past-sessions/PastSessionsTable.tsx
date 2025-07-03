@@ -5,7 +5,7 @@ import ShadcnTable, {
   ShadcnColumn,
   renderScore,
   renderStatus,
-} from "@/components/ui/shadcn-table";
+} from "@/components/ui/shadcnTable/shadcn-table";
 import { ConversationEvaluation, Rating } from "@/types/conversations";
 import { formatDateTimeToIndianSeparate } from "@/utils/dateUtils";
 
@@ -43,10 +43,24 @@ ProductRenderer.displayName = "ProductRenderer";
 
 interface PastSessionsTableProps {
   sessions: ConversationEvaluation[];
+  currentPage?: number;
+  paginationData?: {
+    skip: number;
+    limit: number;
+    count: number;
+    total_count: number;
+    total_pages: number;
+  };
+  onPageChange?: (page: number) => void;
 }
 
 const PastSessionsTable = React.memo<PastSessionsTableProps>(
-  ({ sessions = [] }) => {
+  ({ 
+    sessions = [], 
+    currentPage = 1, 
+    paginationData, 
+    onPageChange 
+  }) => {
     // All hooks at the top level
     const processSessionData = useCallback(
       (session: ConversationEvaluation): ConversationEvaluation => {
@@ -190,6 +204,10 @@ const PastSessionsTable = React.memo<PastSessionsTableProps>(
           data={sortedSessions}
           className="w-full"
           emptyMessage="No practice sessions found"
+          showPagination={!!paginationData && paginationData.total_pages > 1}
+          currentPage={currentPage}
+          paginationData={paginationData}
+          onPageChange={onPageChange}
         />
       </div>
     );

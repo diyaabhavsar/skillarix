@@ -6,22 +6,44 @@ import { Test } from "@/types/testconfig";
 
 export const useTests = () => {
   const [tests, setTests] = useState<Test[]>([]);
+  const [testsResponse, setTestsResponse] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { token } = useAuth();
 
 
-  // Fetch all test configurations
-  const fetchTests = async () => {
+  // Fetch test configurations with pagination
+  const fetchTests = async (page: number = 1, limit: number = 10) => {
     if (!token) return;
     setIsLoading(true);
     try {
-      const data = await api.get<Test[]>("/test-configurations");
-      setTests(data);
+      const data: any = await api.get(`/test-configurations?page=${page}&limit=${limit}`);
+      
+      // Handle pagination response format
+      if (data.data && Array.isArray(data.data)) {
+        setTests(data.data);
+        setTestsResponse(data);
+      } else {
+        // Fallback for old format
+        setTests(data as Test[]);
+      }
     } catch (error: any) {
       console.error("Error fetching tests:", error);
       toast.error(`Failed to load tests: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch all test configurations (for dropdowns, etc.)
+  const fetchAllTests = async () => {
+    if (!token) return;
+    try {
+      const data: any = await api.get("/test-configurations");
+      // Handle both paginated and non-paginated responses
+      const testData = data.data && Array.isArray(data.data) ? data.data : data;
+      setTests(testData as Test[]);
+    } catch (error: any) {
+      console.error("Error fetching all tests:", error);
     }
   };
 
@@ -110,11 +132,13 @@ export const useTests = () => {
 
   return {
     tests,
+    testsResponse,
     isLoading,
     createTest,
     updateTest,
     deleteTest,
     fetchTests,
+    fetchAllTests,
     fetchTestById,
     getTestById,
     getTestName

@@ -5,13 +5,13 @@ import useElevenLabsConfig from "@/hooks/useElevenLabs";
 import { env } from "@/config/env";
 
 export function useStartConversation(selectedProductId: string, selectedTestConfigId: string, conversation: any, setConversationId: (id: string) => void, setIsStarting: (b: boolean) => void, setErrorMessage: (msg: string) => void) {
-  const { fetchProductById } = useProducts();
+  const { getProductById } = useProducts();
   const { fetchTestById } = useTests();
   const elevenLabs = useElevenLabsConfig();
   const agent_id = env.AGENT_ID;
 
   return useCallback(async () => {
-    const fetchedProduct = fetchProductById(selectedProductId);
+    const fetchedProduct = getProductById(selectedProductId);
     const fetchedTest = fetchTestById(selectedTestConfigId);
     setIsStarting(true);
     const dynamicBody = {
@@ -31,5 +31,5 @@ export function useStartConversation(selectedProductId: string, selectedTestConf
     } finally {
       setIsStarting(false);
     }
-  }, [selectedProductId, selectedTestConfigId, conversation, setConversationId, setIsStarting, setErrorMessage, fetchProductById, fetchTestById, elevenLabs, agent_id]);
+  }, [selectedProductId, selectedTestConfigId, conversation, setConversationId, setIsStarting, setErrorMessage, getProductById, fetchTestById, elevenLabs, agent_id]);
 }

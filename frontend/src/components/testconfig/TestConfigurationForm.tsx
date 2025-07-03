@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import {
   type VisitorPersona,
   type AdditionalCriteria,
@@ -45,13 +46,21 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
     additionalCriteria:
       initialData?.additionalCriteria || defaultAdditionalCriteria,
   });
+  const productsHook = useProducts();
+  const categoriesHook = useCategories();
+  
   const {
     products,
-    categories,
     fetchProductsByCategory,
     fetchAllProducts,
     isLoading: productsLoading,
-  } = useProducts();
+  } = productsHook;
+  
+  const {
+    categories,
+    fetchAllCategories,
+  } = categoriesHook;
+  
   const { createTest, updateTest } = useTests();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -74,6 +83,11 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
       await fetchProductsByCategory(categoryId);
     }
   };
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    fetchAllCategories();
+  }, []);
 
   // Initial load of products for the default category
   useEffect(() => {

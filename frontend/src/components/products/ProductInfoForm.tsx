@@ -47,7 +47,7 @@ const ProductInfoForm = ({
       onCategoryChange(productInfo.category_id)
     }
   }, [])
-  
+  console.log({categories, selectedCategoryId})
   return (
     <div className="grid gap-4">
       <div className="text-lg font-medium">Product Information</div>

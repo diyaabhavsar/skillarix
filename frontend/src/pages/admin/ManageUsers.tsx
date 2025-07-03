@@ -1,10 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  UserPlus,
-  MoreHorizontal,
-  RefreshCw,
-} from "lucide-react";
+import { UserPlus, MoreHorizontal, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -23,10 +19,13 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import SideSheet from "@/components/SideSheet";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
-import { api } from "@/utils/api";
-import { User, ApiUser } from "@/types/users";
+import ShadcnTable, {
+  ShadcnColumn,
+  PaginationData,
+} from "@/components/ui/shadcnTable/shadcn-table";
+import { User } from "@/types/users";
 import ManageUserForm from "@/components/manageUser/ManageUserForm";
+import { useUsers } from "@/hooks/useUsers";
 
 // Helper functions outside component
 const formatDateTime = (dateTimeStr: string) => {
@@ -172,9 +171,7 @@ const UserViewSheet = ({
           <span className="font-medium">Role:</span>{" "}
           <span
             className={
-              viewUser.role === "admin"
-                ? "text-blue-500"
-                : "text-gray-500"
+              viewUser.role === "admin" ? "text-blue-500" : "text-gray-500"
             }
           >
             {viewUser.role === "admin" ? "Admin" : "Employee"}
@@ -184,9 +181,7 @@ const UserViewSheet = ({
           <span className="font-medium">Status:</span>{" "}
           <span
             className={
-              viewUser.active
-                ? "text-green-500"
-                : "text-muted-foreground"
+              viewUser.active ? "text-green-500" : "text-muted-foreground"
             }
           >
             {viewUser.active ? "Active" : "Inactive"}
@@ -213,9 +208,11 @@ const UserTableCard = ({
   columns,
   users,
   loading,
-  formatDateTime,
+  showPagination = false,
+  currentPage,
+  paginationData,
+  onPageChange,
 }: any) => (
-  // Remove <Card> and <CardContent> wrappers, render table directly
   <ShadcnTable
     columns={columns}
     data={users.map((userData: any) => ({
@@ -228,15 +225,38 @@ const UserTableCard = ({
     searchable={true}
     searchPlaceholder="Search users..."
     searchKeys={["name", "email"]}
+    showPagination={showPagination}
+    currentPage={currentPage}
+    paginationData={paginationData}
+    onPageChange={onPageChange}
   />
 );
 
 const ManageUsers = () => {
+  // Use the custom hook
+  const {
+    users,
+    usersResponse,
+    isLoading,
+    fetchUsers,
+    createUser,
+    updateUser,
+    deleteUser,
+    getUserById,
+  } = useUsers();
+  console.log({usersResponse})
+
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isViewUserOpen, setIsViewUserOpen] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationData, setPaginationData] = useState<PaginationData>({
+    skip: 0,
+    limit: 10,
+    count: 0,
+    total_count: 0,
+    total_pages: 1,
+  });
   const [addUserForm, setAddUserForm] = useState({ ...defaultForm });
   const [editUserForm, setEditUserForm] = useState({ ...defaultForm, id: "" });
   const [viewUser, setViewUser] = useState<User | null>(null);
@@ -250,71 +270,71 @@ const ManageUsers = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const { user } = useAuth();
 
-  // Fetch users from backend API
+  // Function to handle page changes
+  const handlePageChange = async (page: number) => {
+    try {
+      setCurrentPage(page);
+      await fetchUsers(page, 10);
+    } catch (error) {
+      console.error("Failed to fetch page:", page, error);
+    }
+  };
+
+  // Update pagination data when users response changes
   useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const data = await api.get<ApiUser[]>("/users");
-        const mappedUsers: User[] = data.map((u: ApiUser) => ({
-          id: u._id || u.id || "",
-          name: u.username || u.name || "",
-          email: u.email,
-          role: u.role,
-          active: u.active ?? true,
-          sessions: u.sessions || 0,
-          lastActive: u.last_login || "Unknown",
-        }));
-        setUsers(mappedUsers);
-      } catch {
-        setUsers([]);
-      }
-      setLoading(false);
-    };
-    fetchUsers();
-  }, []);
+    if (usersResponse) {
+      const newPaginationData = {
+        skip: (usersResponse.page - 1) * usersResponse.limit || 0,
+        limit: usersResponse.limit || 10,
+        count: usersResponse.count || 0,
+        total_count: usersResponse.total_count || 0,
+        total_pages: usersResponse.total_pages || 1,
+      };
+      setPaginationData(newPaginationData);
+    } else if (users.length > 0) {
+      // Fallback when no pagination response (backward compatibility)
+      const fallbackPaginationData = {
+        skip: 0,
+        limit: users.length,
+        count: users.length,
+        total_count: users.length,
+        total_pages: 1,
+      };
+      setPaginationData(fallbackPaginationData);
+    }
+  }, [usersResponse, users]);
 
-  // Memoize filtered users
+  // Fetch users when component mounts
+  useEffect(() => {
+    fetchUsers(currentPage, 10);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add type for GetUsersResponse
-  type GetUsersResponse = ApiUser[];
-
-  // Handle create user and reload users with proper typing
+  // Handle create user
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddUserLoading(true);
     setAddUserError(null);
     try {
-      await api.post("/users", {
-        username: addUserForm.name,
-        email: addUserForm.email,
-        password: addUserForm.password,
-        role: addUserForm.role,
-        active: addUserForm.active,
-      });
+      await createUser(
+        {
+          username: addUserForm.name,
+          email: addUserForm.email,
+          password: addUserForm.password,
+          role: addUserForm.role,
+          active: addUserForm.active,
+        },
+        currentPage,
+        5 // Use limit of 5 to test pagination
+      );
       setAddUserForm({ ...defaultForm });
       setIsAddUserOpen(false);
-      setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/users");
-      const mappedUsers: User[] = usersData.map((u) => ({
-        id: u._id || u.id || "",
-        name: u.username || u.name || "",
-        email: u.email,
-        role: u.role,
-        active: u.active ?? true,
-        sessions: u.sessions || 0,
-        lastActive: u.last_login || "Unknown",
-      }));
-      setUsers(mappedUsers);
-      setLoading(false);
     } catch (err: any) {
       setAddUserError(err.message || "Failed to create user");
-      setAddUserLoading(false);
     }
     setAddUserLoading(false);
   };
 
-  // Handle edit user with proper typing
+  // Handle edit user
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setEditUserLoading(true);
@@ -327,25 +347,11 @@ const ManageUsers = () => {
         active: editUserForm.active,
         ...(editUserForm.password ? { password: editUserForm.password } : {}),
       };
-      await api.put(`/users/${editUserForm.id}`, body);
+      await updateUser(editUserForm.id, body, currentPage, 5); // Use limit of 5
       setIsEditUserOpen(false);
       setEditUserForm({ ...defaultForm, id: "" });
-      setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/users");
-      const mappedUsers: User[] = usersData.map((u) => ({
-        id: u._id || u.id || "",
-        name: u.username || u.name || "",
-        email: u.email,
-        role: u.role,
-        active: u.active ?? true,
-        sessions: u.sessions || 0,
-        lastActive: u.last_login || "Unknown",
-      }));
-      setUsers(mappedUsers);
-      setLoading(false);
     } catch (err: any) {
       setEditUserError(err.message || "Failed to update user");
-      setEditUserLoading(false);
     }
     setEditUserLoading(false);
   };
@@ -369,42 +375,24 @@ const ManageUsers = () => {
     setViewUserLoading(true);
     setIsViewUserOpen(true);
     try {
-      const user = await api.get<ApiUser>(`/users/${userId}`);
-      setViewUser({
-        id: user._id || user.id || "",
-        name: user.username || user.name || "",
-        email: user.email,
-        role: user.role,
-        active: user.active ?? true,
-        sessions: user.sessions || 0,
-        lastActive: user.last_login || "Unknown",
-      });
+      const user = await getUserById(userId);
+      setViewUser(user);
     } catch {
       setViewUser(null);
     }
     setViewUserLoading(false);
   };
 
-  // Handle delete user with proper typing
+  // Handle delete user
   const handleDeleteUser = async (userId: string) => {
     setDeleteUserLoading(true);
     try {
-      await api.delete(`/users/${userId}`);
-      setLoading(true);
-      const usersData = await api.get<GetUsersResponse>("/users");
-      const mappedUsers: User[] = usersData.map((u) => ({
-        id: u._id || u.id || "",
-        name: u.username || u.name || "",
-        email: u.email,
-        role: u.role,
-        active: u.active ?? true,
-        sessions: u.sessions || 0,
-        lastActive: u.last_login || "Unknown",
-      }));
-      setUsers(mappedUsers);
-      setLoading(false);
+      const newPage = await deleteUser(userId, currentPage, users.length, 5); // Use limit of 5
+      if (newPage !== currentPage) {
+        setCurrentPage(newPage);
+      }
     } catch (err: any) {
-      setDeleteUserLoading(false);
+      // Error handling is done in the hook
     }
     setDeleteUserLoading(false);
   };
@@ -432,9 +420,7 @@ const ManageUsers = () => {
       render: (value) => (
         <span
           className={
-            value === "admin"
-              ? "text-blue-600 font-semibold"
-              : "text-gray-700"
+            value === "admin" ? "text-blue-600 font-semibold" : "text-gray-700"
           }
         >
           {value === "admin" ? "Admin" : "Employee"}
@@ -497,8 +483,7 @@ const ManageUsers = () => {
         <UserHeader />
         <div className="flex gap-3">
           <UserActions
-            onRefresh={() => window.location.reload()}
-            onAddUser={() => setIsAddUserOpen(true)}
+            onRefresh={() => fetchUsers(currentPage, 5)} // Use limit of 5
             isAddUserOpen={isAddUserOpen}
             setIsAddUserOpen={setIsAddUserOpen}
             addUserForm={addUserForm}
@@ -532,16 +517,24 @@ const ManageUsers = () => {
           />
         </div>
       </div>
-      <UserTableCard
-        columns={columns}
-        users={users}
-        loading={loading}
-        formatDateTime={formatDateTime}
-        user={user}
-        openViewUser={openViewUser}
-        openEditUser={openEditUser}
-        confirmDeleteUser={confirmDeleteUser}
-      />
+      <div className="my-8">
+        <div className="relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
+          <UserTableCard
+            columns={columns}
+            users={users}
+            loading={false}
+            showPagination={true}
+            currentPage={currentPage}
+            paginationData={paginationData}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      </div>
       <DeleteUserDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}

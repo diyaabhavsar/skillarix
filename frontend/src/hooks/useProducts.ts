@@ -1,54 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { api } from '@/utils/api';
 import { env } from '@/config/env';
 import { Product } from '@/types/products';
-import { Category } from '@/types/categories';
-import { CategoryResponse } from '@/types/categories';
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [productsResponse, setProductsResponse] = useState<any>(null);
   const { token } = useAuth();
-  
-  const fetchCategories = async () => {
-    if (!token) return;
-    try {
-      const data: CategoryResponse[] = await api.get('/categories');
-      const formattedCategories = data.map(cat => ({ 
-        id: cat._id, 
-        name: cat.name,
-        created_at: cat.created_at,
-        created_by: cat.created_by
-      }));
-      setCategories(formattedCategories);
-      if (formattedCategories.length > 0 && !selectedCategoryId) {
-        setSelectedCategoryId(formattedCategories[0].id);
-      }
-    } catch (error: any) {
-      console.error("Error fetching categories:", error);
-      // Error toast is handled by api utility
-    }
-  };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page: number = 1, limit: number = 10) => {
     if (!token) return;
     setIsLoading(true);
     try {
-        
-      const data = await api.get("/products") as Product[];
-      // Set file url for display
-      data.map((product: any) => {
-        if (product.file_url) {
-          product.file_url = `${env.API_URL}${product.file_url}`;
-        }
-      });
-      // Sort products by created_at in descending order (latest first)
-      const sortedData = data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setProducts(sortedData);
+      const data: any = await api.get(`/products?page=${page}&limit=${limit}`);
+      
+      // Handle pagination response format
+      if (data.data && Array.isArray(data.data)) {
+        // Set file url for display
+        data.data.map((product: any) => {
+          if (product.file_url) {
+            product.file_url = `${env.API_URL}${product.file_url}`;
+          }
+        });
+        // Sort products by created_at in descending order (latest first)
+        const sortedData = data.data.sort((a: any, b: any) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setProducts(sortedData);
+        setProductsResponse(data);
+      } else {
+        // Fallback for old format
+        const products = data as Product[];
+        products.map((product: any) => {
+          if (product.file_url) {
+            product.file_url = `${env.API_URL}${product.file_url}`;
+          }
+        });
+        const sortedData = products.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setProducts(sortedData);
+      }
     } catch (error: any) {
       console.error("Error fetching products:", error);
       toast.error(`Failed to load products: ${error.message}`);
@@ -61,10 +56,11 @@ export const useProducts = () => {
     if (!token) return;
     setIsLoading(true);
     try {
-        
       const data = await api.get(`/products/all`);
       // Sort products by created_at in descending order (latest first)
-      const sortedData = (data as Product[]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const sortedData = (data as Product[]).sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
       setProducts(sortedData);
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -74,12 +70,30 @@ export const useProducts = () => {
     }
   };
 
-  const createProduct = async (formData: FormData) => {
+  const fetchProductsByCategory = async (categoryId: string) => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const data = await api.get(`/products/${categoryId}`);
+      // Sort products by created_at in descending order (latest first)
+      const sortedData = (data as Product[]).sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setProducts(sortedData);
+    } catch (error: any) {
+      console.error("Error fetching products by category:", error);
+      toast.error(`Failed to load products: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createProduct = async (formData: FormData, currentPage: number = 1) => {
     if (!token) throw new Error("Not authenticated");
     try {
       const newProduct = await api.submitForm("/products", formData);
       // Fetch the latest products from server to ensure consistency
-      await fetchProducts();
+      await fetchProducts(currentPage);
       return newProduct;
     } catch (error: any) {
       console.error("Error creating product:", error);
@@ -103,7 +117,9 @@ export const useProducts = () => {
       // Update local state and maintain sorting order
       setProducts(prev => {
         const updated = prev.map(p => p._id === productId ? updatedProduct : p);
-        return updated.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return updated.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
       });
       return updatedProduct;
     } catch (error: any) {
@@ -125,112 +141,33 @@ export const useProducts = () => {
     }
   };
 
-  const viewProductContent = (content: string) => {
-    console.log("Product Content:", content);
-  };
-  const fetchProductsByCategory = async (categoryId: string) => {
-    if (!token) return;
-    setIsLoading(true);
-    try {
-      const data = await api.get(`/products/${categoryId}`);
-      // Sort products by created_at in descending order (latest first)
-      const sortedData = (data as Product[]).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setProducts(sortedData);
-    } catch (error: any) {
-      console.error("Error fetching products by category:", error);
-      toast.error(`Failed to load products: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  const createCategory = async (name: string) => {
-    if (!token) throw new Error("Not authenticated");
-    try {
-      const newCategory = await api.post('/categories', { name }) as CategoryResponse;
-const formattedCategory = {
-        id: newCategory._id, 
-        name: newCategory.name,
-        created_at: newCategory.created_at,
-        created_by: newCategory.created_by
-      };
-      setCategories(prev => [...prev, formattedCategory]);
-      toast.success('Category created successfully');
-      return formattedCategory;
-    } catch (error) {
-      // Error toast is handled by api utility 
-      console.error("Error creating product:", error);
-      toast.error(`Failed to create product: ${error.message}`);
-      throw error;
-    }
+  const getProductById = (id: string) => {
+    return products.find(product => product._id === id);
   };
 
-  const updateCategory = async (categoryId: string, name: string) => {
-    if (!token) throw new Error("Not authenticated");
-    try {
-      const updatedCategory = await api.put(`/categories/${categoryId}`, { name }) as CategoryResponse;
-      const formattedCategory: Category = { 
-        id: updatedCategory._id, 
-        name: updatedCategory.name,
-        created_at: updatedCategory.created_at,
-        created_by: updatedCategory.created_by
-      };
-      setCategories(prev => 
-        prev.map(cat => cat.id === categoryId ? formattedCategory : cat)
-      );
-      toast.success('Category updated successfully');
-      return formattedCategory;
-    } catch (error) {
-      console.error("Error editing product:", error);
-      toast.error(`Failed to edit product: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const deleteCategory = async (categoryId: string) => {
-    if (!token) throw new Error("Not authenticated");
-    try {
-      await api.delete(`/categories/${categoryId}`);
-      setCategories(prev => prev.filter(cat => cat.id !== categoryId));
-      toast.success('Category deleted successfully');
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      toast.error(`Failed to delete category: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const fetchProductById=(id: string)=>products.find(product=>product._id===id)
- const getProductName = (productId: string) => {
+  const getProductName = (productId: string) => {
     const product = products.find((p) => p._id === productId);
     return product?.name || "Unknown Product";
   };
-  useEffect(() => {
-    if (token) {
-      fetchProducts();
-      fetchCategories();
-    }
-  }, [token]);
+
+  const viewProductContent = (content: string) => {
+    console.log("Product Content:", content);
+  };
 
   return {
     products,
-    categories,
-    selectedCategoryId,
-    setSelectedCategoryId,
     isLoading,
     setIsLoading,
+    productsResponse,
+    setProducts,
+    fetchProducts,
+    fetchAllProducts,
+    fetchProductsByCategory,
     createProduct,
     updateProduct,
     deleteProduct,
-    viewProductContent,    
-    setCategories,
-    fetchProducts,
-    fetchCategories,
-    fetchAllProducts,
-    fetchProductsByCategory,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    fetchProductById,
-    getProductName
+    getProductById,
+    getProductName,
+    viewProductContent
   };
 };

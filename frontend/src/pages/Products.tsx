@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProductSetupBreadcrumb from "@/components/products/ProductSetupBreadcrumb";
 import { SetupHeader } from "@/components/products/SetupHeader";
-import { useProducts } from "@/hooks/useProducts";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
+import { useProducts as useProductsOnly } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
 import { Eye, MoreHorizontal, Pencil, Trash2, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -33,16 +34,87 @@ import {
 } from "@/components/ui/tooltip";
 import { formatDateToIndianDateOnly } from "@/utils/dateUtils";
 
+interface PaginationData {
+  skip: number;
+  limit: number;
+  count: number;
+  total_count: number;
+  total_pages: number;
+}
+
 const Products = () => {
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-  const { products, categories, deleteProduct, fetchProducts } = useProducts();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationData, setPaginationData] = useState<PaginationData>({
+    skip: 0,
+    limit: 10,
+    count: 0,
+    total_count: 0,
+    total_pages: 1,
+  });
+  const { products, deleteProduct, fetchProducts, productsResponse, isLoading } = useProductsOnly();
+  const { categories, fetchAllCategories, getCategoryName } = useCategories();
 
+  // Function to handle page changes
+  const handlePageChange = async (page: number) => {
+    try {
+      setCurrentPage(page);
+      await fetchProducts(page);
+    } catch (error) {
+      console.error("Failed to fetch page:", page, error);
+      toast.error("Failed to load page " + page);
+    }
+  };
+
+  // Update pagination data when products response changes
+  useEffect(() => {
+    if (productsResponse) {
+      setPaginationData({
+        skip: ((productsResponse.page - 1) * productsResponse.limit) || 0,
+        limit: productsResponse.limit || 10,
+        count: productsResponse.count || 0,
+        total_count: productsResponse.total_count || 0,
+        total_pages: productsResponse.total_pages || 1,
+      });
+    }
+  }, [productsResponse]);
+
+  // Load initial products and categories
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([
+        fetchProducts(currentPage),
+        fetchAllCategories()
+      ]);
+    };
+    loadData();
+  }, []);
+
+  // Ensure categories are loaded if they're empty
+  useEffect(() => {
+    if (categories.length === 0) {
+      fetchAllCategories();
+    }
+  }, [categories.length]);
+
+// Debug logs - remove in production
+console.log({products, categories})
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
 
     try {
       await deleteProduct(productToDelete);
       toast.success("Product deleted successfully");
+      
+      // If this was the last item on the current page and not on page 1, go to previous page
+      if (products.length === 1 && currentPage > 1) {
+        const newPage = currentPage - 1;
+        setCurrentPage(newPage);
+        await fetchProducts(newPage);
+      } else {
+        // Otherwise refresh current page
+        await fetchProducts(currentPage);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to delete product");
     } finally {
@@ -98,7 +170,7 @@ const Products = () => {
             </SheetTrigger>
             <ProductForm
               onSuccess={() => {
-                fetchProducts();
+                fetchProducts(currentPage);
                 console.log("done")
                 toast.success("Product updated successfully");
               }}
@@ -131,10 +203,7 @@ const Products = () => {
       key: "category_id",
       header: "Category",
       className: "py-3 text-slate-700",
-      render: (value) => {
-        const category = categories.find((cat) => cat.id === value);
-        return category ? category.name : "Unknown";
-      },
+      render: (value) => getCategoryName(value),
     },
     {
       key: "description",
@@ -201,15 +270,27 @@ const Products = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-1 container mx-auto px-4 py-8">
-        <SetupHeader onProductAdded={fetchProducts} />
+        <SetupHeader onProductAdded={() => { fetchProducts(currentPage); }} />
 
-        <div className="rounded-md border bg-white">
-          <ShadcnTable
-            columns={columns}
-            data={products}
-            emptyMessage="No products available."
-            className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
-          />
+        <div className="my-8">
+          <div className="relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+            <div className="rounded-md border bg-white">
+              <ShadcnTable
+                columns={columns}
+                data={products}
+                currentPage={currentPage}
+                paginationData={paginationData}
+                onPageChange={handlePageChange}
+                emptyMessage="No products available."
+                className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+              />
+            </div>
+          </div>
         </div>
 
         <AlertDialog

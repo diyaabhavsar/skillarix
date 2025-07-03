@@ -1,7 +1,7 @@
 import React from "react";
 import { Test } from "@/types/testconfig";
 import { Product } from "@/types/products";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcn-table";
+import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
 
 import VisitorPersonaDialog from "./VisitorPersonaDialog";
 import TestConfigurationActions from "./TestConfigurationActions";
@@ -14,6 +14,15 @@ interface TestConfigurationTableProps {
   formatDate: (dateString: string) => string;
   formatValue: (value: string) => string;
   getProductName: (productId: string) => string;
+  currentPage?: number;
+  paginationData?: {
+    skip: number;
+    limit: number;
+    count: number;
+    total_count: number;
+    total_pages: number;
+  };
+  onPageChange?: (page: number) => void;
 }
 
 const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
@@ -24,6 +33,9 @@ const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
   formatDate,
   formatValue,
   getProductName,
+  currentPage,
+  paginationData,
+  onPageChange,
 }) => {
   const columns: ShadcnColumn<Test>[] = [
     {
@@ -71,12 +83,17 @@ const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
   ];
 
   return (
-    <ShadcnTable
-      columns={columns}
-      data={tests}
-      emptyMessage="No test configurations available."
-      className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
-    />
+    <div className="bg-card rounded-lg border shadow">
+      <ShadcnTable
+        columns={columns}
+        data={tests}
+        currentPage={currentPage}
+        paginationData={paginationData}
+        onPageChange={onPageChange}
+        emptyMessage="No test configurations available."
+        className="w-full"
+      />
+    </div>
   );
 };
 

@@ -6,9 +6,15 @@ import PastSessionsTable from "@/components/past-sessions/PastSessionsTable";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState } from "react";
 import { ConversationEvaluation, CompleteRating } from "@/types/conversations";
-import SessionsPagination from "@/components/past-sessions/SessionsPagination";
-import { PaginationData } from "@/components/past-sessions/SessionsPagination";
 import { PracticeHeader } from "@/components/products/SetupHeader";
+
+interface PaginationData {
+  skip: number;
+  limit: number;
+  count: number;
+  total_count: number;
+  total_pages: number;
+}
 
 const defaultRating = { score: 0, max: 0 };
 
@@ -100,8 +106,8 @@ export default function Practice() {
   }, [conversations]);
 
   // Transform conversation data to match expected types
-  const processedSessions =
-    (conversations?.data?.map((session: any) => ({
+  const processedSessions: ConversationEvaluation[] =
+    conversations?.data?.map((session: any) => ({
       ...session,
       evaluation_data: {
         ...session.evaluation_data,
@@ -122,7 +128,7 @@ export default function Practice() {
             session.evaluation_data?.complete_rating?.total || defaultRating,
         } as CompleteRating,
       },
-    })) as ConversationEvaluation[]) || [];
+    })) || [];
 
   return (
     <ErrorBoundary>
@@ -136,15 +142,13 @@ export default function Practice() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             )}
-            <PastSessionsTable sessions={processedSessions} />
-          </div>
-          {paginationData.total_pages > 1 && (
-            <SessionsPagination
+            <PastSessionsTable
+              sessions={processedSessions}
               currentPage={currentPage}
               paginationData={paginationData}
               onPageChange={handlePageChange}
             />
-          )}
+          </div>
         </div>
       </div>
     </ErrorBoundary>

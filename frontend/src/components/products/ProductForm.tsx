@@ -10,16 +10,14 @@ import {
 import FileUploadSection from "./FileUploadSection";
 import ProductInfoForm from "./ProductInfoForm";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { api } from "@/utils/api";
-import { capitalizeWords } from "@/utils/textFormatting";
-import { env } from "@/config/env";
 import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogTitle,
   AlertDialogAction,
-  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 
 interface ProductFormProps {
@@ -49,16 +47,29 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
   });
   const [showNotPossibleModal, setShowNotPossibleModal] = useState(false);
 
+  const productsHook = useProducts();
+  const categoriesHook = useCategories();
+
   const {
-    categories,
-    isLoading,
-    fetchProducts,
-    setIsLoading,
+    isLoading: productsLoading,
+    setIsLoading: setProductsLoading,
     createProduct,
     updateProduct,
-    setSelectedCategoryId,
+  } = productsHook;
+
+  const {
+    categories,
     selectedCategoryId,
-  } = useProducts();
+    setSelectedCategoryId,
+    fetchAllCategories,
+  } = categoriesHook;
+
+  const isLoading = productsLoading;
+
+  useEffect(() => {
+    // Fetch all categories when component mounts
+    fetchAllCategories();
+  }, []);
 
   useEffect(() => {
     if (initialData?.categoryId) {
@@ -127,7 +138,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
       );
     }
 
-    setIsLoading(true);
+    setProductsLoading(true);
     try {
       if (initialData) {
         const productId = initialData.productId!;
@@ -169,7 +180,7 @@ const ProductForm = ({ onSuccess, initialData }: ProductFormProps) => {
         }`
       );
     } finally {
-      setIsLoading(false);
+      setProductsLoading(false);
     }
   };
 

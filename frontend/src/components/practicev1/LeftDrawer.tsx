@@ -22,10 +22,10 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({
 }) => {
   const { fetchTestById } = useTests();
   const test = fetchTestById(testId);
-  const { fetchProductById } = useProducts();
+  const { getProductById } = useProducts();
   const [showFullDescription, setShowFullDescription] = useState(false);
   // Dummy product info for demonstration; replace with real product fetch logic
-  const product = fetchProductById(test?.product_id);
+  const product = getProductById(test?.product_id);
   // File preview logic from ProductDetails
  
   const heading=`${test?.name || "Test Configuration"} Details`
