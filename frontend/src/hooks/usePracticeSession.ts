@@ -37,6 +37,11 @@ interface PracticeSessionState {
 interface CategoryResponse {
   _id: string;
   name: string;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
+  is_deleted?: boolean;
 }
 
 interface ProductResponse {
@@ -142,11 +147,22 @@ export const usePracticeSession = (): PracticeSessionHook => {
   const fetchCategories = async () => {
     setStateWithLoading(prev => ({ ...prev, categories: [] }));
     try {
-      const data = await api.get<CategoryResponse[]>("/categories");
-      const fetchedCategories: Category[] = data.map((cat) => ({ 
+      const response = await api.get("/categories");
+      
+      // Handle response format - could be array or object with data property
+      const categoriesData = Array.isArray(response) ? response : 
+                           (response && typeof response === 'object' && 'data' in response) ? response.data : 
+                           [];
+      
+      if (!Array.isArray(categoriesData)) {
+        throw new Error('Invalid categories data format received');
+      }
+
+      const fetchedCategories: Category[] = categoriesData.map((cat: CategoryResponse) => ({ 
         id: cat._id, 
         name: cat.name 
       }));
+
       setState(prev => ({ 
         ...prev, 
         categories: fetchedCategories,
