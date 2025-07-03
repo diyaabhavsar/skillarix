@@ -59,23 +59,30 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   };
 
   return (
-    <div className="mt-4 px-6 py-4 bg-white border rounded-lg shadow-sm">
+    <div className="mt-4">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground whitespace-nowrap">
-          Showing{" "}
-          <span className="font-medium text-foreground">
-            {(currentPage - 1) * paginationData.limit + 1}
-          </span>{" "}
-          to{" "}
-          <span className="font-medium text-foreground">
-            {Math.min(currentPage * paginationData.limit, paginationData.total_count)}
-          </span>{" "}
-          of{" "}
-          <span className="font-medium text-foreground">
-            {paginationData.total_count}
-          </span>{" "}
-          entries
-        </p>
+        <div className="flex flex-col space-y-1">
+          <p className="text-sm text-muted-foreground whitespace-nowrap">
+            Displaying{" "}
+            <span className="font-medium text-foreground">
+              {(currentPage - 1) * paginationData.limit + 1}
+            </span>
+            {" "}-{" "}
+            <span className="font-medium text-foreground">
+              {Math.min(currentPage * paginationData.limit, paginationData.total_count)}
+            </span>
+            {" "}entries on page{" "}
+            <span className="font-medium text-foreground">
+              {currentPage}
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground whitespace-nowrap">
+            Total entries:{" "}
+            <span className="font-medium text-foreground">
+              {paginationData.total_count.toLocaleString()}
+            </span>
+          </p>
+        </div>
 
         <Pagination>
           <PaginationContent className="gap-2">

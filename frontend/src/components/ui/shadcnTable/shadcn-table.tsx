@@ -160,7 +160,7 @@ const ShadcnTable = React.memo(
     }
 
     return (
-      <div className="space-y-0">
+      <div className="space-y-8">
         <div
           className={cn(
             "relative w-full overflow-auto rounded-lg border bg-card",
