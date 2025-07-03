@@ -12,7 +12,6 @@ from ..config import settings
 
 
 conversation_collection = db["conversations"]
-prompt_collection = db["prompts"]
 
 # Initialize Groq Client
 client = Groq(api_key=settings.GROQ_API_KEY)
@@ -656,9 +655,3 @@ def get_conversations_by_product(product_id: ObjectId, token):
 def get_conversation_by_id(conversation_id: ObjectId):
     """Get a specific conversation with its evaluation data."""
     return conversation_collection.find_one({"_id": conversation_id})
-
-def build_prompt_dict(prompt_list: list[dict]) -> dict:
-    """
-    Converts list of {'condition', 'prompt'} dicts to a condition: prompt map.
-    """
-    return {item["condition"]: item["prompt"] for item in prompt_list}
