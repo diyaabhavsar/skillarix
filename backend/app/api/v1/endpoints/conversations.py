@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import List, Optional
 from ....schemas.conversation import EvaluationRequest, ConversationPair, EvaluationResponse
 from ....services.product import get_product
 from ....services.auth import verify_bearer_token
@@ -8,7 +9,6 @@ from ....services.conversation import (generate_answer_rag, evaluate_individual_
                                        save_conversation, get_conversations_by_product, get_conversation_by_id,
                                        )
 from ....services.test_configuration import convert_objectids_to_strings
-from typing import List
 from bson import ObjectId
 from bson.errors import InvalidId
 from ....database import db
@@ -205,13 +205,14 @@ async def get_conversation_details(
 @router.get("")
 async def get_all_conversations_for_user(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max number of items to return. If not provided, returns all records"),
     token = Depends(verify_bearer_token)
 ):
     """
     Retrieves conversations based on user role:
     - Admin: Returns all conversations in the database.
     - Employee: Returns only conversations belonging to the logged-in user.
+    When limit is not provided, returns all records.
     """
     conversations = []
     # Check the role of the authenticated user
@@ -219,9 +220,15 @@ async def get_all_conversations_for_user(
         base_query = {}
     else:
         base_query = {"user_id": ObjectId(token["id"])}
+        
+    total_count = conversation_collection.count_documents(base_query)
+    
+    # If limit is not provided, set it to total count to return all records
+    if limit is None:
+        limit = total_count
+        
     # Calculate skip from page
     skip = (page - 1) * limit
-    total_count = conversation_collection.count_documents(base_query)
     total_pages = ceil(total_count / limit) if total_count > 0 else 1
     conversations_cursor = (
         conversation_collection.find(base_query)

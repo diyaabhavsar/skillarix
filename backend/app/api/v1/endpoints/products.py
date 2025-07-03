@@ -29,16 +29,22 @@ from fastapi import Query
 @router.get("")
 async def get_products_by_user(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max number of items to return. If not provided, returns all records"),
     token=Depends(verify_bearer_token),
 ):
     """
     List all products created by the current logged-in user (irrespective of category), paginated.
+    When limit is not provided, returns all records.
     """
     try:
         base_query = {"is_deleted": False}
-        skip = (page - 1) * limit
         total_count = product_collection.count_documents(base_query)
+        
+        # If limit is not provided, set it to total count to return all records
+        if limit is None:
+            limit = total_count
+            
+        skip = (page - 1) * limit
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
         products_cursor = (
             product_collection.find(base_query)

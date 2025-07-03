@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from typing import Optional
 from ....services.auth import verify_bearer_token, get_password_hash
 from ....schemas.user import UserCreate
 from ....services.user import register, convert_object_ids
@@ -24,18 +25,24 @@ async def register_user(user: UserCreate):
 @router.get("")
 async def get_users_list(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max number of items to return. If not provided, returns all records"),
     token=Depends(verify_bearer_token),
 ):
     """
     Get a paginated list of all users (admin only).
+    When limit is not provided, returns all records.
     """
     if token["role"] != "admin":
         raise HTTPException(
             status_code=403, detail="You don't have permission to access the users list"
         )
-    skip = (page - 1) * limit
     total_count = user_collection.count_documents({"is_deleted": False})
+    
+    # If limit is not provided, set it to total count to return all records
+    if limit is None:
+        limit = total_count
+        
+    skip = (page - 1) * limit
     total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
     users_cursor = (
         user_collection.find({"is_deleted": False})

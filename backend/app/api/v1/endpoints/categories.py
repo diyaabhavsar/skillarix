@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from typing import Optional
 from ....schemas.category import CategoryCreate
 from ....services.categories import (
     category_register,
@@ -22,11 +23,16 @@ async def create_category(category: CategoryCreate, token=Depends(verify_bearer_
 @router.get("")
 async def get_categories(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    limit: Optional[int] = Query(None, ge=1, le=1000, description="Max number of items to return. If not provided, returns all records"),
     _=Depends(verify_bearer_token),
 ):
     all_categories = list(list_categories())
     total_count = len(all_categories)
+    
+    # If limit is not provided, set it to total count to return all records
+    if limit is None:
+        limit = total_count
+        
     total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
     skip = (page - 1) * limit
     categories = all_categories[skip : skip + limit]

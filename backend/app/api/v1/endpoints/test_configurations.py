@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Body, Query
+from typing import List, Optional
 from ....schemas.test_configuration import TestConfigurationCreate, TestConfiguration
 from ....services.test_configuration import (
     save_test_configuration,
@@ -8,7 +9,6 @@ from ....services.test_configuration import (
 )
 from ....services.auth import verify_bearer_token
 from ....services.user import convert_object_ids
-from typing import List
 from bson import ObjectId
 from ....database import db
 from datetime import datetime, timezone
@@ -59,12 +59,18 @@ async def get_test_configurations(
 @router.get("")
 async def get_all_test_configurations(
     page: int = Query(1, ge=1, description="Page number starting from 1"),
-    limit: int = Query(10, ge=1, le=100, description="Max number of items to return"),
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        le=1000,
+        description="Max number of items to return. If not provided, returns all records",
+    ),
     token=Depends(verify_bearer_token),
 ):
     """
     Retrieves all non-deleted test configurations created by the current admin user.
     Only admin users are authorized to access this endpoint.
+    When limit is not provided, returns all records.
     """
     if token["role"] != "admin":
         raise HTTPException(
@@ -73,8 +79,13 @@ async def get_all_test_configurations(
         )
     try:
         base_query = {"is_deleted": False}
-        skip = (page - 1) * limit
         total_count = test_configurations_collection.count_documents(base_query)
+
+        # If limit is not provided, set it to total count to return all records
+        if limit is None:
+            limit = total_count
+
+        skip = (page - 1) * limit
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
         configs_cursor = (
             test_configurations_collection.find(base_query)
