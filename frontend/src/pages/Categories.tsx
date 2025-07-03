@@ -25,7 +25,8 @@ const Categories = () => {
     deleteCategory,
     isCategoriesLoading,
   } = useCategories();
-  
+  console.log({categories})
+  console.log({categoriesResponse})
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationData, setPaginationData] = useState<PaginationData>({
     skip: 0,

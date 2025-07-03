@@ -19,13 +19,11 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import SideSheet from "@/components/SideSheet";
-import ShadcnTable, {
-  ShadcnColumn,
-  PaginationData,
-} from "@/components/ui/shadcnTable/shadcn-table";
+import ShadcnTable from "@/components/ui/shadcnTable/shadcn-table";
 import { User } from "@/types/users";
 import ManageUserForm from "@/components/manageUser/ManageUserForm";
 import { useUsers } from "@/hooks/useUsers";
+import { PaginationData, ShadcnColumn } from "@/types/table-types";
 
 // Helper functions outside component
 const formatDateTime = (dateTimeStr: string) => {

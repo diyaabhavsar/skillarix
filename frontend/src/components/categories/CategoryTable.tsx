@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CategoryActions } from "@/components/categories/CategoryActions";
 import { formatDate } from "@/utils/textFormatting";
 import { Category } from "@/types/categories";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
+import ShadcnTable from "@/components/ui/shadcnTable/shadcn-table";
+import { ShadcnColumn } from "@/types/table-types";
 
 interface CategoryTableProps {
   categories: Category[];
@@ -37,22 +38,27 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
   onEditCategory,
   onDeleteCategory,
   loading,
-  currentPage,
+  currentPage = 1,
   paginationData,
   onPageChange,
 }) => {
+  const getSerialNumber = (index: number) => {
+    if (!paginationData) return index + 1;
+    return (currentPage - 1) * paginationData.limit + index + 1;
+  };
+
   const columns: ShadcnColumn<Category>[] = [
     {
       key: "sr_no",
       header: "Sr No.",
       className: "py-3 text-center w-[30px]",
-      render: (_, row) => categories.indexOf(row) + 1,
+      render: (_: any, _row: Category, index: number) => getSerialNumber(index),
     },
     {
       key: "name",
       header: "Name",
       className: "py-3 text-left w-[300px]",
-      render: (value, row) =>
+      render: (value: string, row: Category, _index: number) =>
         editingCategory?.id === row.id ? (
           <div className="flex gap-4 items-center">
             <Input
@@ -80,13 +86,13 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
       key: "created_at",
       header: "Created At",
       className: "py-3 text-left w-[200px]",
-      render: (value) => formatDate(value),
+      render: (value: string, _row: Category, _index: number) => formatDate(value),
     },
     {
       key: "actions",
       header: "Actions",
       className: "py-3 text-center w-[50px]",
-      render: (_, row) => (
+      render: (_: any, row: Category, _index: number) => (
         <div className="flex justify-left">
           <CategoryActions
             onEdit={() => onEditCategory(row.id)}
@@ -98,13 +104,15 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
   ];
 
   return (
-    <div className="bg-card rounded-lg border shadow">
+    <div>
       <ShadcnTable
         columns={columns}
         data={categories}
+        isLoading={loading}
         currentPage={currentPage}
         paginationData={paginationData}
         onPageChange={onPageChange}
+        showPagination={true}
         emptyMessage="No categories available."
         className="w-full"
       />

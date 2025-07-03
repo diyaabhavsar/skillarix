@@ -11,7 +11,7 @@ export interface ShadcnColumn<T = any> {
   header: string;
   className?: string;
   headerClassName?: string;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: (value: any, row: T, index: number) => React.ReactNode;
 }
 
 export interface ShadcnTableProps<T = any> {

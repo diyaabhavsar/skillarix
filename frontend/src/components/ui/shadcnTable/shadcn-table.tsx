@@ -91,7 +91,7 @@ const MemoizedTableRow = React.memo<MemoizedTableRowProps>(
             className={cn("py-4", column.className)}
           >
             {column.render
-              ? column.render(row[column.key], row)
+              ? column.render(row[column.key], row, rowIndex)
               : row[column.key]}
           </TableCell>
         ))}
@@ -160,7 +160,7 @@ const ShadcnTable = React.memo(
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-0">
         <div
           className={cn(
             "relative w-full overflow-auto rounded-lg border bg-card",

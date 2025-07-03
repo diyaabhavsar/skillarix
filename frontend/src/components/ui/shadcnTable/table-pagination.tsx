@@ -7,7 +7,7 @@ import {
   PaginationContent,
   PaginationItem,
 } from "@/components/ui/shadcnTable/pagination";
-import { PaginationData } from "../table-types";
+import { PaginationData } from "@/types/table-types";
 
 interface TablePaginationProps {
   currentPage: number;
@@ -59,9 +59,9 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
   };
 
   return (
-    <div className="py-6 border-t border-slate-200 dark:border-slate-800">
+    <div className="mt-4 px-6 py-4 bg-white border rounded-lg shadow-sm">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-muted-foreground whitespace-nowrap">
           Showing{" "}
           <span className="font-medium text-foreground">
             {(currentPage - 1) * paginationData.limit + 1}
@@ -78,16 +78,16 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
         </p>
 
         <Pagination>
-          <PaginationContent className="gap-1">
+          <PaginationContent className="gap-2">
             <PaginationItem>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={() => currentPage > 1 && onPageChange?.(currentPage - 1)}
                 disabled={currentPage === 1}
                 className={cn(
-                  "h-8 w-8 transition-all duration-200",
-                  currentPage === 1 ? "opacity-50" : "hover:bg-muted"
+                  "h-9 w-9 rounded-md border-muted transition-all duration-200",
+                  currentPage === 1 ? "opacity-50" : "hover:bg-muted/50"
                 )}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -98,7 +98,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               if (pageNum === "...") {
                 return (
                   <PaginationItem key={`ellipsis-${index}`}>
-                    <div className="h-8 w-8 flex items-center justify-center">
+                    <div className="h-9 w-9 flex items-center justify-center">
                       <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </PaginationItem>
@@ -111,17 +111,17 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
               return (
                 <PaginationItem key={page}>
                   <Button
-                    variant={isActive ? "default" : "ghost"}
+                    variant={isActive ? "default" : "outline"}
                     size="icon"
                     onClick={() => onPageChange?.(page)}
                     className={cn(
-                      "h-8 w-8 transition-all duration-200",
-                      isActive ? "bg-primary hover:bg-primary/90" : "hover:bg-muted"
+                      "h-9 w-9 rounded-md transition-all duration-200",
+                      isActive ? "bg-primary hover:bg-primary/90" : "hover:bg-muted/50"
                     )}
                   >
                     <span
                       className={cn(
-                        "text-sm",
+                        "text-sm font-medium",
                         isActive ? "text-primary-foreground" : "text-foreground"
                       )}
                     >
@@ -134,7 +134,7 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
 
             <PaginationItem>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={() =>
                   currentPage < paginationData.total_pages &&
@@ -142,10 +142,10 @@ export const TablePagination: React.FC<TablePaginationProps> = ({
                 }
                 disabled={currentPage === paginationData.total_pages}
                 className={cn(
-                  "h-8 w-8 transition-all duration-200",
+                  "h-9 w-9 rounded-md border-muted transition-all duration-200",
                   currentPage === paginationData.total_pages
                     ? "opacity-50"
-                    : "hover:bg-muted"
+                    : "hover:bg-muted/50"
                 )}
               >
                 <ChevronRight className="h-4 w-4" />

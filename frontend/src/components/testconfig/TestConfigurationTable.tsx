@@ -1,10 +1,10 @@
 import React from "react";
 import { Test } from "@/types/testconfig";
-import { Product } from "@/types/products";
-import ShadcnTable, { ShadcnColumn } from "@/components/ui/shadcnTable/shadcn-table";
+import ShadcnTable from "@/components/ui/shadcnTable/shadcn-table";
 
 import VisitorPersonaDialog from "./VisitorPersonaDialog";
 import TestConfigurationActions from "./TestConfigurationActions";
+import { ShadcnColumn } from "@/types/table-types";
 
 interface TestConfigurationTableProps {
   tests: Test[];
@@ -42,7 +42,9 @@ const TestConfigurationTable: React.FC<TestConfigurationTableProps> = ({
       key: "name",
       header: "Name",
       className: "py-3 font-medium text-slate-700",
-      render: (value) => <span className="font-medium text-slate-800">{value}</span>,
+      render: (value) => (
+        <span className="font-medium text-slate-800">{value}</span>
+      ),
     },
     {
       key: "product_id",

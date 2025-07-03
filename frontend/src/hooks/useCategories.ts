@@ -2,45 +2,35 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { api } from '@/utils/api';
-import { Category } from '@/types/categories';
-import { CategoryResponse } from '@/types/categories';
+import { Category, CategoryResponse, PaginatedResponse } from '@/types/categories';
 
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [categoriesResponse, setCategoriesResponse] = useState<any>(null);
+  const [categoriesResponse, setCategoriesResponse] = useState<PaginatedResponse<CategoryResponse> | null>(null);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
   const { token } = useAuth();
-  
+
+  const formatCategory = (cat: CategoryResponse): Category => ({
+    id: cat._id,
+    name: cat.name,
+    created_at: cat.created_at,
+    created_by: cat.created_by,
+    updated_at: cat.updated_at,
+    updated_by: cat.updated_by,
+  });
+
   const fetchCategories = async (page: number = 1, limit: number = 10) => {
     if (!token) return;
     setIsCategoriesLoading(true);
     try {
-      const data: any = await api.get(`/categories?page=${page}&limit=${limit}`);
+      const response = await api.get(`/categories?page=${page}&limit=${limit}`);
+      const data = response as PaginatedResponse<CategoryResponse>;
       
-      // Handle pagination response format
       if (data.data && Array.isArray(data.data)) {
-        const formattedCategories = data.data.map((cat: CategoryResponse) => ({ 
-          id: cat._id, 
-          name: cat.name,
-          created_at: cat.created_at,
-          created_by: cat.created_by
-        }));
+        const formattedCategories = data.data.map(formatCategory);
         setCategories(formattedCategories);
         setCategoriesResponse(data);
-        if (formattedCategories.length > 0 && !selectedCategoryId) {
-          setSelectedCategoryId(formattedCategories[0].id);
-        }
-      } else {
-        // Fallback for old format
-        const categoryData = data as CategoryResponse[];
-        const formattedCategories = categoryData.map(cat => ({ 
-          id: cat._id, 
-          name: cat.name,
-          created_at: cat.created_at,
-          created_by: cat.created_by
-        }));
-        setCategories(formattedCategories);
         if (formattedCategories.length > 0 && !selectedCategoryId) {
           setSelectedCategoryId(formattedCategories[0].id);
         }
@@ -56,27 +46,15 @@ export const useCategories = () => {
   const fetchAllCategories = async () => {
     if (!token) return;
     try {
-      // Use paginated request with large limit
-      const data: any = await api.get('/categories');
+      const response = await api.get('/categories?limit=1000');
+      const data = response as PaginatedResponse<CategoryResponse>;
       
-      let categoryData = [];
       if (data.data && Array.isArray(data.data)) {
-        // Paginated response format
-        categoryData = data.data;
-      } else if (Array.isArray(data)) {
-        // Direct array format
-        categoryData = data;
-      }
-      
-      const formattedCategories = categoryData.map((cat: CategoryResponse) => ({ 
-        id: cat._id, 
-        name: cat.name,
-        created_at: cat.created_at,
-        created_by: cat.created_by
-      }));
-      setCategories(formattedCategories);
-      if (formattedCategories.length > 0 && !selectedCategoryId) {
-        setSelectedCategoryId(formattedCategories[0].id);
+        const formattedCategories = data.data.map(formatCategory);
+        setCategories(formattedCategories);
+        if (formattedCategories.length > 0 && !selectedCategoryId) {
+          setSelectedCategoryId(formattedCategories[0].id);
+        }
       }
     } catch (error: any) {
       console.error("Error fetching all categories:", error);
@@ -90,12 +68,7 @@ export const useCategories = () => {
       // Refresh the current page after creation
       await fetchCategories(currentPage);
       toast.success('Category created successfully');
-      return {
-        id: newCategory._id, 
-        name: newCategory.name,
-        created_at: newCategory.created_at,
-        created_by: newCategory.created_by
-      };
+      return formatCategory(newCategory);
     } catch (error: any) {
       console.error("Error creating category:", error);
       toast.error(`Failed to create category: ${error.message}`);
@@ -110,12 +83,7 @@ export const useCategories = () => {
       // Refresh the current page after update
       await fetchCategories(currentPage);
       toast.success('Category updated successfully');
-      return {
-        id: updatedCategory._id, 
-        name: updatedCategory.name,
-        created_at: updatedCategory.created_at,
-        created_by: updatedCategory.created_by
-      };
+      return formatCategory(updatedCategory);
     } catch (error: any) {
       console.error("Error updating category:", error);
       toast.error(`Failed to update category: ${error.message}`);
