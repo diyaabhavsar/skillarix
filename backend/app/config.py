@@ -17,10 +17,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     
     MODEL: int
-<<<<<<< HEAD
     MODEL_NAME: str
-=======
->>>>>>> 7776bbe (elevanlabs poc)
 
     # MongoDB
     MONGODB_URL: str

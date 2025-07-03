@@ -12,16 +12,14 @@ from ..config import settings
 
 
 conversation_collection = db["conversations"]
+prompt_collection = db["prompts"]
 
 # Initialize Groq Client
 client = Groq(api_key=settings.GROQ_API_KEY)
 # Initialize OpenAI Client
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 FLAG = settings.MODEL
-<<<<<<< HEAD
 MODEL_NAME = settings.MODEL_NAME
-=======
->>>>>>> 7776bbe (elevanlabs poc)
 
 def generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None) -> str:
     try:
@@ -86,11 +84,7 @@ Your response:
         if FLAG == 1:
             # Streaming OpenAI Chat completion
             response_stream = openai_client.chat.completions.create(
-<<<<<<< HEAD
                 model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-=======
-                model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
->>>>>>> 7776bbe (elevanlabs poc)
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
@@ -129,6 +123,51 @@ Your response:
         # Re-raise the exception or handle it appropriately.
         print(f"Error generating RAG answer: {str(e)}")
         raise # Re-raise the exception
+
+def dynamic_generate_answer_rag(context: str, question: str, persona: dict, is_first_exchange: bool = False, conversation_history: List[dict] = None):
+    prompt_doc = prompt_collection.find_one({"title":"Generate Rag Answer"})
+    prompt_dict = build_prompt_dict(prompt["prompt"])
+    
+    prompt = prompt_dict["prompt_text"]
+    
+    customer_persona = json.dumps(persona, indent=2)
+    conversation_context = ""
+    if conversation_history and len(conversation_history) > 0:
+        conversation_context = prompt_dict["previous_conversation_context"].format(conversation_history = format_conversation_history(conversation_history))
+    
+    greeting_instruction = ""
+    if is_first_exchange:
+        greeting_instruction = prompt_dict["first_exchange"]
+    else:
+        greeting_instruction = prompt_dict["not_first_exchange"]
+    
+    
+    filled_prompt = prompt.format(
+        persona_dict=json.dumps(customer_persona, indent=2),
+        context=context,
+        conversation_context=conversation_context,
+        customer_question=question,
+        greeting_instruction=greeting_instruction
+    )
+    
+    
+    
+    completion = client.chat.completions.create(
+    model="meta-llama/llama-4-scout-17b-16e-instruct",
+    messages=[{"role": "user", "content": filled_prompt}],
+    temperature=1,
+    max_completion_tokens=1024,
+    top_p=1,
+    stream=True,
+    stop=None,
+)   
+        
+    full_response = ""
+    for chunk in completion:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+    
+    return full_response.strip()
 
 def format_conversation_history(history: List[dict]):
     formatted = []
@@ -222,11 +261,7 @@ IMPORTANT INSTRUCTIONS:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
-<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-=======
-            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
->>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -310,11 +345,7 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
-<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-=======
-            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
->>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -393,11 +424,7 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
-<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-=======
-            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
->>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": prompt}
             ],
@@ -514,11 +541,7 @@ Your evaluation:
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
-<<<<<<< HEAD
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-=======
-            model="gpt-4o",  # or gpt-3.5-turbo / gpt-3.5-turbo
->>>>>>> 7776bbe (elevanlabs poc)
             messages=[
                 {"role": "user", "content": full_prompt}
             ],
@@ -678,3 +701,9 @@ def get_conversations_by_product(product_id: ObjectId, token):
 def get_conversation_by_id(conversation_id: ObjectId):
     """Get a specific conversation with its evaluation data."""
     return conversation_collection.find_one({"_id": conversation_id})
+
+def build_prompt_dict(prompt_list: list[dict]) -> dict:
+    """
+    Converts list of {'condition', 'prompt'} dicts to a condition: prompt map.
+    """
+    return {item["condition"]: item["prompt"] for item in prompt_list}
