@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { api } from '@/utils/api';
-import { env } from '@/config/env';
-import { Product } from '@/types/products';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { api } from "@/utils/api";
+import { env } from "@/config/env";
+import { Product } from "@/types/products";
 
 export const useProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -16,7 +16,7 @@ export const useProducts = () => {
     setIsLoading(true);
     try {
       const data: any = await api.get(`/products?page=${page}&limit=${limit}`);
-      
+
       // Handle pagination response format
       if (data.data && Array.isArray(data.data)) {
         // Set file url for display
@@ -26,8 +26,9 @@ export const useProducts = () => {
           }
         });
         // Sort products by created_at in descending order (latest first)
-        const sortedData = data.data.sort((a: any, b: any) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const sortedData = data.data.sort(
+          (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         setProducts(sortedData);
         setProductsResponse(data);
@@ -39,8 +40,9 @@ export const useProducts = () => {
             product.file_url = `${env.API_URL}${product.file_url}`;
           }
         });
-        const sortedData = products.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const sortedData = products.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         setProducts(sortedData);
       }
@@ -58,8 +60,9 @@ export const useProducts = () => {
     try {
       const data = await api.get(`/products/all`);
       // Sort products by created_at in descending order (latest first)
-      const sortedData = (data as Product[]).sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      const sortedData = (data as Product[]).sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setProducts(sortedData);
     } catch (error: any) {
@@ -76,8 +79,9 @@ export const useProducts = () => {
     try {
       const data = await api.get(`/products/${categoryId}`);
       // Sort products by created_at in descending order (latest first)
-      const sortedData = (data as Product[]).sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      const sortedData = (data as Product[]).sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setProducts(sortedData);
     } catch (error: any) {
@@ -113,12 +117,15 @@ export const useProducts = () => {
         },
         body: formData,
       });
-      const updatedProduct = await api.handleResponse(response) as Product;
+      const updatedProduct = (await api.handleResponse(response)) as Product;
       // Update local state and maintain sorting order
-      setProducts(prev => {
-        const updated = prev.map(p => p._id === productId ? updatedProduct : p);
-        return updated.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      setProducts((prev) => {
+        const updated = prev.map((p) =>
+          p._id === productId ? updatedProduct : p
+        );
+        return updated.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
       });
       return updatedProduct;
@@ -133,7 +140,7 @@ export const useProducts = () => {
     if (!token) throw new Error("Not authenticated");
     try {
       await api.delete(`/products/${productId}`);
-      setProducts(prev => prev.filter(p => p._id !== productId));
+      setProducts((prev) => prev.filter((p) => p._id !== productId));
     } catch (error: any) {
       console.error("Error deleting product:", error);
       toast.error(`Failed to delete product: ${error.message}`);
@@ -141,8 +148,26 @@ export const useProducts = () => {
     }
   };
 
+  const fetchProductById = async (id: string): Promise<Product | null> => {
+    if (!token) return null;
+    setIsLoading(true);
+    try {
+      const data = await api.get<Product>(`/products/by-id/${id}`);
+      if (data && "file_url" in data && data.file_url) {
+        data.file_url = `${env.API_URL}${data.file_url}`;
+      }
+      return data;
+    } catch (error: any) {
+      console.error("Error fetching product:", error);
+      toast.error(`Failed to load product: ${error.message}`);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getProductById = (id: string) => {
-    return products.find(product => product._id === id);
+    return products.find((product) => product._id === id);
   };
 
   const getProductName = (productId: string) => {
@@ -153,6 +178,12 @@ export const useProducts = () => {
   const viewProductContent = (content: string) => {
     console.log("Product Content:", content);
   };
+
+  useEffect(() => {
+    if (token) {
+      fetchProducts();
+    }
+  }, [token]);
 
   return {
     products,
@@ -168,6 +199,7 @@ export const useProducts = () => {
     deleteProduct,
     getProductById,
     getProductName,
-    viewProductContent
+    viewProductContent,
+    fetchProductById,
   };
 };
