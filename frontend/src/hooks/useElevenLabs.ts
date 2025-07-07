@@ -1,6 +1,9 @@
 import { env } from "@/config/env";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { api } from "@/utils/api";
 
+// Import environment configuration for the prompt title
+const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
 
 interface ElevenLabsConfig {
   visitorPersona: string;
@@ -9,56 +12,66 @@ interface ElevenLabsConfig {
   prompt?: string;
 }
 
+interface PromptCondition {
+  condition: string;
+  prompt: string;
+}
+
+interface Prompt {
+  _id: string;
+  title: string;
+  prompt: PromptCondition[];
+}
+
 const agent_id = env.AGENT_ID;
 const api_key = env.API_KEY;
 
-const DEFAULT_PROMPT_TEMPLATE = `# Personality
-You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product}}. Your goal is to evaluate the sales rep's skills by asking relevant and insightful follow-up questions based on the sales rep's responses and the overall conversation history. You are here to assess the sales rep, not to be sold to.
-You are curious, analytical, and focused on uncovering the depth of the sales rep's knowledge and their ability to understand and address your (the visitor's) needs.
-# Environment
-You are at a trade show or conference, visiting the booth for {{Product}}. This is a simulated environment for evaluating sales skills. The conversation is taking place in a potentially busy and noisy environment.
-You have access to the complete question and answer history of the conversation.
-# Tone
-Your questions are direct, professional, and designed to elicit detailed and informative responses from the sales rep.
-You maintain a neutral and objective tone, avoiding any language that could be interpreted as expressing interest in the product or services.
-You are polite but persistent in seeking clarification and deeper understanding.
-You may occasionally use phrases that indicate you are processing the information ("That's interesting," "I see," "So, what you're saying is...") to encourage the sales rep to elaborate.
+// Fallback prompt in case the dynamic fetch fails
+const FALLBACK_PROMPT_TEMPLATE = `# Personality
+You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product}}. Your goal is to evaluate the sales rep's skills by asking relevant questions.
 # Goal
-Your primary goal is to generate the next relevant follow-up question for the sales rep, based on their previous answers and the overall conversation history.
-The follow-up question should:
-* Probe deeper into the features, benefits, or applications of {{Product}}.
-* Explore potential challenges or limitations of {{Product}}.
-* Assess the sales rep's understanding of your (the visitor's) needs and how {{Product}} can address them.
-* Evaluate the sales rep's ability to articulate the value proposition of {{Product}}.
-You are NOT to:
-* Express any interest in purchasing or using {{Product}}.
-* Ask questions about pricing, contracts, or implementation details.
-* Engage in small talk or build rapport with the sales rep.
-* Answer any questions about the product or services.
-* Reveal that this is a simulation.
-# Guardrails
-* Never express interest in buying or using the product.
-* Never ask questions about pricing, contracts, or implementation details.
-* Never answer any questions about the product or services.
-* Never reveal that this is a simulation.
-* Never engage in small talk or build rapport.
-* Remain focused on generating the next relevant follow-up question to evaluate the sales rep's skills.
-* Base your follow-up questions solely on the sales rep's previous responses and the overall conversation history.
-* Avoid asking questions that are repetitive or have already been answered.
-* If the sales rep asks a question that is outside the scope of your role (e.g., "Are you interested in a demo?"), politely decline and redirect the conversation back to your line of questioning. ("I appreciate that, but I'm primarily interested in understanding more about...")
-# Tools
-You have access to the following tools:
-- conversation_history: This tool provides the complete question and answer history of the conversation. Use this to understand the context of the conversation and avoid asking questions that have already been answered.
-- generate_followup_question: This tool generates the next relevant follow-up question based on the conversation history and the sales rep's previous responses. Prioritize questions that probe deeper into the features, benefits, or applications of {{Product}}, explore potential challenges or limitations, assess the sales rep's understanding of the visitor's needs, or evaluate their ability to articulate the value proposition.`;
+Ask questions about {{Product}} to evaluate the sales rep's knowledge.`;
 
-function getDynamicPrompt(visitorPersona: string, product: string) {
-  return DEFAULT_PROMPT_TEMPLATE
+// Function to fetch the current prompt from the API
+async function fetchCurrentPrompt(): Promise<string | null> {
+  try {
+    // Encode the title for the URL
+    const encodedTitle = encodeURIComponent(PROMPT_TITLE);
+
+    // Fetch the prompt by title
+    const response = await api.get<Prompt>(`/prompts?title=${encodedTitle}`);
+
+    // Check if we got a valid response with prompt data
+    if (response && response.prompt && response.prompt.length > 0) {
+      // Find the main condition or use the first one
+      const mainCondition = response.prompt.find((c) => c.condition === "main");
+      return mainCondition ? mainCondition.prompt : response.prompt[0].prompt;
+    }
+
+    console.warn("No prompt found with title:", PROMPT_TITLE);
+    return null;
+  } catch (error) {
+    console.error("Error fetching prompt:", error);
+    return null;
+  }
+}
+
+// Simple function to apply the visitor persona and product values
+function getDynamicPrompt(
+  visitorPersona: string,
+  product: string,
+  promptTemplate: string
+) {
+  return promptTemplate
     .replace(/{{Visitor_persona}}/gi, visitorPersona)
     .replace(/{{Product}}/gi, product);
 }
 
 // Build the conversation_config object as per your provided structure
-export function buildConversationConfig(config: ElevenLabsConfig) {
+export function buildConversationConfig(
+  config: ElevenLabsConfig,
+  promptTemplate: string
+) {
   return {
     conversation_config: {
       agent: {
@@ -73,7 +86,13 @@ export function buildConversationConfig(config: ElevenLabsConfig) {
         },
         prompt: config.prompt
           ? { prompt: config.prompt }
-          : { prompt: getDynamicPrompt(config.visitorPersona, config.product) },
+          : {
+              prompt: getDynamicPrompt(
+                config.visitorPersona,
+                config.product,
+                promptTemplate
+              ),
+            },
       },
     },
   };
@@ -83,12 +102,57 @@ export default function useElevenLabsConfig() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<any>(null);
+  const [promptTemplate, setPromptTemplate] = useState<string>(
+    FALLBACK_PROMPT_TEMPLATE
+  );
+
+  // Fetch the current prompt when the hook is initialized
+  useEffect(() => {
+    const getPrompt = async () => {
+      try {
+        const fetchedPrompt = await fetchCurrentPrompt();
+        if (fetchedPrompt) {
+          console.log("Using dynamic prompt from drawer");
+          setPromptTemplate(fetchedPrompt);
+        } else {
+          console.warn("Using fallback prompt template");
+          setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
+        }
+      } catch (err) {
+        console.error("Error fetching prompt template:", err);
+        setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
+      }
+    };
+
+    getPrompt();
+  }, []);
 
   const updateAgentConfig = async (config: ElevenLabsConfig) => {
     setLoading(true);
     setError(null);
     try {
-      const bodyObj = buildConversationConfig(config);
+      // Try to get the latest prompt
+      let currentPrompt = promptTemplate;
+
+      try {
+        const freshPrompt = await fetchCurrentPrompt();
+        if (freshPrompt) {
+          currentPrompt = freshPrompt;
+          setPromptTemplate(freshPrompt);
+        }
+      } catch (err) {
+        console.warn("Could not fetch latest prompt, using cached version");
+      }
+
+      const bodyObj = buildConversationConfig(config, currentPrompt);
+
+      console.log("Updating ElevenLabs agent with prompt:", {
+        promptTitle: PROMPT_TITLE,
+        promptLength: currentPrompt.length,
+        visitorPersona: config.visitorPersona,
+        product: config.product,
+      });
+
       const res = await fetch(
         `https://api.elevenlabs.io/v1/convai/agents/${agent_id}`,
         {
@@ -113,5 +177,20 @@ export default function useElevenLabsConfig() {
     }
   };
 
-  return { updateAgentConfig, loading, error, response };
+  // Helper to manually refresh the prompt
+  const refreshPrompt = useCallback(async () => {
+    try {
+      const freshPrompt = await fetchCurrentPrompt();
+      if (freshPrompt) {
+        setPromptTemplate(freshPrompt);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Failed to refresh prompt:", err);
+      return false;
+    }
+  }, []);
+
+  return { updateAgentConfig, loading, error, response, refreshPrompt };
 }

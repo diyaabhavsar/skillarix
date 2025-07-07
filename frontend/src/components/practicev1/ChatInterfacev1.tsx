@@ -15,6 +15,7 @@ import PromptDrawer from "./promptDrawer";
 import { getSessionContext } from "./session";
 import { Button } from "../ui/button";
 import { useLatestRef } from "@/hooks/chat/useLatestRef";
+import { toast } from "sonner";
 
 interface VoiceChatProps {
   onEndSession: () => void;
@@ -121,6 +122,12 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
     // If prompt drawer is already open, close it. Otherwise open it and close the left drawer
     if (promptDrawerOpen) {
       setPromptDrawerOpen(false);
+      
+      // Let the user know that changes will be applied to new conversations
+      toast.info("Prompt changes will be applied to new conversations", {
+        duration: 3000,
+        id: "prompt-drawer-closed"
+      });
     } else {
       setPromptDrawerOpen(true);
       setDrawerOpen(false);

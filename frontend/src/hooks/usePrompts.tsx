@@ -23,28 +23,35 @@ interface ApiResponse<T> {
   data: T;
 }
 
-// Define a constant for the fixed prompt ID to avoid repetition
-const FIXED_PROMPT_ID = "686b5d6a7974bf88bcdfbd64";
+// Import environment configuration
+import { env } from "@/config/env";
+
+// Define the prompt title from environment variables
+const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
 
 export const usePrompts = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get prompt by ID - always uses the fixed ID regardless of what's passed
+  // Get prompt by title using query parameter
   const getPromptById = useCallback(
-    async (id: string): Promise<Prompt | null> => {
+    async (_id: string): Promise<Prompt | null> => {
       setLoading(true);
       setError(null);
 
       try {
-        // Always use the fixed ID for the API call
-        const response = await api.get<Prompt>(`/prompts/${FIXED_PROMPT_ID}`);
+        // Use title query parameter instead of ID
+        console.log(`Fetching prompt with title: ${PROMPT_TITLE}`);
+        const encodedTitle = encodeURIComponent(PROMPT_TITLE);
+        const response = await api.get<Prompt>(`/prompts?title=${encodedTitle}`);
+        
+        console.log("Prompt fetched by title:", response);
         return response;
       } catch (err) {
         const errorMessage =
           err instanceof Error
             ? err.message
-            : "An error occurred fetching the prompt";
+            : "Failed to fetch prompt";
         setError(errorMessage);
         console.error("Error fetching prompt:", err);
         return null;
@@ -55,42 +62,55 @@ export const usePrompts = () => {
     []
   );
 
-  // Update an existing prompt
+  // Update an existing prompt by ID
   const updatePrompt = useCallback(
     async (
-      id: string,
-      title: string,
-      promptConditions: PromptCondition[]
-    ): Promise<Prompt | null> => {
+      promptId: string,
+      promptTitle: string,
+      promptContent: PromptCondition[]
+    ): Promise<{ data: Prompt | null; success: boolean; message: string }> => {
       setLoading(true);
       setError(null);
 
       try {
-        const payload = {
-          title,
-          prompt: promptConditions,
+        // Prepare payload for API
+        const promptPayload = {
+          title: promptTitle,
+          prompt: promptContent,
         };
 
-        const response = await api.put<typeof payload, ApiResponse<Prompt>>(
-          `/prompts/${id}`,
-          payload
+        console.log(`Updating prompt with ID ${promptId}:`, promptPayload);
+
+        // Make API call to update the prompt
+        const response = await api.put<typeof promptPayload, ApiResponse<Prompt>>(
+          `/prompts/${promptId}`,
+          promptPayload
         );
 
-        // Use the message from the API response if available, or fallback to a default message
-        const successMessage =
-          response.message || "Prompt updated successfully";
-        toast.success(successMessage);
+        console.log("API Response:", response);
 
-        return response.data || null;
+        // Return both the data and the success message without showing a toast
+        // The component will handle toast display
+        return {
+          data: response.data || null,
+          success: true,
+          message: response.message || "Prompt updated successfully"
+        };
       } catch (err) {
+        // Handle error cases
         const errorMessage =
           err instanceof Error
             ? err.message
-            : "An error occurred updating the prompt";
+            : "Failed to update prompt";
         setError(errorMessage);
-        toast.error(errorMessage);
         console.error("Error updating prompt:", err);
-        return null;
+        
+        // Return failure status with error message
+        return {
+          data: null,
+          success: false,
+          message: errorMessage
+        };
       } finally {
         setLoading(false);
       }
@@ -101,6 +121,7 @@ export const usePrompts = () => {
   // Convert markdown-style prompt to API format - memoized to prevent unnecessary re-renders
   const convertPromptToApiFormat = useCallback(
     (promptText: string): PromptCondition[] => {
+      // Preserve special placeholders like {{Visitor_persona}} and {{Product}}
       return [
         {
           condition: "main",
@@ -118,13 +139,18 @@ export const usePrompts = () => {
       const promptText = mainCondition
         ? mainCondition.prompt
         : conditions[0]?.prompt || "";
+      
+      // Ensure special placeholders are preserved
       return promptText;
     },
     []
   );
 
-  // Expose the fixed prompt ID for use in components
-  const fixedPromptId = useMemo(() => FIXED_PROMPT_ID, []);
+  // Create a state to store the prompt ID we get from the API
+  const [promptId, setPromptId] = useState<string>("");
+  
+  // Expose the prompt ID for use in components
+  const fixedPromptId = useMemo(() => promptId, [promptId]);
 
   return {
     loading,
@@ -134,5 +160,6 @@ export const usePrompts = () => {
     convertPromptToApiFormat,
     convertApiFormatToPrompt,
     fixedPromptId,
+    setPromptId,
   };
 };

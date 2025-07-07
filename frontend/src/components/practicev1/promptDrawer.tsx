@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { usePrompts, Prompt } from "@/hooks/usePrompts";
+import { usePrompts } from "@/hooks/usePrompts";
 
 interface PromptDrawerProps {
   open: boolean;
@@ -17,29 +17,36 @@ const PromptDrawer: React.FC<PromptDrawerProps> = ({ open, onClose }) => {
     convertPromptToApiFormat,
     convertApiFormatToPrompt,
     fixedPromptId,
+    setPromptId: setGlobalPromptId
   } = usePrompts();
   const [promptInfo, setPromptInfo] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
-  const [promptId, setPromptId] = useState<string | null>(null);
+  const [localPromptId, setLocalPromptId] = useState<string | null>(null);
   const [promptTitle, setPromptTitle] = useState<string>(
     "ElevenLabs Agent System"
   );
   const [loadingPrompt, setLoadingPrompt] = useState(false);
-  // We no longer need to track multiple prompts since we always use the fixed ID
 
-  // Load fixed prompt from API
+  // Load prompt from API by title
   const loadPrompt = useCallback(async () => {
     // Set local loading state to true
     setLoadingPrompt(true);
 
     try {
-      // Get the fixed prompt
-      const prompt = await getPromptById(fixedPromptId);
+      // Get the prompt by title
+      const prompt = await getPromptById("");
       if (prompt) {
-        // Set the prompt information
-        setPromptId(prompt._id);
+        // Store both locally and globally
+        setLocalPromptId(prompt._id);
+        setGlobalPromptId(prompt._id);
+        console.log("Loaded prompt ID:", prompt._id);
         setPromptTitle(prompt.title);
-        setPromptInfo(convertApiFormatToPrompt(prompt.prompt));
+        
+        // Convert the API format to prompt text while preserving placeholders
+        const promptText = convertApiFormatToPrompt(prompt.prompt);
+        
+          // Simply set the prompt text without any placeholder handling
+        setPromptInfo(promptText);
       } else {
         toast.error("Could not load the main prompt");
       }
@@ -68,46 +75,57 @@ const PromptDrawer: React.FC<PromptDrawerProps> = ({ open, onClose }) => {
     setIsUpdating(true);
 
     try {
-      // Format the prompt data for the API in the same format as the curl example
-      const formattedPrompt = convertPromptToApiFormat(promptInfo);
+      // Format the prompt data for the API
+      const promptContent = convertPromptToApiFormat(promptInfo);
 
-      // Prepare the payload matching the curl request format
-      const payload = {
-        title: promptTitle,
-        prompt: formattedPrompt,
-      };
-
-      // Update the prompt with new information using the fixed ID
-      const updatedPrompt = await updatePrompt(
-        fixedPromptId,
-        promptTitle,
-        formattedPrompt
-      );
-
-      if (!updatedPrompt) {
-        throw new Error("Failed to update prompt");
+      if (!localPromptId) {
+        throw new Error("No prompt ID found. Please reload the page.");
       }
 
-      // Always use the fixed prompt ID
-      setPromptId(fixedPromptId);
+      // Update the prompt with new information using the dynamically loaded ID
+      const result = await updatePrompt(
+        localPromptId,
+        promptTitle,
+        promptContent
+      );
 
-      // Log successful API call similar to curl output
-      console.log(`✅ PUT request to /prompts/${fixedPromptId} successful:`, {
-        id: fixedPromptId,
+      if (!result || !result.success) {
+        throw new Error(result?.message || "Failed to update prompt");
+      }
+
+      // Make sure the global prompt ID is updated
+      setGlobalPromptId(localPromptId);
+
+      // Log successful API call with relevant details
+      console.log(`✅ PUT request to /prompts/${localPromptId} successful:`, {
+        id: localPromptId,
         title: promptTitle,
-        promptConditions: formattedPrompt.length,
-        promptLength: promptInfo.length,
+        promptContentItems: promptContent.length,
+        promptTextLength: promptInfo.length,
         timestamp: new Date().toISOString(),
       });
 
-      toast.success("Prompt information updated successfully");
+      // Reload the prompt to display the updated data
+      await loadPrompt();
+      
+      // Use the success message from the API in the toast notification
+      toast.success(`${result.message}. Changes will apply to new conversations.`, {
+        duration: 5000,
+        id: "prompt-updated-notice"
+      });
+      
+      // Toast message from API is already handled by updatePrompt function
     } catch (error) {
       console.error("❌ Error updating prompt:", error);
+      // Show a single toast error message
       const errorMessage =
         error instanceof Error
           ? error.message
-          : "Failed to update prompt information";
-      toast.error(errorMessage);
+          : "Failed to update prompt";
+      toast.error(errorMessage, {
+        duration: 5000,
+        id: "prompt-update-error"
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -172,14 +190,19 @@ const PromptDrawer: React.FC<PromptDrawerProps> = ({ open, onClose }) => {
               >
                 Prompt Content
               </label>
-              <textarea
-                id="promptContent"
-                className="w-full h-[calc(100vh-16rem)] p-3 rounded-md border bg-white"
-                value={promptInfo}
-                onChange={(e) => setPromptInfo(e.target.value)}
-                placeholder="Enter prompt information..."
-                style={{ resize: "none" }}
-              />
+              <div className="relative">
+                <textarea
+                  id="promptContent"
+                  className="w-full h-[calc(100vh-16rem)] p-3 rounded-md border bg-white font-mono"
+                  value={promptInfo}
+                  spellCheck="false"
+                  onChange={(e) => {
+                    setPromptInfo(e.target.value);
+                  }}
+                  placeholder="Enter prompt information..."
+                  style={{ resize: "none" }}
+                />
+              </div>
 
               <div className="flex items-center justify-center mt-4 w-full">
                 <Button

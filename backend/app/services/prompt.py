@@ -109,3 +109,47 @@ def get_logs(prompt_id):
         log["previous_value"]["updated_by"] = str(log["previous_value"]["updated_by"])
         result.append(log)
     return result
+
+
+def get_prompt_by_title(title):
+    """
+    Find a prompt by its title and ensure it's not deleted
+
+    Args:
+        title (str): The title of the prompt to find
+
+    Returns:
+        dict: The prompt document if found, otherwise False
+    """
+    prompt = prompt_collection.find_one({"title": title, "is_deleted": False})
+    if prompt:
+        prompt["_id"] = str(prompt["_id"])
+        prompt["created_by"] = str(prompt["created_by"])
+        if prompt["updated_by"]:
+            prompt["updated_by"] = str(prompt["updated_by"])
+        return prompt
+    return False
+
+
+def search_prompts_by_title(title_query):
+    """
+    Search for prompts with titles that match the provided query string
+
+    Args:
+        title_query (str): The query string to match against prompt titles
+
+    Returns:
+        list: A list of matching prompt documents
+    """
+    # Use a regex pattern for case-insensitive partial matching
+    query = {"title": {"$regex": title_query, "$options": "i"}, "is_deleted": False}
+    prompts = prompt_collection.find(query)
+
+    result = []
+    for prompt in prompts:
+        prompt["_id"] = str(prompt["_id"])
+        prompt["created_by"] = str(prompt["created_by"])
+        if prompt["updated_by"]:
+            prompt["updated_by"] = str(prompt["updated_by"])
+        result.append(prompt)
+    return result
