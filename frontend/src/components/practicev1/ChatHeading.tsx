@@ -1,7 +1,7 @@
 import { useProducts } from "@/hooks/useProducts";
 import { useTests } from "@/hooks/useTests";
 import React from "react";
-import { ArrowLeft, Info, FileText, Settings } from "lucide-react";
+import { ArrowLeft, Info, Sparkles, Settings } from "lucide-react";
 import { Button } from "../ui/button";
 
 interface ChatHeadingProps {
@@ -52,9 +52,9 @@ const ChatHeading: React.FC<ChatHeadingProps> = ({
           size="icon"
           className="absolute left-4 top-1/2 -translate-y-1/2"
           onClick={onToggleDrawer}
-          aria-label="Toggle prompt drawer"
+          aria-label="Toggle AI prompt drawer"
         >
-          <FileText className="h-5 w-5" />
+          <Sparkles className="h-5 w-5" />
         </Button>
       )}
       
@@ -65,7 +65,7 @@ const ChatHeading: React.FC<ChatHeadingProps> = ({
           size="icon"
           className="absolute left-16 top-1/2 -translate-y-1/2"
           onClick={onLeftDrawer}
-          aria-label="Toggle test configuration"
+          aria-label="Toggle test configuration settings"
         >
           <Settings className="h-5 w-5" />
         </Button>
