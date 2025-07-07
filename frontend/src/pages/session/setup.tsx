@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 const SessionSetupPage = () => {
   const navigate = useNavigate();
@@ -134,10 +135,12 @@ const SessionSetupPage = () => {
         <div className="mb-8 flex items-center gap-4 relative">
           <Button
             onClick={() => navigate(-1)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center px-6 py-2 text-white bg-[#7c3aed] hover:bg-[#6d28d9] font-semibold rounded-lg shadow"
-            style={{ minWidth: 80 }}
+            size="icon"
+            variant="ghost"
+            className="absolute left-0 top-1/2 -translate-y-1/2"
+            aria-label="Go back"
           >
-            Back
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 flex flex-col items-center">
             <h1 className="text-3xl font-bold text-center">

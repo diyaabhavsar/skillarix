@@ -36,16 +36,6 @@ const LeftDrawer: React.FC<LeftDrawerProps> = ({ open, onClose, testId }) => {
         minWidth: open ? 300 : 0,
       }}
     >
-      {/* Toggle button always visible when closed */}
-      {!open && (
-        <button
-          className="absolute top-4 left-0 z-10 bg-white border rounded-r px-2 py-1 shadow"
-          onClick={onClose}
-          aria-label="Open Test Config Drawer"
-        >
-          <span className="font-bold">&#9776;</span>
-        </button>
-      )}
       {/* Header and close button */}
       {open && (
         <div className="flex items-center justify-between px-4 py-2 border-b bg-white sticky top-0 z-10">

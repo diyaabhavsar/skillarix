@@ -18,6 +18,7 @@ export type AdditionalCriteria = {
 export type Test = {
   _id: string;
   name: string;
+  promptId?: string;
   product_id: string;
   visitorPersona: VisitorPersona;
   additionalCriteria: AdditionalCriteria;
@@ -27,6 +28,7 @@ export type Test = {
   updated_by: string;
   category_id?: string;
   assessment?: boolean;
+  promptInfo?: string;
 };
 
 export type TestConfigurationFormProps = {
@@ -38,6 +40,7 @@ export type TestConfigurationFormProps = {
     visitorPersona: VisitorPersona;
     additionalCriteria: AdditionalCriteria;
     assessment?: boolean;
+    promptInfo?: string;
   };
   onSuccess?: () => void;
 };

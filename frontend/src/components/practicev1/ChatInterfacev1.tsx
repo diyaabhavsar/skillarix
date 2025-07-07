@@ -11,6 +11,7 @@ import { useAutoScroll } from "@/hooks/chat/useAutoScroll";
 import { useStartConversation } from "@/hooks/chat/useStartConversation";
 import { useEvaluateConversation } from "@/hooks/chat/useEvaluateConversation";
 import LeftDrawer from "./LeftDrawer";
+import PromptDrawer from "./promptDrawer";
 import { getSessionContext } from "./session";
 import { Button } from "../ui/button";
 import { useLatestRef } from "@/hooks/chat/useLatestRef";
@@ -19,18 +20,19 @@ interface VoiceChatProps {
   onEndSession: () => void;
 }
 
-const DRAWER_WIDTH = 400;
-
 const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   const [hasPermission, setHasPermission] = useState(false);
-  const [conversationId, setConversationId] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState("");
+  // Keeping setConversationId but removing the unused state variable
+  const [, setConversationId] = useState<string>("");
+  // Using _ prefix for errorMessage since it's used in setErrorMessage but not directly read
+  const [_errorMessage, setErrorMessage] = useState("");
   const [messages, setMessages] = useState<{ text: string; source: string }[]>(
     []
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [promptDrawerOpen, setPromptDrawerOpen] = useState(false);
   const [backDisabled, setBackDisabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
@@ -105,30 +107,53 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
     await startConversation();
   };
 
+  const handleToggleLeftDrawer = () => {
+    // If drawer is already open, close it. Otherwise open it and close the prompt drawer
+    if (drawerOpen) {
+      setDrawerOpen(false);
+    } else {
+      setDrawerOpen(true);
+      setPromptDrawerOpen(false);
+    }
+  };
+
+  const handleTogglePromptDrawer = () => {
+    // If prompt drawer is already open, close it. Otherwise open it and close the left drawer
+    if (promptDrawerOpen) {
+      setPromptDrawerOpen(false);
+    } else {
+      setPromptDrawerOpen(true);
+      setDrawerOpen(false);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-row w-full h-full">
-        {/* Left Drawer */}
+        {/* Left Drawer - Test Configuration */}
         <div
           className={`transition-all duration-300 h-full ${
-            drawerOpen ? "w-[400px] min-w-[300px]" : "w-12 min-w-0"
+            drawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
           } relative`}
           style={{ flexShrink: 0 }}
         >
           <LeftDrawer
             open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
+            onClose={handleToggleLeftDrawer}
             testId={selectedTestConfigId}
           />
-          {!drawerOpen && (
-            <button
-              className="absolute top-4 left-0 z-10 bg-white border rounded-r px-2 py-1 shadow"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open Test Config Drawer"
-            >
-              <span className="font-bold">&#9776;</span>
-            </button>
-          )}
+        </div>
+        {/* Prompt Drawer */}
+        <div
+          className={`transition-all duration-300 h-full ${
+            promptDrawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
+          } relative`}
+          style={{ flexShrink: 0 }}
+        >
+          <PromptDrawer
+            open={promptDrawerOpen}
+            onClose={handleTogglePromptDrawer}
+          />
         </div>
         {/* Chat Area */}
         <div className="flex-1 h-full">
@@ -138,6 +163,8 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
               testId={selectedTestConfigId}
               onBack={() => window.history.back()}
               disableBack={backDisabled}
+              onToggleDrawer={handleTogglePromptDrawer}
+              onLeftDrawer={handleToggleLeftDrawer}
             />
             <div className="flex-1 flex flex-col justify-center items-center px-8 pt-4 w-full h-full">
               <div className="w-full h-full flex flex-col">
@@ -213,7 +240,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
                   )}
                 </div>
                 <div className="text-center text-sm mt-4">
-                  {/* {errorMessage && <p className="text-red-500">{errorMessage}</p>} */}
+                  {/* {_errorMessage && <p className="text-red-500">{_errorMessage}</p>} */}
                   {!hasPermission && (
                     <p className="text-yellow-600">
                       Please allow microphone access to use voice chat
@@ -225,6 +252,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
           </div>
         </div>
       </div>
+
       <Dialog open={isEvaluating}>
         <DialogContent className="flex flex-col items-center justify-center">
           <span className="text-lg font-semibold mb-2">
