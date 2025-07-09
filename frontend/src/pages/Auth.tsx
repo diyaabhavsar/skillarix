@@ -37,11 +37,8 @@ const Auth = () => {
     <div className="min-h-screen flex flex-col">
       <header className="border-b py-4 px-6">
         <div className="container flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <span className="text-white font-bold text-sm">SE</span>
-            </div>
-            <span className="font-semibold text-lg">SalesElevate</span>
+          <Link to="/">
+            <img src="/Skillarix logo.png" alt="Skillarix" className="h-8 w-auto max-w-[140px] object-contain" />
           </Link>
           <Button variant="outline" asChild>
             <Link to="/">Back to Home</Link>

@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -8,9 +7,7 @@ const Index = () => {
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center justify-between px-6 py-4 border-b">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <span className="text-white font-bold text-sm">SK</span>
-          </div>
+          <img src="/Skillarix logo.png" alt="Skillarix" className="h-8" />
           <span className="font-semibold text-lg">Skillarix</span>
         </div>
         <Button asChild>
@@ -118,9 +115,7 @@ const Index = () => {
         <div className="container mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <span className="text-white font-bold text-xs">SK</span>
-              </div>
+              <img src="/Skillarix logo.png" alt="Skillarix" className="h-7" />
               <span className="font-medium">Skillarix</span>
             </div>
             <div className="text-sm text-muted-foreground">

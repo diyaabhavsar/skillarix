@@ -65,6 +65,7 @@ def get_user(email: str):
     return None
 
 def register(username: str, email: str, password: str, role: str, active: bool) -> bool:
+    print(f"Attempting to register user: {username}, email: {email}, role: {role}, active: {active}")
     if user_collection.find_one({"$or": [{"username": username}, {"email": email}]}):
         return False
     

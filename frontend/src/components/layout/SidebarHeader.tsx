@@ -1,4 +1,3 @@
-
 import { SidebarHeader as Header } from "@/components/ui/sidebar";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
@@ -8,9 +7,7 @@ const SidebarHeader = () => {
       <div className="w-full max-w-[160px] px-4 animate-fade-in">
         <AspectRatio ratio={3 / 1}>
           <div className="flex items-center justify-center h-full w-full">
-            <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Skillarix
-            </h1>
+            <img src="/Skillarix logo.png" alt="Skillarix" className="h-8 w-auto max-w-[140px] object-contain" />
           </div>
         </AspectRatio>
       </div>

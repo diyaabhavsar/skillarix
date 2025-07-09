@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,12 +36,9 @@ const Navbar = () => {
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 border-b">
-      <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-          <span className="text-white font-bold text-sm">SE</span>
-        </div>
-        <Link to="/" className="font-semibold text-lg">
-          SalesElevate
+      <div className="flex items-center">
+        <Link to="/">
+          <img src="/Skillarix logo.png" alt="Skillarix" className="h-8 w-auto max-w-[140px] object-contain" />
         </Link>
       </div>
 
