@@ -2,24 +2,12 @@ import { env } from "@/config/env";
 import { useState, useCallback, useEffect } from "react";
 import { api } from "@/utils/api";
 
-// Constants
-const {
-  ELEVENLABS_PROMPT_TITLE: PROMPT_TITLE,
-  AGENT_ID: agent_id,
-  API_KEY: api_key,
-} = env;
-
-// Type definitions
-interface ProductConfig {
-  content: string;
-  description: string;
-  metadata: Record<string, unknown>;
-  name: string;
-}
+// Import environment configuration for the prompt title
+const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
 
 interface ElevenLabsConfig {
   visitorPersona: string;
-  product: ProductConfig;
+  product: string;
   firstMessage?: string;
   prompt?: string;
 }
@@ -35,125 +23,76 @@ interface Prompt {
   prompt: PromptCondition[];
 }
 
-interface AgentResponse {
-  id: string;
-  status: string;
-  message?: string;
-  error?: string;
-}
+const agent_id = env.AGENT_ID;
+const api_key = env.API_KEY;
 
 // Fallback prompt in case the dynamic fetch fails
-const FALLBACK_PROMPT_TEMPLATE = `# Role and Context
-You are an experienced interviewer acting as {{Visitor_persona}} visiting a product demonstration booth. You are here to learn about {{Product_title}} and evaluate the sales representative's knowledge and communication skills.
+const FALLBACK_PROMPT_TEMPLATE = `# Personality
+You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product}}. Your goal is to evaluate the sales rep's skills by asking relevant questions.
+# Goal
+Ask questions about {{Product}} to evaluate the sales rep's knowledge.`;
 
-# Background Information
-Product Name: {{Product_title}}
-Product Details: {{Product_detail}}
-
-# Your Objectives
-1. Gather detailed information about {{Product_title}}
-2. Test the sales representative's product knowledge
-3. Evaluate their ability to explain technical features
-4. Assess how well they handle specific questions
-
-# Conversation Style
-- Ask relevant and detailed questions about {{Product_title}}
-- Request clarification on technical aspects from {{Product_detail}}
-- Maintain a professional but engaging tone
-- Follow up on unclear or incomplete answers
-
-# Key Areas to Explore
-- Product features and specifications
-- Use cases and benefits
-- Technical capabilities
-- Pricing and availability
-- Comparisons with competitors (if applicable)
-
-Remember to stay in character as {{Visitor_persona}} throughout the conversation.`;
-
-// Fetch and extract the current prompt from the API
-const fetchCurrentPrompt = async (): Promise<string | null> => {
-  if (!PROMPT_TITLE) {
-    console.error("Missing PROMPT_TITLE in environment configuration");
-    return null;
-  }
-
+// Function to fetch the current prompt from the API
+async function fetchCurrentPrompt(): Promise<string | null> {
   try {
+    // Encode the title for the URL
     const encodedTitle = encodeURIComponent(PROMPT_TITLE);
+
+    // Fetch the prompt by title
     const response = await api.get<Prompt>(`/prompts?title=${encodedTitle}`);
 
-    if (!response?.prompt?.length) {
-      console.warn("No prompt found with title:", PROMPT_TITLE);
-      return null;
+    // Check if we got a valid response with prompt data
+    if (response && response.prompt && response.prompt.length > 0) {
+      // Find the main condition or use the first one
+      const mainCondition = response.prompt.find((c) => c.condition === "main");
+      return mainCondition ? mainCondition.prompt : response.prompt[0].prompt;
     }
 
-    const { prompt: conditions } = response;
-    return (
-      conditions.find((c) => c.condition === "main")?.prompt ??
-      conditions[0].prompt
-    );
+    console.warn("No prompt found with title:", PROMPT_TITLE);
+    return null;
   } catch (error) {
     console.error("Error fetching prompt:", error);
     return null;
   }
-};
+}
 
-// Apply template variables with product information
-const getDynamicPrompt = (
+// Simple function to apply the visitor persona and product values
+function getDynamicPrompt(
   visitorPersona: string,
-  { content, name }: ProductConfig,
+  product: string,
   promptTemplate: string
-): string => {
-  if (!content || !name) {
-    console.warn("Missing required product information", {
-      hasContent: !!content,
-      hasName: !!name,
-    });
-  }
-
-  console.debug("Generating dynamic prompt with values:", {
-    productName: name,
-    contentLength: content?.length,
-  });
-
-  const replacements = new Map([
-    ["{{Visitor_persona}}", visitorPersona],
-    ["{{Product_detail}}", content],
-    ["{{Product_title}}", name],
-  ]);
-
-  return Array.from(replacements).reduce(
-    (prompt, [pattern, value]) =>
-      prompt.replace(new RegExp(pattern, "gi"), value || ""),
-    promptTemplate
-  );
-};
+) {
+  return promptTemplate
+    .replace(/{{Visitor_persona}}/gi, visitorPersona)
+    .replace(/{{Product}}/gi, product);
+}
 
 // Build the conversation_config object as per your provided structure
 export function buildConversationConfig(
   config: ElevenLabsConfig,
   promptTemplate: string
 ) {
-  const generatedPrompt =
-    config.prompt ??
-    getDynamicPrompt(config.visitorPersona, config.product, promptTemplate);
-
   return {
     conversation_config: {
       agent: {
         first_message:
-          config.firstMessage ??
+          config.firstMessage ||
           "Hi there! I'm Harper from Mobio Solutions. How are you?",
         dynamic_variables: {
           dynamic_variable_placeholders: {
             Visitor_persona: config.visitorPersona,
-            Product_title: config.product.name,
-            Product_detail: config.product.content,
+            Product: config.product,
           },
         },
-        prompt: {
-          prompt: generatedPrompt,
-        },
+        prompt: config.prompt
+          ? { prompt: config.prompt }
+          : {
+              prompt: getDynamicPrompt(
+                config.visitorPersona,
+                config.product,
+                promptTemplate
+              ),
+            },
       },
     },
   };
@@ -162,7 +101,7 @@ export function buildConversationConfig(
 export default function useElevenLabsConfig() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [response, setResponse] = useState<AgentResponse | null>(null);
+  const [response, setResponse] = useState<any>(null);
   const [promptTemplate, setPromptTemplate] = useState<string>(
     FALLBACK_PROMPT_TEMPLATE
   );
@@ -191,36 +130,30 @@ export default function useElevenLabsConfig() {
   const updateAgentConfig = async (config: ElevenLabsConfig) => {
     setLoading(true);
     setError(null);
-
     try {
-      // Get the most recent prompt template
-      const currentPrompt = await (async () => {
-        try {
-          const freshPrompt = await fetchCurrentPrompt();
-          if (freshPrompt) {
-            setPromptTemplate(freshPrompt);
-            return freshPrompt;
-          }
-        } catch (err) {
-          console.warn("Could not fetch latest prompt, using cached version");
+      // Try to get the latest prompt
+      let currentPrompt = promptTemplate;
+
+      try {
+        const freshPrompt = await fetchCurrentPrompt();
+        if (freshPrompt) {
+          currentPrompt = freshPrompt;
+          setPromptTemplate(freshPrompt);
         }
-        return promptTemplate;
-      })();
+      } catch (err) {
+        console.warn("Could not fetch latest prompt, using cached version");
+      }
 
       const bodyObj = buildConversationConfig(config, currentPrompt);
 
-      console.debug("Updating ElevenLabs agent:", {
+      console.log("Updating ElevenLabs agent with prompt:", {
         promptTitle: PROMPT_TITLE,
         promptLength: currentPrompt.length,
-        hasVisitorPersona: !!config.visitorPersona,
-        hasProduct: !!config.product,
+        visitorPersona: config.visitorPersona,
+        product: config.product,
       });
 
-      if (!agent_id || !api_key) {
-        throw new Error("Missing required API configuration");
-      }
-
-      const response = await fetch(
+      const res = await fetch(
         `https://api.elevenlabs.io/v1/convai/agents/${agent_id}`,
         {
           method: "PATCH",
@@ -228,30 +161,15 @@ export default function useElevenLabsConfig() {
             "Xi-Api-Key": api_key,
             "Api-Key": "xi-api-key",
             "Content-Type": "application/json",
-            Accept: "application/json",
           },
           body: JSON.stringify(bodyObj),
         }
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
-      }
-
-      const data: AgentResponse = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setResponse(data);
-      return data;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      setError(errorMessage);
+      const body = await res.json();
+      setResponse(body);
+      return body;
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
       setResponse(null);
       return null;
     } finally {
