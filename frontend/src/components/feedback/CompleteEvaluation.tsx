@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   CheckCircle,
@@ -61,7 +61,7 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
   completeEvaluation,
   formatEvaluationValue,
 }) => {
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
@@ -72,17 +72,29 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
     },
   };
 
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 30 },
-    visible: (index: number) => ({
+    visible: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 0.4,
-        delay: index * 0.1,
-        ease: [0.25, 0.1, 0.25, 1],
+        staggerChildren: 0.1,
+        ease: "easeInOut",
       },
-    }),
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
   };
 
   return (
@@ -117,8 +129,9 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
                 return (
                   <motion.div
                     key={key}
-                    custom={index}
-                    variants={cardVariants}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="visible"
                     id={key.replace(/_/g, "-")}
                     className="flex flex-col w-full"
                   >
