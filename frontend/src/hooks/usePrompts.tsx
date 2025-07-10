@@ -121,7 +121,6 @@ export const usePrompts = () => {
   // Convert markdown-style prompt to API format - memoized to prevent unnecessary re-renders
   const convertPromptToApiFormat = useCallback(
     (promptText: string): PromptCondition[] => {
-      // Preserve special placeholders like {{Visitor_persona}} and {{Product}}
       return [
         {
           condition: "main",
