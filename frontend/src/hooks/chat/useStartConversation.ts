@@ -4,6 +4,7 @@ import { useTests } from "@/hooks/useTests";
 import useElevenLabsConfig from "@/hooks/useElevenLabs";
 import { env } from "@/config/env";
 import { toast } from "sonner";
+import { title } from "process";
 
 // Create a helper function outside the hook to refresh the prompt
 async function refreshPromptBeforeConversation(elevenLabsConfig: any): Promise<boolean> {
@@ -43,10 +44,11 @@ export function useStartConversation(
     
     const dynamicBody = {
       visitorPersona: JSON.stringify(fetchedTest.visitorPersona),
-      product: JSON.stringify({
+      product: {
         content: fetchedProduct.content,
         description: fetchedProduct.description,
-      }),
+        name: fetchedProduct.name,
+      },
     };
     
     try {

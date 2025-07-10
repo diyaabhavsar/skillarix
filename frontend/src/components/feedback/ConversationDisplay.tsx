@@ -2,18 +2,11 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ReferenceAnswer } from "./ReferenceAnswer";
-import {
-  MessageCircle,
-  MessageSquare,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  Menu,
-} from "lucide-react";
+import { MessageCircle, MessageSquare, BookOpen, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConversationPair {
@@ -36,7 +29,6 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
   individualEvaluations,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const totalQuestions = conversationPairs?.length || 0;
 
@@ -53,54 +45,8 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [totalQuestions]);
 
-  if (
-    !conversationPairs ||
-    !Array.isArray(conversationPairs) ||
-    conversationPairs.length === 0
-  ) {
-    return (
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <MessageSquare className="h-6 w-6 mr-3 text-primary" />
-            Conversations
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 text-center text-slate-500">
-            No conversation data available
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.3,
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      },
-    },
-  };
-
   const QuestionsList = () => (
-    <div className="p-2 space-y-1">
+    <div className="space-y-1">
       {conversationPairs.map((pair, index) => (
         <motion.div
           key={index}
@@ -133,8 +79,26 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
     </div>
   );
 
+  if (!conversationPairs?.length) {
+    return (
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center text-2xl font-bold">
+            <MessageSquare className="h-6 w-6 mr-3 text-primary" />
+            Conversations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 text-center text-slate-500">
+            No conversation data available
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden h-[600px]">
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center text-2xl font-bold">
@@ -153,45 +117,45 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
               </SheetTrigger>
               <SheetContent side="left" className="w-[300px] p-0">
                 <ScrollArea className="h-full">
-                  <QuestionsList />
+                  <div className="p-2">
+                    <QuestionsList />
+                  </div>
                 </ScrollArea>
               </SheetContent>
             </Sheet>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="p-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 h-[600px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 h-[calc(600px-4rem)]">
           {/* Questions Sidebar - Desktop */}
           <div className="hidden md:block border-r bg-muted/5">
             <ScrollArea className="h-full">
-              <QuestionsList />
+              <div className="p-2">
+                <QuestionsList />
+              </div>
             </ScrollArea>
           </div>
 
           {/* Chat Viewer */}
           <div className="col-span-1 md:col-span-2">
             <ScrollArea className="h-full">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedIndex}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="p-6 space-y-6"
-                >
-                  {/* Breadcrumb */}
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    Question {selectedIndex + 1} of {totalQuestions}
-                  </div>
-
+              <div className="p-6">
+                <AnimatePresence mode="wait">
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    key={selectedIndex}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                    className="space-y-4"
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-6"
                   >
+                    {/* Breadcrumb */}
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      Question {selectedIndex + 1} of {totalQuestions}
+                    </div>
+
                     <div className="flex flex-col gap-4">
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -221,47 +185,33 @@ const ConversationDisplay: React.FC<ConversationDisplayProps> = ({
                         </p>
                       </motion.div>
 
-                      {(() => {
-                        const evaluation = individualEvaluations[selectedIndex];
-                        const hasReferenceAnswer =
-                          typeof evaluation === "object" &&
-                          evaluation !== null &&
-                          "reference_answer" in evaluation &&
-                          typeof evaluation.reference_answer === "string" &&
-                          evaluation.reference_answer.trim() !== "";
-
-                        if (!hasReferenceAnswer) {
-                          return null;
-                        }
-
-                        return (
-                          <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: 0.4 }}
-                            className="bg-yellow-50 px-4 py-2 rounded-2xl shadow-sm border border-yellow-200"
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <BookOpen className="h-4 w-4 text-yellow-600" />
-                              <Badge
-                                variant="secondary"
-                                className="font-medium"
-                              >
-                                Reference Answer
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-slate-700 italic">
-                              <ReferenceAnswer
-                                text={evaluation.reference_answer}
-                              />
-                            </p>
-                          </motion.div>
-                        );
-                      })()}
+                      {individualEvaluations[selectedIndex]?.reference_answer && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: 0.4 }}
+                          className="bg-yellow-50 px-4 py-2 rounded-2xl shadow-sm border border-yellow-200"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <BookOpen className="h-4 w-4 text-yellow-600" />
+                            <Badge variant="secondary" className="font-medium">
+                              Reference Answer
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-700 italic">
+                            <ReferenceAnswer
+                              text={
+                                individualEvaluations[selectedIndex]
+                                  .reference_answer
+                              }
+                            />
+                          </p>
+                        </motion.div>
+                      )}
                     </div>
                   </motion.div>
-                </motion.div>
-              </AnimatePresence>
+                </AnimatePresence>
+              </div>
             </ScrollArea>
           </div>
         </div>

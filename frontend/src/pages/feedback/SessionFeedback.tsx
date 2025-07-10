@@ -165,16 +165,14 @@ const SessionFeedback: React.FC = () => {
 
   const formatAIGeneratedText = (text: string) => {
     if (!text) return "";
-    
+
     // Parse markdown to HTML synchronously
     const htmlContent = marked(text) as string;
-    
+
     // Sanitize the HTML to prevent XSS attacks
     const sanitizedHtml = DOMPurify.sanitize(htmlContent);
-    
-    return (
-      <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />
-    );
+
+    return <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
   };
 
   useEffect(() => {
@@ -203,7 +201,7 @@ const SessionFeedback: React.FC = () => {
       </div>
     );
   }
-  
+
   const { evaluation_data, conversation_data, created_at } = session;
   const validConversationPairs = conversation_data?.pairs || [];
   const validIndividualEvaluations =
@@ -253,19 +251,24 @@ const SessionFeedback: React.FC = () => {
       color: "teal",
       hasData: evaluation_data?.mid_evaluations?.length > 0,
     },
-  ].filter(tab => tab.hasData);
+  ].filter((tab) => tab.hasData);
 
   // Color class mapping to avoid dynamic class generation
   const getTabClasses = (color: string) => {
     const colorClasses = {
-      violet: "flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all",
+      violet:
+        "flex items-center gap-2 text-violet-600 hover:text-violet-700 data-[state=active]:bg-violet-50 data-[state=active]:text-violet-900 data-[state=active]:font-medium transition-all",
       blue: "flex items-center gap-2 text-blue-600 hover:text-blue-700 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-900 data-[state=active]:font-medium transition-all",
-      green: "flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all",
-      orange: "flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all",
+      green:
+        "flex items-center gap-2 text-green-600 hover:text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-900 data-[state=active]:font-medium transition-all",
+      orange:
+        "flex items-center gap-2 text-orange-600 hover:text-orange-700 data-[state=active]:bg-orange-50 data-[state=active]:text-orange-900 data-[state=active]:font-medium transition-all",
       pink: "flex items-center gap-2 text-pink-600 hover:text-pink-700 data-[state=active]:bg-pink-50 data-[state=active]:text-pink-900 data-[state=active]:font-medium transition-all",
       teal: "flex items-center gap-2 text-teal-600 hover:text-teal-700 data-[state=active]:bg-teal-50 data-[state=active]:text-teal-900 data-[state=active]:font-medium transition-all",
     };
-    return colorClasses[color as keyof typeof colorClasses] || colorClasses.violet;
+    return (
+      colorClasses[color as keyof typeof colorClasses] || colorClasses.violet
+    );
   };
 
   // Get the first available tab as default
@@ -291,7 +294,7 @@ const SessionFeedback: React.FC = () => {
               hour: "2-digit",
               minute: "2-digit",
               hour12: true,
-              timeZoneName: "short"
+              timeZoneName: "short",
             })}
           </p>
           <Sheet>
@@ -330,7 +333,7 @@ const SessionFeedback: React.FC = () => {
         </TabsList>
 
         <AnimatePresence mode="wait">
-          {availableTabs.find(tab => tab.value === "overall-performance") && (
+          {availableTabs.find((tab) => tab.value === "overall-performance") && (
             <TabsContent value="overall-performance" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -347,7 +350,7 @@ const SessionFeedback: React.FC = () => {
             </TabsContent>
           )}
 
-          {availableTabs.find(tab => tab.value === "complete-evaluation") && (
+          {availableTabs.find((tab) => tab.value === "complete-evaluation") && (
             <TabsContent value="complete-evaluation" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -363,7 +366,7 @@ const SessionFeedback: React.FC = () => {
             </TabsContent>
           )}
 
-          {availableTabs.find(tab => tab.value === "conversation") && (
+          {availableTabs.find((tab) => tab.value === "conversation") && (
             <TabsContent value="conversation" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -371,17 +374,17 @@ const SessionFeedback: React.FC = () => {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.2 }}
               >
-                <ScrollArea className="h-[600px] pr-4">
-                  <ConversationDisplay
-                    conversationPairs={validConversationPairs}
-                    individualEvaluations={validIndividualEvaluations}
-                  />
-                </ScrollArea>
+                <ConversationDisplay
+                  conversationPairs={validConversationPairs}
+                  individualEvaluations={validIndividualEvaluations}
+                />
               </motion.div>
             </TabsContent>
           )}
 
-          {availableTabs.find(tab => tab.value === "exchange-evaluations") && (
+          {availableTabs.find(
+            (tab) => tab.value === "exchange-evaluations"
+          ) && (
             <TabsContent value="exchange-evaluations" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -397,7 +400,7 @@ const SessionFeedback: React.FC = () => {
             </TabsContent>
           )}
 
-          {availableTabs.find(tab => tab.value === "additional-criteria") && (
+          {availableTabs.find((tab) => tab.value === "additional-criteria") && (
             <TabsContent value="additional-criteria" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -415,7 +418,7 @@ const SessionFeedback: React.FC = () => {
             </TabsContent>
           )}
 
-          {availableTabs.find(tab => tab.value === "mid-evaluations") && (
+          {availableTabs.find((tab) => tab.value === "mid-evaluations") && (
             <TabsContent value="mid-evaluations" className="mt-6" asChild>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

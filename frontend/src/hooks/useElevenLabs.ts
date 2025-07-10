@@ -7,7 +7,7 @@ const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
 
 interface ElevenLabsConfig {
   visitorPersona: string;
-  product: string;
+  product: ProductInfo;
   firstMessage?: string;
   prompt?: string;
 }
@@ -28,9 +28,9 @@ const api_key = env.API_KEY;
 
 // Fallback prompt in case the dynamic fetch fails
 const FALLBACK_PROMPT_TEMPLATE = `# Personality
-You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product}}. Your goal is to evaluate the sales rep's skills by asking relevant questions.
+You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product_title}}. Your goal is to evaluate the sales rep's skills by asking relevant questions.
 # Goal
-Ask questions about {{Product}} to evaluate the sales rep's knowledge.`;
+Ask questions about {{Product_title}} and understand {{Product_detail}} to evaluate the sales rep's knowledge.`;
 
 // Function to fetch the current prompt from the API
 async function fetchCurrentPrompt(): Promise<string | null> {
@@ -57,14 +57,22 @@ async function fetchCurrentPrompt(): Promise<string | null> {
 }
 
 // Simple function to apply the visitor persona and product values
+interface ProductInfo {
+  content: string;
+  description: string;
+  name: string;
+}
+
 function getDynamicPrompt(
   visitorPersona: string,
-  product: string,
+  product: ProductInfo,
   promptTemplate: string
 ) {
+  console.log({product})
   return promptTemplate
     .replace(/{{Visitor_persona}}/gi, visitorPersona)
-    .replace(/{{Product}}/gi, product);
+    .replace(/{{Product_detail}}/gi, `${product.content || ''} ${product.description || ''}`.trim())
+    .replace(/{{Product_title}}/gi, product.name || '');
 }
 
 // Build the conversation_config object as per your provided structure
@@ -81,7 +89,8 @@ export function buildConversationConfig(
         dynamic_variables: {
           dynamic_variable_placeholders: {
             Visitor_persona: config.visitorPersona,
-            Product: config.product,
+            Product_title: config.product.name,
+            Product_detail: `${config.product.content} ${config.product.description}`.trim(),
           },
         },
         prompt: config.prompt
