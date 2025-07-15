@@ -68,7 +68,7 @@ function getDynamicPrompt(
   product: ProductInfo,
   promptTemplate: string
 ) {
-  console.log({product})
+  
   return promptTemplate
     .replace(/{{Visitor_persona}}/gi, visitorPersona)
     .replace(/{{Product_detail}}/gi, `${product.content || ''} ${product.description || ''}`.trim())
@@ -121,14 +121,14 @@ export default function useElevenLabsConfig() {
       try {
         const fetchedPrompt = await fetchCurrentPrompt();
         if (fetchedPrompt) {
-          console.log("Using dynamic prompt from drawer");
+          
           setPromptTemplate(fetchedPrompt);
         } else {
-          console.warn("Using fallback prompt template");
+          
           setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
         }
       } catch (err) {
-        console.error("Error fetching prompt template:", err);
+        
         setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
       }
     };
@@ -154,13 +154,6 @@ export default function useElevenLabsConfig() {
       }
 
       const bodyObj = buildConversationConfig(config, currentPrompt);
-
-      console.log("Updating ElevenLabs agent with prompt:", {
-        promptTitle: PROMPT_TITLE,
-        promptLength: currentPrompt.length,
-        visitorPersona: config.visitorPersona,
-        product: config.product,
-      });
 
       const res = await fetch(
         `https://api.elevenlabs.io/v1/convai/agents/${agent_id}`,

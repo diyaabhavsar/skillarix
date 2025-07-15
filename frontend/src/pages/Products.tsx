@@ -101,7 +101,7 @@ const Products = () => {
   }, []);
 
   // Debug logs - remove in production
-  console.log({products, categories})
+  
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
 
@@ -174,7 +174,6 @@ const Products = () => {
             <ProductForm
               onSuccess={() => {
                 fetchProducts(currentPage);
-                console.log("done")
                 toast.success("Product updated successfully");
               }}
               initialData={{

@@ -39,7 +39,7 @@ const PromptDrawer: React.FC<PromptDrawerProps> = ({ open, onClose }) => {
         // Store both locally and globally
         setLocalPromptId(prompt._id);
         setGlobalPromptId(prompt._id);
-        console.log("Loaded prompt ID:", prompt._id);
+        
         setPromptTitle(prompt.title);
         
         // Convert the API format to prompt text while preserving placeholders
@@ -95,15 +95,6 @@ const PromptDrawer: React.FC<PromptDrawerProps> = ({ open, onClose }) => {
 
       // Make sure the global prompt ID is updated
       setGlobalPromptId(localPromptId);
-
-      // Log successful API call with relevant details
-      console.log(`✅ PUT request to /prompts/${localPromptId} successful:`, {
-        id: localPromptId,
-        title: promptTitle,
-        promptContentItems: promptContent.length,
-        promptTextLength: promptInfo.length,
-        timestamp: new Date().toISOString(),
-      });
 
       // Reload the prompt to display the updated data
       await loadPrompt();

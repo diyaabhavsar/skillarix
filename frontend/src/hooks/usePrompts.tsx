@@ -35,17 +35,21 @@ export const usePrompts = () => {
 
   // Get prompt by title using query parameter
   const getPromptById = useCallback(
-    async (_id: string): Promise<Prompt | null> => {
+    async (titleParam?: string): Promise<Prompt | null> => {
       setLoading(true);
       setError(null);
 
       try {
-        // Use title query parameter instead of ID
-        console.log(`Fetching prompt with title: ${PROMPT_TITLE}`);
-        const encodedTitle = encodeURIComponent(PROMPT_TITLE);
+        // Use the passed title parameter, or fall back to environment variable
+        const titleToUse = titleParam || PROMPT_TITLE;
+        
+        if (!titleToUse) {
+          throw new Error("No prompt title provided and no default title configured");
+        }
+        
+        const encodedTitle = encodeURIComponent(titleToUse);
         const response = await api.get<Prompt>(`/prompts?title=${encodedTitle}`);
         
-        console.log("Prompt fetched by title:", response);
         return response;
       } catch (err) {
         const errorMessage =
@@ -79,15 +83,11 @@ export const usePrompts = () => {
           prompt: promptContent,
         };
 
-        console.log(`Updating prompt with ID ${promptId}:`, promptPayload);
-
         // Make API call to update the prompt
         const response = await api.put<typeof promptPayload, ApiResponse<Prompt>>(
           `/prompts/${promptId}`,
           promptPayload
         );
-
-        console.log("API Response:", response);
 
         // Return both the data and the success message without showing a toast
         // The component will handle toast display
@@ -132,16 +132,33 @@ export const usePrompts = () => {
     []
   );
 
-  // Convert API format to markdown-style prompt - memoized to prevent unnecessary re-renders
+  // Convert API format to markdown-style prompt - enhanced to handle multiple conditions properly
   const convertApiFormatToPrompt = useCallback(
     (conditions: PromptCondition[]): string => {
+      if (!conditions || conditions.length === 0) {
+        return "";
+      }
+
       const mainCondition = conditions.find((c) => c.condition === "main");
-      const promptText = mainCondition
-        ? mainCondition.prompt
-        : conditions[0]?.prompt || "";
       
-      // Ensure special placeholders are preserved
-      return promptText;
+      if (mainCondition) {
+        return mainCondition.prompt;
+      }
+
+      const priorityConditions = ["default", "base", "primary"];
+      for (const priority of priorityConditions) {
+        const condition = conditions.find((c) => c.condition === priority);
+        if (condition) {
+          return condition.prompt;
+        }
+      }
+
+      const firstCondition = conditions[0];
+      if (firstCondition) {
+        return firstCondition.prompt;
+      }
+
+      return "";
     },
     []
   );
@@ -152,11 +169,59 @@ export const usePrompts = () => {
   // Expose the prompt ID for use in components
   const fixedPromptId = useMemo(() => promptId, [promptId]);
 
+  // Transcript update function to call PUT API
+  const updateTranscript = useCallback(
+    async (
+      conversationId: string,
+      transcriptData: Array<{ source: string; text: string }>,
+      testConfigId: string,
+      productId: string
+    ): Promise<{ success: boolean; message: string; data?: any }> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const requestData = {
+          test_config_id_str: testConfigId,
+          product_id_str: productId,
+          transcript: transcriptData,
+        };
+
+        const response = await api.put<typeof requestData, any>(
+          `/elevenlabs/transcript/${conversationId}`,
+          requestData
+        );
+
+        return {
+          success: true,
+          message: response.message || "Transcript updated successfully",
+          data: response,
+        };
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Failed to update transcript";
+        setError(errorMessage);
+        console.error("Error updating transcript:", err);
+        
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     loading,
     error,
     getPromptById,
     updatePrompt,
+    updateTranscript,
     convertPromptToApiFormat,
     convertApiFormatToPrompt,
     fixedPromptId,

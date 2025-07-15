@@ -1,21 +1,25 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from ....schemas.elevenlabs import ElevenLabsSchema
 from bson import ObjectId
-import requests
+from datetime import datetime
 from ....services.auth import verify_bearer_token
 from ....services.websocket import (
     evaluate_complete_conversation,
     remove_invalid_json_chars, evaluate_additional_criteria,
-    evaluate_mid_conversation
 )
 from ....database import db
 import json
-from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_transcript_conversation
+from ....services.conversation import (
+    save_transcript_conversation,
+    update_transcript_service,
+    get_transcript_by_id_service
+)
 
 
 test_configurations_collection = db["test_configurations"]
 product_collection = db["products"]
 category_collection = db["categories"]
+conversations_collection = db["conversations"]
 
 router = APIRouter()
 
@@ -261,3 +265,55 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         print(f"Error saving conversation: {save_error}")
 
     return {"transcript":transcript_text}
+
+
+@router.put("/transcript/{conversation_id}")
+async def update_transcript(
+    conversation_id: str, 
+    data: ElevenLabsSchema, 
+    token = Depends(verify_bearer_token)
+):
+    """Update an existing transcript/conversation by ID"""
+    try:
+        # Extract data from request
+        test_config_id_str = data.test_config_id_str
+        product_id_str = data.product_id_str
+        data_dict = data.model_dump()
+        filtered_transcript = data_dict["transcript"]
+        
+        # Use service function to update transcript
+        result = update_transcript_service(
+            conversation_id=conversation_id,
+            transcript_data=filtered_transcript,
+            test_config_id_str=test_config_id_str,
+            product_id_str=product_id_str,
+            user_id=token["id"]
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/transcript/{conversation_id}")
+async def get_transcript_by_id(
+    conversation_id: str,
+    token = Depends(verify_bearer_token)
+):
+    """Get transcript/conversation by ID"""
+    try:
+        # Use service function to get transcript
+        result = get_transcript_by_id_service(
+            conversation_id=conversation_id,
+            user_id=token["id"]
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

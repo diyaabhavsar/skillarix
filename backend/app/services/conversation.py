@@ -393,7 +393,7 @@ Your evaluation:
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 full_response += chunk.choices[0].delta.content
 
-        return full_response.strip()
+            return full_response.strip()
     else:
         completion = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -655,3 +655,239 @@ def get_conversations_by_product(product_id: ObjectId, token):
 def get_conversation_by_id(conversation_id: ObjectId):
     """Get a specific conversation with its evaluation data."""
     return conversation_collection.find_one({"_id": conversation_id})
+
+
+def process_transcript_data(transcript_data: list) -> list:
+    """Process raw transcript data into structured format"""
+    structured_output = []
+    for i in range(0, len(transcript_data) - 1, 2):
+        if transcript_data[i]["source"] == "ai" and transcript_data[i + 1]["source"] == "user":
+            structured_output.append({
+                "salesperson_text": transcript_data[i + 1]["text"],
+                "visitor_text": transcript_data[i]["text"],
+            })
+    return structured_output
+
+
+def build_product_context(product: dict) -> str:
+    """Build combined product context from content and description"""
+    product_content_str = product.get("content", "")
+    product_description_str = product.get("description", "")
+    
+    if product_content_str and product_description_str:
+        return f"Product Content: {product_content_str}\nProduct Description: {product_description_str}"
+    elif product_content_str:
+        return f"Product Content: {product_content_str}"
+    elif product_description_str:
+        return f"Product Description: {product_description_str}"
+    return ""
+
+
+def process_evaluation_data(
+    transcript_text: list,
+    combined_product_context: str,
+    current_persona: dict,
+    test_config: dict,
+    test_config_id_str: str
+) -> dict:
+    """Process and evaluate transcript data"""
+    from .websocket import (
+        evaluate_complete_conversation,
+        remove_invalid_json_chars, 
+        evaluate_additional_criteria
+    )
+    
+    # Evaluate complete conversation
+    complete_evaluation_raw = evaluate_complete_conversation(
+        transcript_text,
+        combined_product_context,
+        current_persona
+    )
+    
+    complete_evaluation_to_save = complete_evaluation_raw
+    complete_rating_to_save = {
+        "overall_progress": {"score": 0, "max": 3},
+        "sales_strategy": {"score": 0, "max": 3},
+        "customer_journey": {"score": 0, "max": 2},
+        "technical_accuracy": {"score": 0, "max": 2},
+        "total": {"score": 0, "max": 10}
+    }
+
+    # Parse evaluation JSON
+    try:
+        cleaned_complete_eval = complete_evaluation_raw.strip()
+        if cleaned_complete_eval.startswith('```json'):
+            cleaned_complete_eval = cleaned_complete_eval[7:]
+        elif cleaned_complete_eval.startswith('```'):
+            cleaned_complete_eval = cleaned_complete_eval[3:]
+        if cleaned_complete_eval.endswith('```'):
+            cleaned_complete_eval = cleaned_complete_eval[:-3]
+        cleaned_complete_eval = cleaned_complete_eval.strip()
+        
+        cleaned_complete_eval = remove_invalid_json_chars(cleaned_complete_eval)
+        complete_eval_json = json.loads(cleaned_complete_eval, strict=False)
+        
+        if isinstance(complete_eval_json, dict):
+            if "complete_evaluation" in complete_eval_json:
+                complete_evaluation_to_save = complete_eval_json["complete_evaluation"]
+            if "complete_rating" in complete_eval_json and isinstance(complete_eval_json["complete_rating"], dict):
+                complete_rating_to_save = complete_eval_json["complete_rating"]
+                
+    except Exception as e:
+        print(f"JSON decode or parsing error for complete evaluation: {e}")
+
+    # Handle additional criteria evaluation
+    criteria_key_map = {
+        "distraction_handling": "Distraction Handling",
+        "communication_simplicity": "Communication Simplicity"
+    }
+
+    additional_criteria_evaluation = {}
+    final_additional_criteria_config = test_config.get("additionalCriteria", None)
+    if final_additional_criteria_config:
+        for criteria, enabled in final_additional_criteria_config.items():
+            if enabled:
+                prompt_key = criteria_key_map.get(criteria, criteria)
+                eval_text = evaluate_additional_criteria(
+                    transcript_text,
+                    prompt_key,
+                    combined_product_context,
+                    current_persona
+                )
+                additional_criteria_evaluation[criteria] = eval_text
+    else:
+        additional_criteria_evaluation = "No additional criteria selected for this test configuration."
+
+    return {
+        "individual_evaluations": [],
+        "complete_evaluation": complete_evaluation_to_save,
+        "complete_rating": complete_rating_to_save,
+        "additional_criteria_evaluation": additional_criteria_evaluation,
+        "is_complete": True,
+        "test_configuration_id": ObjectId(test_config_id_str)
+    }
+
+
+def validate_conversation_access(conversation_id: str, user_id: str) -> dict:
+    """Validate conversation ID and user access"""
+    if not ObjectId.is_valid(conversation_id):
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+    
+    existing_conversation = conversation_collection.find_one({"_id": ObjectId(conversation_id)})
+    if not existing_conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    if existing_conversation.get("user_id") != ObjectId(user_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return existing_conversation
+
+
+def get_related_data(product_id_str: str, test_config_id_str: str) -> tuple:
+    """Fetch product, category, and test configuration data"""
+    product_collection = db["products"]
+    category_collection = db["categories"]
+    test_configurations_collection = db["test_configurations"]
+    
+    product = product_collection.find_one({"_id": ObjectId(product_id_str)})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    category = category_collection.find_one({"_id": product["category_id"]})
+    test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id_str)})
+    if not test_config:
+        raise HTTPException(status_code=404, detail="Test configuration not found")
+    
+    return product, category, test_config
+
+
+def update_transcript_service(
+    conversation_id: str,
+    transcript_data: list,
+    test_config_id_str: str,
+    product_id_str: str,
+    user_id: str
+) -> dict:
+    """Service function to update transcript data"""
+    # Validate access
+    validate_conversation_access(conversation_id, user_id)
+    
+    # Get related data
+    product, category, test_config = get_related_data(product_id_str, test_config_id_str)
+    current_persona = test_config.get("visitorPersona", {})
+    
+    # Process transcript
+    transcript_text = process_transcript_data(transcript_data)
+    combined_product_context = build_product_context(product)
+    
+    # Process evaluation
+    evaluation_data = process_evaluation_data(
+        transcript_text,
+        combined_product_context,
+        current_persona,
+        test_config,
+        test_config_id_str
+    )
+    
+    # Prepare update data
+    prod_name = product["name"] if product else None
+    cat_name = category["name"] if category else None
+    test_name = test_config["name"] if test_config else None
+
+    # Update conversation
+    conversations_collection = db["conversations"]
+    test_configurations_collection = db["test_configurations"]
+    
+    update_result = conversations_collection.update_one(
+        {"_id": ObjectId(conversation_id)},
+        {
+            "$set": {
+                "conversation_data": {"pairs": transcript_text},
+                "evaluation_data": evaluation_data,
+                "product_id": ObjectId(product_id_str),
+                "category_id": ObjectId(product["category_id"]),
+                "test_config_id": ObjectId(test_config_id_str),
+                "test_name": test_name,
+                "product_name": prod_name,
+                "category_name": cat_name,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+    
+    if update_result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to update conversation")
+    
+    # Update test configuration
+    test_configurations_collection.update_one(
+        {"_id": ObjectId(test_config_id_str)},
+        {"$set": {"assessment": True}}
+    )
+    
+    return {
+        "message": "Transcript updated successfully",
+        "conversation_id": conversation_id,
+        "transcript": transcript_text,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+
+
+def get_transcript_by_id_service(conversation_id: str, user_id: str) -> dict:
+    """Service function to get transcript by ID"""
+    # Validate access
+    conversation = validate_conversation_access(conversation_id, user_id)
+    
+    # Convert ObjectIds to strings for JSON serialization
+    conversation["_id"] = str(conversation["_id"])
+    conversation["user_id"] = str(conversation["user_id"])
+    conversation["product_id"] = str(conversation["product_id"])
+    conversation["category_id"] = str(conversation["category_id"])
+    conversation["test_config_id"] = str(conversation["test_config_id"])
+    
+    if "evaluation_data" in conversation and "test_configuration_id" in conversation["evaluation_data"]:
+        conversation["evaluation_data"]["test_configuration_id"] = str(conversation["evaluation_data"]["test_configuration_id"])
+    
+    return {
+        "conversation": conversation,
+        "transcript": conversation.get("conversation_data", {}).get("pairs", [])
+    }

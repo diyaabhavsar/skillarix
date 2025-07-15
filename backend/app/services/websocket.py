@@ -1,3 +1,4 @@
+from .prompt import get_prompt_by_title
 from .conversation import format_conversation_history
 from openai import OpenAI
 from groq import Groq
@@ -203,6 +204,25 @@ def evaluate_complete_conversation(full_conversation: List[dict], context: str, 
     """
     Evaluate the entire sales conversation for overall effectiveness and outcomes.
     """
+    prompt_data = get_prompt_by_title("Complete Evaluation")
+    print(prompt_data)
+    
+    # Extract the actual prompt text from the prompt_data structure
+    evaluation_prompt = ""
+    if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
+        # Look for the main condition first, if not found use the first one
+        main_prompt = None
+        for prompt_item in prompt_data['prompt']:
+            if prompt_item.get('condition') == 'main':
+                main_prompt = prompt_item
+                break
+        
+        if main_prompt:
+            evaluation_prompt = main_prompt.get('prompt', '')
+        else:
+            # If no main condition found, use the first prompt
+            evaluation_prompt = prompt_data['prompt'][0].get('prompt', '')
+    
     prompt = f"""
 You are evaluating a complete sales conversation. Analyze the entire interaction to assess overall 
 effectiveness and achievement of sales objectives.
@@ -226,36 +246,7 @@ Context from product documentation:
 Complete Conversation:
 {format_conversation_history(full_conversation)}
 
-Evaluate the following aspects:
-1. Overall Progress (0-3 points)
-   - Did the conversation achieve its objectives?
-   - Was there clear progression from introduction to closing?
-   - Were key decision points effectively handled?
-   - Was the approach consistently appropriate for this customer persona?
-
-2. Sales Strategy (0-3 points)
-   - Was the sales approach appropriate for this specific customer?
-   - Were product benefits effectively communicated in a way that resonated with this customer?
-   - Was objection handling effective and persona-appropriate?
-   - Was the technical depth consistently appropriate?
-
-3. Customer Journey (0-2 points)
-   - Did customer understanding/interest increase?
-   - Was there clear movement toward a decision?
-   - Was the journey tailored to this customer's decision-making style?
-
-4. Technical Accuracy (0-2 points)
-   - Was product information consistently accurate?
-   - Were technical details explained at the appropriate level for this customer?
-   - Was the technical complexity matched to the customer's knowledge level?
-
-Provide:
-1. A comprehensive explanation of the overall performance, integrating detailed insights and specific examples from the 'Overall Progress', 'Sales Strategy', 'Customer Journey', and 'Technical Accuracy' categories. This explanation should be a single, detailed string and should NOT include the numerical overall score.
-2. Key successful moments in the conversation (key name to be used: key_successful_moments, the response for this point must be in single string)
-3. Critical missed opportunities (key name to be used: critical_missed_opportunities, the response for this point must be in single string)
-4. Pattern analysis of effective/ineffective techniques used (key name to be used: pattern_analysis, the response for this point must be in single string)
-5. Recommendations for future conversations (key name to be used: recommendations, the response for this point must be in single string)
-6. Specific analysis of how well the salesperson adapted to this customer persona throughout the conversation (key name to be used: specific_analysis, the response for this point must be in single string)
+{evaluation_prompt}
 
 IMPORTANT INSTRUCTIONS:
 - Return ONLY a valid JSON object, and nothing else.
@@ -355,56 +346,35 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
     Returns:
         str: Evaluation text
     """
-    # Define prompts for different criteria
-    prompts = {
-        "Distraction Handling": """
-You are evaluating how well the salesperson handles distractions and off-topic questions in the conversation.
-Focus on:
-1. Maintaining Focus (0-3 points)
-   - How well does the salesperson stay on topic?
-   - Do they acknowledge distractions without losing track of the main conversation?
-   - Do they smoothly redirect back to relevant topics?
-
-2. Response to Off-topic Questions (0-3 points)
-   - How effectively do they handle questions unrelated to the product?
-   - Do they acknowledge the question while maintaining professionalism?
-   - Do they find ways to connect off-topic questions back to product benefits?
-
-3. Conversation Flow Management (0-4 points)
-   - How well do they maintain conversation momentum?
-   - Do they prevent the conversation from derailing?
-   - Do they use transitions effectively?
-   - Do they keep the customer engaged despite distractions?
-
-Provide specific examples from the conversation and actionable feedback.
-""",
-        "Communication Simplicity": """
-You are evaluating how effectively the salesperson communicates complex information in simple terms.
-Focus on:
-1. Clarity of Explanation (0-3 points)
-   - How well do they break down complex concepts?
-   - Do they use simple, understandable language?
-   - Do they avoid unnecessary technical jargon?
-
-2. Use of Analogies and Examples (0-3 points)
-   - How effectively do they use relatable examples?
-   - Do they make abstract concepts concrete?
-   - Do they use analogies that resonate with the customer?
-
-3. Information Organization (0-4 points)
-   - How well do they structure their explanations?
-   - Do they present information in a logical sequence?
-   - Do they use visual or verbal cues to organize information?
-   - Do they check for understanding?
-
-Provide specific examples from the conversation and actionable feedback.
-"""
-    }
     
-    # Get the appropriate prompt for the selected criteria
-    prompt = prompts.get(criteria, "")
-    if not prompt:
-        return "Invalid criteria selected."
+    prompt_data = get_prompt_by_title("Additional Criteria Evaluation")
+    print(prompt_data)
+    
+    # Extract the actual prompt text from the prompt_data structure based on criteria
+    evaluation_prompt = ""
+    if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
+        # Map criteria to condition names
+        criteria_mapping = {
+            "Distraction Handling": "distraction_handling",
+            "Communication Simplicity": "communication_simplicity"
+        }
+        
+        target_condition = criteria_mapping.get(criteria)
+        
+        if target_condition:
+            # Look for the specific condition
+            for prompt_item in prompt_data['prompt']:
+                if prompt_item.get('condition') == target_condition:
+                    evaluation_prompt = prompt_item.get('prompt', '')
+                    break
+        
+        # If no specific condition found, use fallback
+        if not evaluation_prompt and len(prompt_data['prompt']) > 0:
+            evaluation_prompt = prompt_data['prompt'][0].get('prompt', '')
+    
+    # Use the evaluation prompt from database instead of hardcoded prompts
+    if not evaluation_prompt:
+        return "No evaluation prompt found for the specified criteria."
     
     # Format conversation history
     conversation_text = format_conversation_history(conversation)
@@ -422,7 +392,7 @@ Product Context:
 Conversation:
 {conversation_text}
 
-{prompt}
+{evaluation_prompt}
 
 Your evaluation:
 """

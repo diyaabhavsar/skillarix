@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import MidEvaluations from "@/components/feedback/MidEvaluations";
+import ScoreDrawerPrompt from "@/components/feedback/scorePromptDrawer";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { marked } from "marked";
@@ -11,12 +12,12 @@ import {
   BarChart,
   CheckCircle2,
   History,
+  Sparkles,
 } from "lucide-react";
 
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetTrigger } from "@/components/ui/sheet";
 
 // App Components
@@ -25,9 +26,6 @@ import OverallPerformance from "@/components/feedback/OverallPerformance";
 import CompleteEvaluation from "@/components/feedback/CompleteEvaluation";
 import ConversationDisplay from "@/components/feedback/ConversationDisplay";
 import ExchangeEvaluations from "@/components/feedback/ExchangeEvaluations";
-import AdditionalCriteria from "@/components/feedback/AdditionalCriteria";
-import MidEvaluations from "@/components/feedback/MidEvaluations";
-
 // Hooks & Types
 import { useTests } from "@/hooks/useTests";
 import { useProducts } from "@/hooks/useProducts";
@@ -35,6 +33,8 @@ import { ConversationEvaluation, Rating } from "@/types/conversations";
 
 // Utils
 import { formatDateToIndianTime } from "@/utils/dateUtils";
+import { useEffect, useState } from "react";
+import AdditionalCriteria from "@/components/feedback/AdditionalCriteria";
 
 const SessionFeedback: React.FC = () => {
   const { sessionId } = useParams();
@@ -44,6 +44,7 @@ const SessionFeedback: React.FC = () => {
 
   const [session, setSession] = useState<ConversationEvaluation | null>(null);
   const [test, setTest] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const formatValue = (value: string): string =>
     value
@@ -275,166 +276,216 @@ const SessionFeedback: React.FC = () => {
   const defaultTab = availableTabs[0]?.value || "overall-performance";
 
   return (
-    <div className="space-y-6 container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/practice")}
-          className="hover:bg-slate-100 hover:text-primary text-sm"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        <div className="flex items-center gap-4">
-          <p className="text-sm text-slate-500">
-            {formatDateToIndianTime(created_at, {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-              timeZoneName: "short",
-            })}
-          </p>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button className="bg-primary text-white text-sm px-6 py-3 rounded-md shadow-md">
-                Test Configuration
-              </Button>
-            </SheetTrigger>
-            {test && test._id ? (
-              <TestConfigurationDetails
-                test={test}
-                formatDate={formatDate}
-                formatValue={formatValue}
-                getProductName={getProductName}
-              />
-            ) : (
-              <div className="p-6 text-center text-muted-foreground">
-                Test configuration not found.
-              </div>
-            )}
-          </Sheet>
-        </div>
-      </div>
-
-      <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg space-x-1">
-          {availableTabs.map(({ value, label, icon: Icon, color }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className={getTabClasses(color)}
+    <div className="flex h-screen">
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto relative">
+        <div className="space-y-6 container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-8">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/practice")}
+              className="hover:bg-slate-100 hover:text-primary text-sm"
             >
-              <Icon className="h-4 w-4" /> {label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <AnimatePresence mode="wait">
-          {availableTabs.find((tab) => tab.value === "overall-performance") && (
-            <TabsContent value="overall-performance" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Button>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-slate-500">
+                {formatDateToIndianTime(created_at, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                  timeZoneName: "short",
+                })}
+              </p>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button className="bg-primary text-white text-sm px-6 py-3 rounded-md shadow-md">
+                    Test Configuration
+                  </Button>
+                </SheetTrigger>
+                {test && test._id ? (
+                  <TestConfigurationDetails
+                    test={test}
+                    formatDate={formatDate}
+                    formatValue={formatValue}
+                    getProductName={getProductName}
+                  />
+                ) : (
+                  <div className="p-6 text-center text-muted-foreground">
+                    Test configuration not found.
+                  </div>
+                )}
+              </Sheet>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hover:bg-slate-100 hover:text-primary"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Toggle AI prompt drawer"
               >
-                <OverallPerformance
-                  completeRating={evaluation_data.complete_rating}
-                  formatRatingKey={formatRatingKey}
-                  renderRating={renderRating}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
+                <Sparkles className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
 
-          {availableTabs.find((tab) => tab.value === "complete-evaluation") && (
-            <TabsContent value="complete-evaluation" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <CompleteEvaluation
-                  completeEvaluation={evaluation_data.complete_evaluation}
-                  formatEvaluationValue={formatEvaluationValue}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
+          <Tabs defaultValue={defaultTab} className="w-full">
+            <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg space-x-1">
+              {availableTabs.map(({ value, label, icon: Icon, color }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className={getTabClasses(color)}
+                >
+                  <Icon className="h-4 w-4" /> {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
 
-          {availableTabs.find((tab) => tab.value === "conversation") && (
-            <TabsContent value="conversation" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ConversationDisplay
-                  conversationPairs={validConversationPairs}
-                  individualEvaluations={validIndividualEvaluations}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
+            <AnimatePresence mode="wait">
+              {/* ...existing tabs content... */}
+              {availableTabs.find(
+                (tab) => tab.value === "overall-performance"
+              ) && (
+                <TabsContent
+                  value="overall-performance"
+                  className="mt-6"
+                  asChild
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <OverallPerformance
+                      completeRating={evaluation_data.complete_rating}
+                      formatRatingKey={formatRatingKey}
+                      renderRating={renderRating}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
 
-          {availableTabs.find(
-            (tab) => tab.value === "exchange-evaluations"
-          ) && (
-            <TabsContent value="exchange-evaluations" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ExchangeEvaluations
-                  evaluations={evaluation_data.individual_evaluations}
-                  formatEvaluationData={formatEvaluationData}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
+              {availableTabs.find(
+                (tab) => tab.value === "complete-evaluation"
+              ) && (
+                <TabsContent
+                  value="complete-evaluation"
+                  className="mt-6"
+                  asChild
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <CompleteEvaluation
+                      completeEvaluation={evaluation_data.complete_evaluation}
+                      formatEvaluationValue={formatEvaluationValue}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
 
-          {availableTabs.find((tab) => tab.value === "additional-criteria") && (
-            <TabsContent value="additional-criteria" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <AdditionalCriteria
-                  criteriaEvaluation={
-                    evaluation_data.additional_criteria_evaluation
-                  }
-                  formatAIGeneratedText={formatAIGeneratedText}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
+              {availableTabs.find((tab) => tab.value === "conversation") && (
+                <TabsContent value="conversation" className="mt-6" asChild>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ConversationDisplay
+                      conversationPairs={validConversationPairs}
+                      individualEvaluations={validIndividualEvaluations}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
 
-          {availableTabs.find((tab) => tab.value === "mid-evaluations") && (
-            <TabsContent value="mid-evaluations" className="mt-6" asChild>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                <MidEvaluations
-                  evaluations={evaluation_data.mid_evaluations}
-                  formatAIGeneratedText={formatAIGeneratedText}
-                />
-              </motion.div>
-            </TabsContent>
-          )}
-        </AnimatePresence>
-      </Tabs>
+              {availableTabs.find(
+                (tab) => tab.value === "exchange-evaluations"
+              ) && (
+                <TabsContent
+                  value="exchange-evaluations"
+                  className="mt-6"
+                  asChild
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ExchangeEvaluations
+                      evaluations={evaluation_data.individual_evaluations}
+                      formatEvaluationData={formatEvaluationData}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
+
+              {availableTabs.find(
+                (tab) => tab.value === "additional-criteria"
+              ) && (
+                <TabsContent
+                  value="additional-criteria"
+                  className="mt-6"
+                  asChild
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AdditionalCriteria
+                      criteriaEvaluation={
+                        evaluation_data.additional_criteria_evaluation
+                      }
+                      formatAIGeneratedText={formatAIGeneratedText}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
+
+              {availableTabs.find((tab) => tab.value === "mid-evaluations") && (
+                <TabsContent value="mid-evaluations" className="mt-6" asChild>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <MidEvaluations
+                      evaluations={evaluation_data.mid_evaluations}
+                      formatAIGeneratedText={formatAIGeneratedText}
+                    />
+                  </motion.div>
+                </TabsContent>
+              )}
+            </AnimatePresence>
+          </Tabs>
+        </div>
+
+        {/* Prompt Drawer - Now inside main content area */}
+        <ScoreDrawerPrompt
+          open={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          conversationId={sessionId}
+          testConfigId={session?.test_config_id}
+          productId={session?.product_id}
+          transcriptData={validConversationPairs.flatMap((pair, index) => [
+            { source: "ai", text: pair.visitor_text },
+            { source: "user", text: pair.salesperson_text },
+          ])}
+        />
+      </div>
     </div>
   );
 };

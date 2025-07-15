@@ -242,7 +242,6 @@ const ManageUsers = () => {
     deleteUser,
     getUserById,
   } = useUsers();
-  console.log({usersResponse})
 
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
