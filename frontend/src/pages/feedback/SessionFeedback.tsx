@@ -1,5 +1,5 @@
 import MidEvaluations from "@/components/feedback/MidEvaluations";
-import ScoreDrawerPrompt from "@/components/feedback/ScorePromptDrawer";
+import ScoreDrawerPrompt from "@/components/feedback/ScoreDrawerPrompt";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { marked } from "marked";
