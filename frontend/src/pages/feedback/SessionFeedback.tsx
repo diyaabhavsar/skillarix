@@ -1,5 +1,5 @@
 import MidEvaluations from "@/components/feedback/MidEvaluations";
-import ScoreDrawerPrompt from "@/components/feedback/scorePromptDrawer";
+import ScoreDrawerPrompt from "@/components/feedback/ScorePromptDrawer";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { marked } from "marked";
@@ -278,8 +278,19 @@ const SessionFeedback: React.FC = () => {
   return (
     <div className="flex h-screen">
       {/* Main Content */}
-      <div className="flex-1 overflow-auto relative">
-        <div className="space-y-6 container mx-auto px-4 py-6">
+      <div className="flex-1 overflow-hidden relative">
+        <div className="space-y-6 container mx-auto px-4 py-6 h-full overflow-y-scroll"
+             style={{
+               scrollbarWidth: 'none',
+               msOverflowStyle: 'none'
+             }}>
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              .space-y-6.container::-webkit-scrollbar {
+                display: none;
+              }
+            `
+          }} />
           <div className="flex items-center justify-between mb-8">
             <Button
               variant="ghost"
