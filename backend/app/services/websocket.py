@@ -204,102 +204,41 @@ def evaluate_complete_conversation(full_conversation: List[dict], context: str, 
     """
     Evaluate the entire sales conversation for overall effectiveness and outcomes.
     """
-    prompt_data = get_prompt_by_title("Complete Evaluation")
-    print(prompt_data)
-    
-    # Extract the actual prompt text from the prompt_data structure
-    evaluation_prompt = ""
-    if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
-        # Look for the main condition first, if not found use the first one
-        main_prompt = None
-        for prompt_item in prompt_data['prompt']:
-            if prompt_item.get('condition') == 'main':
-                main_prompt = prompt_item
-                break
-        
-        if main_prompt:
-            evaluation_prompt = main_prompt.get('prompt', '')
-        else:
-            # If no main condition found, use the first prompt
-            evaluation_prompt = prompt_data['prompt'][0].get('prompt', '')
-    
-    prompt = f"""
-You are evaluating a complete sales conversation. Analyze the entire interaction to assess overall 
-effectiveness and achievement of sales objectives.
 
-Customer Persona:
-{json.dumps(persona, indent=2)}
+    def select_evaluation_prompt(prompt_data):
+        """Selects the main or first available prompt from prompt_data."""
+        if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
+            for prompt_item in prompt_data['prompt']:
+                if prompt_item.get('condition') == 'main':
+                    return prompt_item.get('prompt', '')
+            return prompt_data['prompt'][0].get('prompt', '')
+        return ''
 
-Key Persona Considerations:
-- Product Knowledge: {persona.get('product_knowledge', 'Not specified')}
-- Product Familiarity: {persona.get('product_familiarity', 'Not specified')}
-- Technical Expertise: {persona.get('technical_expertise', 'Not specified')}
-- Key Challenges: {persona.get('key_challenges', 'Not specified')}
-- Buying Objective: {persona.get('buying_objective', 'Not specified')}
-- Budget Range: {persona.get('budget_range', 'Not specified')}
-- Decision Authority: {persona.get('decision_authority', 'Not specified')}
-- Exhibition Objective: {persona.get('exhibition_objective', 'Not specified')}
+    def fill_prompt_placeholders(prompt: str, persona: dict, context: str, conversation: List[dict]) -> str:
+        """Replaces placeholders in the prompt with actual values."""
+        return (
+            prompt
+            .replace("{{Visitor_persona}}", json.dumps(persona, indent=2))
+            .replace("{{Product_detail}}", context)
+            .replace("{{Conversion_history}}", format_conversation_history(conversation))
+        )
 
-Context from product documentation:
-{context}
-
-Complete Conversation:
-{format_conversation_history(full_conversation)}
-
-{evaluation_prompt}
-
-IMPORTANT INSTRUCTIONS:
-- Return ONLY a valid JSON object, and nothing else.
-- All the keys must be in lowercase and instead of space use underscore.
-- Do NOT include any explanations, markdown, code blocks, or extra text before or after the JSON.
-- The JSON object must have exactly two fields: "complete_evaluation" and "complete_rating".
-- "complete_evaluation" should be an object with the following fields, where each field contains a single string:
-   - "overall_score": "Explanation of Overall score and breakdown by category, all in a single string."
-   - "key_successful_moments": "Detailed description of key successful moments."
-   - "critical_missed_opportunities": "Detailed description of critical missed opportunities."
-   - "pattern_analysis": "Detailed analysis of effective/ineffective techniques."
-   - "recommendations": "Detailed recommendations for future conversations."
-   - "specific_analysis": "Detailed specific analysis of persona adaptation."
-- "complete_rating" should be an object with the following structure and ONLY numbers as values:
-
-{{
-  "complete_evaluation": {{
-    "overall_score": "Your comprehensive explanation integrating insights from Overall Progress, Sales Strategy, Customer Journey, and Technical Accuracy, all in a single string.",
-    "key_successful_moments": "Your detailed description of key successful moments here.",
-    "critical_missed_opportunities": "Your detailed description of critical missed opportunities here.",
-    "pattern_analysis": "Your detailed analysis of effective/ineffective techniques here.",
-    "recommendations": "Your detailed recommendations for future conversations here.",
-    "specific_analysis": "Your detailed specific analysis of persona adaptation here."
-  }},
-  "complete_rating": {{
-    "overall_progress": {{"score": <number>, "max": 3}},
-    "sales_strategy": {{"score": <number>, "max": 3}},
-    "customer_journey": {{"score": <number>, "max": 2}},
-    "technical_accuracy": {{"score": <number>, "max": 2}},
-    "total": {{"score": <number>, "max": 10}}
-  }}
-}}
-"""
-    if FLAG == 1:
-        # Streaming OpenAI Chat completion
+    def stream_response_openai(prompt: str) -> str:
         response_stream = openai_client.chat.completions.create(
-            model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
             temperature=1,
             top_p=1,
             max_tokens=1024,
             stream=True,
         )
+        return "".join(
+            chunk.choices[0].delta.content
+            for chunk in response_stream
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content
+        ).strip()
 
-        full_response = ""
-        for chunk in response_stream:
-            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-
-        return full_response.strip()
-    else:
+    def stream_response_groq(prompt: str) -> str:
         completion = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[{"role": "user", "content": prompt}],
@@ -309,13 +248,21 @@ IMPORTANT INSTRUCTIONS:
             stream=True,
             stop=None,
         )
-        
-        full_response = ""
-        for chunk in completion:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-        
-        return full_response.strip()
+        return "".join(
+            chunk.choices[0].delta.content
+            for chunk in completion
+            if chunk.choices[0].delta.content
+        ).strip()
+
+    prompt_data = get_prompt_by_title("Complete Evaluation")
+    print(prompt_data)
+    evaluation_prompt = select_evaluation_prompt(prompt_data)
+    prompt = fill_prompt_placeholders(evaluation_prompt, persona, context, full_conversation)
+
+    if FLAG == 1:
+        return stream_response_openai(prompt)
+    else:
+        return stream_response_groq(prompt)
 
 # Helper function to remove invalid control characters from a string
 def remove_invalid_json_chars(raw_string: str) -> str:
