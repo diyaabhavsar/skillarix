@@ -4,7 +4,6 @@ from bson import ObjectId
 from datetime import datetime
 from ....services.auth import verify_bearer_token
 from ....services.websocket import (
-    evaluate_complete_conversation,
     remove_invalid_json_chars, evaluate_additional_criteria,
 )
 from ....database import db
@@ -12,7 +11,8 @@ import json
 from ....services.conversation import (
     save_transcript_conversation,
     update_transcript_service,
-    get_transcript_by_id_service
+    get_transcript_by_id_service,
+    evaluate_complete_conversation
 )
 
 
@@ -22,6 +22,81 @@ category_collection = db["categories"]
 conversations_collection = db["conversations"]
 
 router = APIRouter()
+
+
+
+@router.get("/tool/product_details")
+async def get_product_details_tool(
+    product_id: str
+):
+    """
+    Public endpoint for ElevenLabs tools to fetch product details.
+    """
+    try:
+        if not ObjectId.is_valid(product_id):
+             return {"error": "Invalid Product ID Format"}
+             
+        product = product_collection.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            return {"error": "Product not found"}
+            
+        return {
+            "name": product.get("name"),
+            "description": product.get("description"),
+            "content": product.get("content"),
+            "category_id": str(product.get("category_id"))
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/tool/test_config_details")
+async def get_test_config_details_tool(
+    test_config_id: str
+):
+    """
+    Public endpoint for ElevenLabs tools to fetch test configuration details.
+    """
+    print(f"\n🔍 [ElevenLabs Tool] Request Received for Config ID: {test_config_id}")
+
+    try:
+        if not ObjectId.is_valid(test_config_id):
+             print(f"❌ [ElevenLabs Tool] Invalid ID Format")
+             return {"error": "Invalid Test Configuration ID Format"}
+             
+        test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+        if not test_config:
+            print(f"❌ [ElevenLabs Tool] Test Configuration Not Found")
+            return {"error": "Test Configuration not found"}
+            
+        product = product_collection.find_one({"_id": test_config.get("product_id")})
+        visitor_persona = test_config.get("visitorPersona", {})
+
+        # Base response
+        response = {
+            "test_config_name": test_config.get("name"),
+            "product_name": product.get("name") if product else None,
+            "product_id": str(test_config.get("product_id")),
+            "category_id": str(test_config.get("category_id")),
+            "additional_criteria": test_config.get("additionalCriteria"),
+            # Keep visitor_persona object for structure if needed, but variables are now also at root
+            "visitor_persona": visitor_persona
+        }
+
+        # Flatten visitor persona fields to top level for easy variable mapping
+        # This exposes: product_knowledge, budget_range, etc. directly
+        if isinstance(visitor_persona, dict):
+            response.update(visitor_persona)
+
+        print(f"✅ [ElevenLabs Tool] Success! Returning payload:")
+        print(f"   Product: {response.get('product_name')}")
+        print(f"   Variables: {list(response.keys())}")
+        print(f"   Full Data: {response}\n")
+
+        return response
+    except Exception as e:
+        print(f"🚨 [ElevenLabs Tool] Exception: {str(e)}\n")
+        return {"error": str(e)}
 
 
 @router.post("/transcript")
@@ -37,12 +112,33 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
     # Filter transcript to remove the first agent message
     filtered_transcript = data_dict["transcript"]
 
-    for i in range(0, len(filtered_transcript) - 1, 2):
-        if filtered_transcript[i]["source"] == "ai" and filtered_transcript[i + 1]["source"] == "user":
+    # Robust transcript processing: Flatten consecutive messages first
+    flattened_transcript = []
+    if filtered_transcript:
+        current_msg = filtered_transcript[0].copy()
+        for i in range(1, len(filtered_transcript)):
+            next_msg = filtered_transcript[i].copy()
+            if next_msg["source"] == current_msg["source"]:
+                current_msg["text"] += " " + next_msg["text"]
+            else:
+                flattened_transcript.append(current_msg)
+                current_msg = next_msg
+        flattened_transcript.append(current_msg)
+
+    # Pair AI -> User exchanges
+    structured_output = []
+    i = 0
+    while i < len(flattened_transcript) - 1:
+        # We look for an AI message followed immediately by a User message
+        if flattened_transcript[i]["source"] == "ai" and flattened_transcript[i+1]["source"] == "user":
             structured_output.append({
-                "salesperson_text": filtered_transcript[i + 1]["text"],
-                "visitor_text": filtered_transcript[i]["text"],
+                "salesperson_text": flattened_transcript[i+1]["text"],
+                "visitor_text": flattened_transcript[i]["text"],
             })
+            i += 2 # Consumed both
+        else:
+            # If we see User first, or AI->AI (already flattened), skip one
+            i += 1
 
     transcript_text = structured_output
     product_content_str = product.get("content") if product.get("content") else ""
@@ -312,6 +408,34 @@ async def get_transcript_by_id(
         )
         
         return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.delete("/transcript/{conversation_id}")
+async def delete_transcript(
+    conversation_id: str,
+    token = Depends(verify_bearer_token)
+):
+    """Delete a conversation/transcript by ID"""
+    try:
+        if not ObjectId.is_valid(conversation_id):
+            raise HTTPException(status_code=400, detail="Invalid conversation ID")
+            
+        # Delete the document ensuring it belongs to the user (if user_id stored)
+        # Note: We check user_id matching to ensure users can't delete others' data
+        result = conversations_collection.delete_one({
+            "_id": ObjectId(conversation_id), 
+            "user_id": ObjectId(token["id"])
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Conversation not found or access denied")
+            
+        return {"status": "success", "message": "Conversation deleted successfully"}
         
     except HTTPException:
         raise

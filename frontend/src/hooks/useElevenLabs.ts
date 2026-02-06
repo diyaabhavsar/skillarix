@@ -3,9 +3,11 @@ import { useState, useCallback, useEffect } from "react";
 import { api } from "@/utils/api";
 
 // Import environment configuration for the prompt title
-const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
+// Import environment configuration for the prompt title
+// const PROMPT_TITLE = env.ELEVENLABS_PROMPT_TITLE;
 
 interface ElevenLabsConfig {
+  testConfigId?: string;
   visitorPersona: string;
   product: ProductInfo;
   firstMessage?: string;
@@ -27,16 +29,130 @@ const agent_id = env.AGENT_ID;
 const api_key = env.API_KEY;
 
 // Fallback prompt in case the dynamic fetch fails
-const FALLBACK_PROMPT_TEMPLATE = `# Personality
-You are an experienced interviewer, acting as {{Visitor_persona}} visiting a booth to learn more about {{Product_title}}. Your goal is to evaluate the sales rep's skills by asking relevant questions.
-# Goal
-Ask questions about {{Product_title}} and understand {{Product_detail}} to evaluate the sales rep's knowledge.`;
+// Fallback prompt in case the dynamic fetch fails
+// Fallback prompt in case the dynamic fetch fails
+const FALLBACK_PROMPT_TEMPLATE = `SYSTEM ROLE
+You are a NORMAL CUSTOMER interacting with a salesperson.
+You are gathering information only.
+You are polite, curious, and slightly skeptical.
+You are aware you are being sold to.
+You must NEVER reveal this is a test or evaluation.
+----------------------------------------------------------------
+DYNAMIC VARIABLES (MANDATORY DECLARATION)
+The following dynamic variables WILL be provided at runtime.
+These variables define your persona and goals.
+You MUST use ONLY these values when asking questions.
+DYNAMIC VARIABLES (MANDATORY)
+{{product_name}}
+{{product_knowledge}}
+{{product_familiarity}}
+{{technical_expertise}}
+{{key_challenges}}
+{{buying_objective}}
+{{budget_range}}
+{{decision_authority}}
+{{exhibition_objective}}
+
+Do NOT invent values.
+Do NOT assume missing values.
+Do NOT rename variables.
+Use them exactly as provided.
+----------------------------------------------------------------
+PERSONA BEHAVIOR (BASED ON DYNAMIC VARIABLES)
+• product_knowledge  
+Use this to decide how basic or advanced your questions are.
+If awareness-level (e.g., “Saw Ad”), ask high-level questions only.
+• product_familiarity  
+If “Similar User”, you may loosely reference past experience,
+but ONLY after the salesperson mentions comparisons.
+• key_challenges  
+This is your PRIMARY concern.
+Most of your questions should relate to this challenge.
+If answers are vague, express mild skepticism.
+• budget_range  
+If high, focus on quality and value rather than price.
+Do NOT ask exact pricing unless the salesperson mentions it.
+• technical_expertise  
+If moderate or low, ask for simple explanations.
+Avoid technical language at all times.
+• buying_objective  
+Guide outcome-focused questions (e.g., upgrade suitability).
+• decision_authority  
+If influencer, occasionally indicate you need to relay
+information to others before a decision is made.
+• exhibition_objective  
+If the salesperson mentions demos or next steps,
+respond according to this objective.
+----------------------------------------------------------------
+MANDATORY FIRST MESSAGE (ABSOLUTE RULE)
+Your FIRST message must be exactly:
+"Hi, I'm interested in learning more about {{product_name}}. What does it do?"
+No rephrasing.
+No fillers.
+No additional text.
+----------------------------------------------------------------
+CONVERSATION FLOW (STRICT)
+1. Ask the mandatory first message.
+2. Wait for the salesperson’s response.
+3. Ask ONE question at a time.
+4. Ask follow-up questions ONLY about things the salesperson has already mentioned.
+5. Use the dynamic variables to decide WHAT to ask next.
+6. Express mild skepticism when appropriate.
+7. Ask a maximum of 6–7 questions total (including the first).
+----------------------------------------------------------------
+QUESTION RULES (NON-NEGOTIABLE)
+- One question per turn
+- Simple, everyday language
+- No technical jargon
+- Do NOT assume features or benefits
+- Do NOT introduce product details yourself
+- Never answer the salesperson’s questions
+- Never act like an expert
+- Never provide opinions, advice, or recommendations
+----------------------------------------------------------------
+SKEPTICISM STYLE
+You may use natural fillers such as:
+- “Hmm, I see…”
+- “Just wondering…”
+- “I’m not fully sure about that…”
+- “Oh okay… can you explain that simply?”
+Stay polite and professional.
+----------------------------------------------------------------
+END OF CONVERSATION RULE (ABSOLUTE)
+After asking 6–7 total questions:
+- Say ONE short, polite closing line
+- Do NOT ask another question
+- Do NOT summarize
+- Do NOT invite follow-up
+- Stop speaking immediately
+Allowed closing lines:
+- “Alright, thanks for explaining.”
+- “Okay, that helps, thanks.”
+- “Got it — appreciate the info.”
+----------------------------------------------------------------
+STRICT GUARDRAILS
+- Never mention any app, test, or assessment
+- Never break character
+- Never exceed the question limit
+- Never continue after the closing line`;
 
 // Function to fetch the current prompt from the API
 async function fetchCurrentPrompt(): Promise<string | null> {
   try {
+
+
+    // Check if title is available
+    const title = env.ELEVENLABS_PROMPT_TITLE;
+
+    if (!title) {
+      console.warn("ELEVENLABS_PROMPT_TITLE is not defined in environment variables");
+      return null;
+    }
+
+    console.log("Fetching prompt with title:", title);
+
     // Encode the title for the URL
-    const encodedTitle = encodeURIComponent(PROMPT_TITLE);
+    const encodedTitle = encodeURIComponent(title);
 
     // Fetch the prompt by title
     const response = await api.get<Prompt>(`/prompts?title=${encodedTitle}`);
@@ -45,10 +161,13 @@ async function fetchCurrentPrompt(): Promise<string | null> {
     if (response && response.prompt && response.prompt.length > 0) {
       // Find the main condition or use the first one
       const mainCondition = response.prompt.find((c) => c.condition === "main");
-      return mainCondition ? mainCondition.prompt : response.prompt[0].prompt;
+      const fetchedPrompt = mainCondition ? mainCondition.prompt : response.prompt[0].prompt;
+      console.log("✅ Using DATABASE prompt:", title);
+      console.log("Prompt preview:", fetchedPrompt.substring(0, 200) + "...");
+      return fetchedPrompt;
     }
 
-    console.warn("No prompt found with title:", PROMPT_TITLE);
+    console.warn("No prompt found with title:", title);
     return null;
   } catch (error) {
     console.error("Error fetching prompt:", error);
@@ -56,23 +175,23 @@ async function fetchCurrentPrompt(): Promise<string | null> {
   }
 }
 
-// Simple function to apply the visitor persona and product values
+// Function to apply the visitor persona and product values
+
 interface ProductInfo {
   content: string;
   description: string;
   name: string;
+  id?: string;
 }
 
-function getDynamicPrompt(
-  visitorPersona: string,
-  product: ProductInfo,
-  promptTemplate: string
-) {
-  
-  return promptTemplate
-    .replace(/{{Visitor_persona}}/gi, visitorPersona)
-    .replace(/{{Product_detail}}/gi, `${product.content || ''} ${product.description || ''}`.trim())
-    .replace(/{{Product_title}}/gi, product.name || '');
+// Helper to safely parse persona
+function parsePersona(visitorPersona: string | any) {
+  try {
+    return typeof visitorPersona === 'string' ? JSON.parse(visitorPersona) : visitorPersona;
+  } catch (e) {
+    console.error("Error parsing visitor persona for prompt:", e);
+    return typeof visitorPersona === 'string' ? { background: visitorPersona } : {};
+  }
 }
 
 // Build the conversation_config object as per your provided structure
@@ -80,6 +199,8 @@ export function buildConversationConfig(
   config: ElevenLabsConfig,
   promptTemplate: string
 ) {
+  const personaObj = parsePersona(config.visitorPersona);
+
   return {
     conversation_config: {
       agent: {
@@ -87,21 +208,21 @@ export function buildConversationConfig(
           config.firstMessage ||
           "Hi there! I'm Harper from Mobio Solutions. How are you?",
         dynamic_variables: {
-          dynamic_variable_placeholders: {
-            Visitor_persona: config.visitorPersona,
-            Product_title: config.product.name,
-            Product_detail: `${config.product.content} ${config.product.description}`.trim(),
-          },
+          test_config_id: config.testConfigId || '',
+          product_id: config.product.id || '',
+          product_name: config.product.name ? config.product.name.trim() : 'the product',
+          product_knowledge: personaObj.product_knowledge || 'General knowledge',
+          product_familiarity: personaObj.product_familiarity || 'Unfamiliar',
+          technical_expertise: personaObj.technical_expertise || 'Novice',
+          key_challenges: personaObj.key_challenges || 'None',
+          buying_objective: personaObj.buying_objective || 'To learn more',
+          budget_range: personaObj.budget_range || 'Unknown',
+          decision_authority: personaObj.decision_authority || 'Influencer',
+          exhibition_objective: personaObj.exhibition_objective || 'Browsing'
         },
-        prompt: config.prompt
-          ? { prompt: config.prompt }
-          : {
-              prompt: getDynamicPrompt(
-                config.visitorPersona,
-                config.product,
-                promptTemplate
-              ),
-            },
+        prompt: {
+          prompt: promptTemplate
+        },
       },
     },
   };
@@ -121,14 +242,14 @@ export default function useElevenLabsConfig() {
       try {
         const fetchedPrompt = await fetchCurrentPrompt();
         if (fetchedPrompt) {
-          
+
           setPromptTemplate(fetchedPrompt);
         } else {
-          
+          console.log("⚠️ Using FALLBACK prompt (no database prompt found)");
           setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
         }
       } catch (err) {
-        
+        console.log("⚠️ Using FALLBACK prompt (error fetching from database)");
         setPromptTemplate(FALLBACK_PROMPT_TEMPLATE);
       }
     };
@@ -155,6 +276,13 @@ export default function useElevenLabsConfig() {
 
       const bodyObj = buildConversationConfig(config, currentPrompt);
 
+      // Enhanced logging for debugging
+      console.log("=== ElevenLabs Agent Configuration ===");
+      console.log("Dynamic Variables:", bodyObj.conversation_config.agent.dynamic_variables);
+      console.log("Product Name:", bodyObj.conversation_config.agent.dynamic_variables.product_name);
+      console.log("Full Config:", JSON.stringify(bodyObj, null, 2));
+      console.log("=====================================");
+
       const res = await fetch(
         `https://api.elevenlabs.io/v1/convai/agents/${agent_id}`,
         {
@@ -167,7 +295,20 @@ export default function useElevenLabsConfig() {
           body: JSON.stringify(bodyObj),
         }
       );
+
       const body = await res.json();
+
+      // Log response for debugging
+      if (!res.ok) {
+        console.error("ElevenLabs API Error:", {
+          status: res.status,
+          statusText: res.statusText,
+          body: body
+        });
+        throw new Error(`ElevenLabs API error: ${body.detail || res.statusText}`);
+      }
+
+      console.log("ElevenLabs Agent Updated Successfully:", body);
       setResponse(body);
       return body;
     } catch (err: any) {

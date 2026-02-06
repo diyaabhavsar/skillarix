@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     DATABASE_NAME: str
 
     # CORS
-    CORS_ORIGINS: list
+    CORS_ORIGINS: list = ["*"]
     
     
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra='ignore')
 
 settings = Settings()

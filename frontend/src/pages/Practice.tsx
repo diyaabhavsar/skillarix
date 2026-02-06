@@ -18,6 +18,8 @@ interface PaginationData {
 
 const defaultRating = { score: 0, max: 0 };
 
+import { api } from "@/utils/api";
+
 export default function Practice() {
   const location = useLocation();
   const { conversations, fetchConversations } = useConversationHistory();
@@ -39,6 +41,22 @@ export default function Practice() {
     } catch (error) {
       console.error("Failed to fetch page:", page, error);
       toast.error("Failed to load page " + page);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    try {
+      setIsLoading(true);
+      // Call the API endpoint we updated to allow users to delete their own conversations
+      await api.delete(`/conversations/${id}`);
+      toast.success("Session deleted successfully");
+      // Refresh the list
+      await fetchConversations(currentPage, 10, true);
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+      toast.error("Failed to delete session");
     } finally {
       setIsLoading(false);
     }
@@ -138,7 +156,7 @@ export default function Practice() {
         <div className="my-8">
           <div className="relative">
             {isLoading && (
-              <div className="absolute inset-0 bg-white/50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             )}
@@ -147,6 +165,7 @@ export default function Practice() {
               currentPage={currentPage}
               paginationData={paginationData}
               onPageChange={handlePageChange}
+              onDelete={handleDeleteSession}
             />
           </div>
         </div>

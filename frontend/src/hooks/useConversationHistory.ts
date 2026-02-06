@@ -30,11 +30,11 @@ export function useConversationHistory() {
   };
 
   const fetchConversations = useCallback(
-    async (page = 1, limit = 10): Promise<ConversationsResponse> => {
+    async (page = 1, limit = 10, forceRefresh = false): Promise<ConversationsResponse> => {
       const cacheKey = `${limit}-${page}`;
 
-      // Return from cache if exists
-      if (cache.current.has(cacheKey)) {
+      // Return from cache if exists and not forced
+      if (!forceRefresh && cache.current.has(cacheKey)) {
         const cached = cache.current.get(cacheKey)!;
         setConversations(cached);
         return cached;

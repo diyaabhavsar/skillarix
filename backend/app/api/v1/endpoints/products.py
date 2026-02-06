@@ -85,7 +85,7 @@ async def get_products_by_user(token=Depends(verify_bearer_token)):
     """
     try:
         # Find all products where created_by matches the current user's ObjectId
-        products_cursor = product_collection.find({})
+        products_cursor = product_collection.find({"is_deleted": {"$ne": True}})
         products = list(products_cursor)
         # Convert ObjectId fields to strings for JSON serialization
         for prod in products:

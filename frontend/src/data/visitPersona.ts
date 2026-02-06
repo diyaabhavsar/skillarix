@@ -20,7 +20,7 @@ export const VISITOR_PERSONA_OPTIONS = {
     { value: 'advanced', label: 'Advanced' },
     { value: 'expert', label: 'Expert' },
   ],
-  key_challenges: [
+  key_challenge: [
     { value: 'cost-control', label: 'Cost control' },
     { value: 'quality', label: 'Quality/reliability' },
     { value: 'compliance', label: 'Compliance' },
@@ -77,7 +77,7 @@ export const visitorPersonaFields = [
     description: "How comfortable they are with product-related details",
   },
   {
-    key: "key_challenges",
+    key: "key_challenge",
     label: "Key Challenges",
     description: "Their primary concern or pain point",
   },

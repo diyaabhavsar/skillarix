@@ -1,10 +1,13 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from ....services.websocket import (
-    generate_customer_question, evaluate_complete_conversation,
-    remove_invalid_json_chars, evaluate_additional_criteria,
+    generate_customer_question,
+    remove_invalid_json_chars,
+)
+from ....services.conversation import (
+    generate_answer_rag, evaluate_individual_answer, save_conversation,
+    evaluate_complete_conversation, evaluate_additional_criteria,
     evaluate_mid_conversation
 )
-from ....services.conversation import generate_answer_rag, evaluate_individual_answer, save_conversation
 from ....services.product import get_product
 from ....services.user import get_current_user
 from bson import ObjectId
@@ -159,12 +162,38 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(None)):
                     current_persona # Use the loaded persona for the next question
                 )
 
+                
+                # Send next question IMMEDIATELY so user doesn't wait for evaluation
                 await websocket.send_json({
                     "type": "next_question",
-                    # "evaluation": evaluation_text,
-                    # "rating": rating,
                     "content": next_question
                 })
+
+                # Check for mid-conversation evaluation criteria (e.g., every 4 exchanges)
+                # We use (len + current_exchange) calculation or just check updated history len
+                current_exchange_count = len(conversation_history) + 1
+                if current_exchange_count % 4 == 0 and current_exchange_count > 0:
+                    mid_eval_json_str = evaluate_mid_conversation(
+                        (conversation_history + [{
+                            "visitor_text": last_question,
+                            "salesperson_text": salesperson_answer
+                        }])[-4:], # Send last 4 exchanges
+                        combined_product_context, 
+                        current_persona
+                    )
+                    
+                    try:
+                        # Clean and parse JSON
+                        cleaned_mid_eval = remove_invalid_json_chars(mid_eval_json_str) 
+                        mid_eval_data = json.loads(cleaned_mid_eval)
+                        
+                        await websocket.send_json({
+                            "type": "mid_evaluation",
+                            "content": mid_eval_data
+                        })
+                    except Exception as e:
+                        print(f"Error sending mid-evaluation: {e}")
+                        # Optionally send error or raw text specific msg
                 
             elif data.get("type") == "end_session":
                  # Handle session completion and final evaluation

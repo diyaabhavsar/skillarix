@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,28 @@ import { useAuth } from "@/contexts/AuthContext";
 const Settings = () => {
   const { user, logout } = useAuth();
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Initialize theme from localStorage or system preference
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark" ||
+        (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+    return false;
+  });
+
+  // Apply theme class to document
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (isDarkMode) {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.add("light");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -97,13 +118,12 @@ const Settings = () => {
 
   const handleThemeToggle = () => {
     setIsDarkMode(!isDarkMode);
-    // Implementation would toggle theme in app
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* <Navbar /> */}
-      
+
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Settings</h1>
@@ -111,7 +131,7 @@ const Settings = () => {
             Manage your account preferences and profile information
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           <Card className="col-span-1 h-fit">
             <CardHeader>
@@ -145,14 +165,14 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
-          
+
           <div className="col-span-1 md:col-span-2">
             <Tabs defaultValue="account" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="account">Account</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="account">
                 <Card>
                   <CardHeader>
@@ -202,7 +222,7 @@ const Settings = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col gap-1">
                             <h4 className="font-medium">Theme Preference</h4>
@@ -223,7 +243,7 @@ const Settings = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="security">
                 <Card>
                   <CardHeader>
@@ -276,7 +296,7 @@ const Settings = () => {
                         <Button type="submit">Change Password</Button>
                       </div>
                     </form>
-                    
+
                     <div className="mt-8 pt-6 border-t">
                       <h3 className="text-lg font-medium text-destructive mb-2">Danger Zone</h3>
                       <p className="text-sm text-muted-foreground mb-4">

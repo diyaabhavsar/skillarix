@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import ProductSetupBreadcrumb from "@/components/products/ProductSetupBreadcrumb";
+import { useSearchParams } from "react-router-dom";
 import { SetupHeader } from "@/components/products/SetupHeader";
 import { useProducts as useProductsOnly } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
@@ -44,6 +44,9 @@ interface PaginationData {
 }
 
 const Products = () => {
+  const [searchParams] = useSearchParams();
+  const defaultSearch = searchParams.get("search") || "";
+
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationData, setPaginationData] = useState<PaginationData>({
@@ -100,15 +103,13 @@ const Products = () => {
     loadData();
   }, []);
 
-  // Debug logs - remove in production
-  
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return;
 
     try {
       await deleteProduct(productToDelete);
       toast.success("Product deleted successfully");
-      
+
       // If this was the last item on the current page and not on page 1, go to previous page
       if (products.length === 1 && currentPage > 1) {
         const newPage = currentPage - 1;
@@ -293,6 +294,10 @@ const Products = () => {
                 onPageChange={handlePageChange}
                 emptyMessage="No products available."
                 className="rounded-md border overflow-x-auto bg-muted/5 shadow-sm hover:shadow-md"
+                searchable
+                defaultSearch={defaultSearch}
+                searchPlaceholder="Search products..."
+                searchKeys={["name", "description"]}
               />
             </div>
           </div>

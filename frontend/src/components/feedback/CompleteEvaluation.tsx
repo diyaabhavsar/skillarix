@@ -12,43 +12,58 @@ import {
 const getIconBackground = (key: string): string => {
   switch (key) {
     case "overall_score":
-      return "bg-yellow-50";
+      return "bg-yellow-50 ring-1 ring-yellow-100";
     case "key_successful_moments":
-      return "bg-green-50";
+    case "strengths":
+      return "bg-green-50 ring-1 ring-green-100";
     case "critical_missed_opportunities":
-      return "bg-orange-50";
+    case "weaknesses":
+      return "bg-orange-50 ring-1 ring-orange-100";
     case "pattern_analysis":
-      return "bg-blue-50";
+    case "summary":
+      return "bg-blue-50 ring-1 ring-blue-100";
     case "recommendations":
-      return "bg-violet-50";
+      return "bg-violet-50 ring-1 ring-violet-100";
     default:
-      return "bg-slate-50";
+      return "bg-slate-50 ring-1 ring-slate-100";
   }
 };
 
 const titleMappings: Record<string, { title: string; icon: React.ReactNode }> =
-  {
-    overall_score: {
-      title: "Overall Evaluation",
-      icon: <Star className="h-5 w-5 text-yellow-500" />,
-    },
-    key_successful_moments: {
-      title: "Key Successful Moments",
-      icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-    },
-    critical_missed_opportunities: {
-      title: "Critical Missed Opportunities",
-      icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
-    },
-    pattern_analysis: {
-      title: "Pattern Analysis",
-      icon: <Activity className="h-5 w-5 text-blue-500" />,
-    },
-    recommendations: {
-      title: "Recommendations",
-      icon: <LightbulbIcon className="h-5 w-5 text-violet-500" />,
-    },
-  };
+{
+  overall_score: {
+    title: "Overall Evaluation",
+    icon: <Star className="h-5 w-5 text-yellow-500" />,
+  },
+  summary: {
+    title: "Executive Summary",
+    icon: <Activity className="h-5 w-5 text-blue-500" />,
+  },
+  strengths: {
+    title: "Key Strengths",
+    icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+  },
+  weaknesses: {
+    title: "Areas for Improvement",
+    icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
+  },
+  key_successful_moments: {
+    title: "Key Successful Moments",
+    icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+  },
+  critical_missed_opportunities: {
+    title: "Critical Missed Opportunities",
+    icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
+  },
+  pattern_analysis: {
+    title: "Pattern Analysis",
+    icon: <Activity className="h-5 w-5 text-blue-500" />,
+  },
+  recommendations: {
+    title: "Recommendations",
+    icon: <LightbulbIcon className="h-5 w-5 text-violet-500" />,
+  },
+};
 
 // Removed EvaluationBlock component as it's been integrated into the main component
 
@@ -114,8 +129,8 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-6">
-          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+        <CardContent className="p-6 space-y-6 bg-slate-50/30">
+          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2 auto-rows-min">
             {Object.entries(completeEvaluation || {}).map(
               ([key, value], index) => {
                 const mapping = titleMappings[key] || {
@@ -126,6 +141,17 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
                   icon: <CheckCircle className="h-5 w-5 text-slate-500" />,
                 };
 
+                // Full width for Summary and large text blocks
+                const isFullWidth = key === "summary" || key === "pattern_analysis";
+
+                // Accent borders
+                let accentClass = "border-l-4 border-l-slate-200";
+                if (key === 'strengths' || key === 'key_successful_moments') accentClass = "border-l-4 border-l-green-500";
+                if (key === 'weaknesses' || key === 'critical_missed_opportunities') accentClass = "border-l-4 border-l-orange-500";
+                if (key === 'summary' || key === 'pattern_analysis') accentClass = "border-l-4 border-l-blue-500";
+                if (key === 'recommendations') accentClass = "border-l-4 border-l-violet-500";
+                if (key === 'overall_score') accentClass = "border-l-4 border-l-yellow-500";
+
                 return (
                   <motion.div
                     key={key}
@@ -133,25 +159,25 @@ const CompleteEvaluation: React.FC<CompleteEvaluationProps> = ({
                     initial="hidden"
                     animate="visible"
                     id={key.replace(/_/g, "-")}
-                    className="flex flex-col w-full"
+                    className={`flex flex-col w-full ${isFullWidth ? 'lg:col-span-2' : ''}`}
                   >
-                    <Card className="h-full hover:shadow-lg transition-all duration-300 ease-in-out">
-                      <CardHeader className="pb-3">
+                    <Card className={`h-full hover:shadow-lg hover:scale-[1.01] transition-all duration-300 ease-in-out overflow-hidden bg-white ${accentClass}`}>
+                      <CardHeader className="pb-3 bg-gradient-to-r from-slate-50/80 to-transparent border-b border-slate-100/50">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`p-2 rounded-full ${getIconBackground(
+                            className={`p-2.5 rounded-xl shadow-sm ${getIconBackground(
                               key
                             )}`}
                           >
                             {mapping.icon}
                           </div>
-                          <h3 className="font-semibold text-lg tracking-tight">
+                          <h3 className="font-bold text-lg tracking-tight text-slate-800">
                             {mapping.title}
                           </h3>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="text-muted-foreground text-sm leading-relaxed max-w-[600px]">
+                      <CardContent className="pt-5 pb-5">
+                        <div className="text-slate-600 text-sm leading-relaxed">
                           {formatEvaluationValue(value)}
                         </div>
                       </CardContent>

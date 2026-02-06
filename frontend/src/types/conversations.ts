@@ -1,6 +1,7 @@
 export interface Rating {
   score: number;
   max: number;
+  reasoning?: string; // Optional reasoning for why this score was given
 }
 
 export interface CompleteRating {

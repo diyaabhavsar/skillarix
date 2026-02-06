@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +16,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import AppLayout from "./components/AppLayout";
+import { ActionLogger } from "./components/ActionLogger";
 
 // New admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -30,6 +32,16 @@ import SessionFeedback from "./pages/feedback/SessionFeedback";
 const queryClient = new QueryClient();
 
 const App = () => {
+  useEffect(() => {
+    // Check localStorage and apply theme on app load
+    const theme = localStorage.getItem("theme");
+    if (theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -37,6 +49,7 @@ const App = () => {
           <AuthProvider>
             <Toaster />
             <Sonner />
+            <ActionLogger />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />

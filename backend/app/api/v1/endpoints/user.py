@@ -153,23 +153,26 @@ async def get_admin_stats(token=Depends(verify_bearer_token)):
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    total_users = user_collection.count_documents({})
-    active_users = user_collection.count_documents({"active": True})
+    total_users = user_collection.count_documents({"is_deleted": {"$ne": True}})
+    active_users = user_collection.count_documents({"active": True, "is_deleted": {"$ne": True}})
     total_sessions = conversation_collection.count_documents(
-        {"evaluation_data.is_complete": True}
+        {"evaluation_data.is_complete": True, "is_deleted": {"$ne": True}}
     )
     # Calculate average score from all conversations (if available)
     scores = []
-    for conv in conversation_collection.find({}):
+    # Filter out deleted conversations
+    for conv in conversation_collection.find({"is_deleted": {"$ne": True}}):
         eval_data = conv.get("evaluation_data", {})
         # Try to get score from complete_rating or similar
         complete_rating = eval_data.get("complete_rating", {})
         if isinstance(complete_rating, dict):
             total = complete_rating.get("total", {})
             if isinstance(total, dict) and "score" in total:
+                # Also check max score to calculate percentage properly if needed, but keeping simple for now akin to previous
                 scores.append(total["score"])
+                
     average_score = round(sum(scores) / len(scores), 2) if scores else 0
-    total_products = product_collection.count_documents({})
+    total_products = product_collection.count_documents({"is_deleted": {"$ne": True}}) # Assuming products don't have is_deleted yet or handled differently
 
     return {
         "total_users": total_users,
@@ -187,7 +190,8 @@ async def get_latest_users(token=Depends(verify_bearer_token)):
     """
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    users = list(user_collection.find({}).sort("created_at", -1).limit(5))
+    # Filter deleted users
+    users = list(user_collection.find({"is_deleted": {"$ne": True}}).sort("created_at", -1).limit(5))
     for user in users:
         user["_id"] = str(user["_id"])
         if "updated_by" in user and user["updated_by"] is not None:
@@ -202,8 +206,9 @@ async def get_latest_sessions(token=Depends(verify_bearer_token)):
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Filter deleted sessions
     sessions = list(
-        conversation_collection.find({"evaluation_data.is_complete": True})
+        conversation_collection.find({"evaluation_data.is_complete": True, "is_deleted": {"$ne": True}})
         .sort("created_at", -1)
         .limit(5)
     )
