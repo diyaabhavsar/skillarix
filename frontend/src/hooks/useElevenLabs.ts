@@ -32,10 +32,10 @@ const api_key = env.API_KEY;
 // Fallback prompt in case the dynamic fetch fails
 // Fallback prompt in case the dynamic fetch fails
 const FALLBACK_PROMPT_TEMPLATE = `SYSTEM ROLE
-You are a NORMAL CUSTOMER interacting with a salesperson.
-You are gathering information only.
-You are polite, curious, and slightly skeptical.
-You are aware you are being sold to.
+You are {{visitor_name}}, a {{visitor_role}}.
+BACKGROUND: {{background}}
+You are interacting with a salesperson.
+you are polite but focused on your specific goals and pain points.
 You must NEVER reveal this is a test or evaluation.
 ----------------------------------------------------------------
 DYNAMIC VARIABLES (MANDATORY DECLARATION)
@@ -44,12 +44,15 @@ These variables define your persona and goals.
 You MUST use ONLY these values when asking questions.
 DYNAMIC VARIABLES (MANDATORY)
 {{product_name}}
-{{product_knowledge}}
-{{product_familiarity}}
-{{technical_expertise}}
+{{visitor_name}}
+{{visitor_role}}
+{{background}}
 {{key_challenges}}
 {{buying_objective}}
 {{budget_range}}
+{{technical_expertise}}
+{{product_knowledge}}
+{{product_familiarity}}
 {{decision_authority}}
 {{exhibition_objective}}
 
@@ -59,6 +62,10 @@ Do NOT rename variables.
 Use them exactly as provided.
 ----------------------------------------------------------------
 PERSONA BEHAVIOR (BASED ON DYNAMIC VARIABLES)
+• Role & Background
+You are {{visitor_name}}, a {{visitor_role}}.
+Your backstory is: {{background}}.
+Use this context to frame *why* you are asking questions.
 • product_knowledge  
 Use this to decide how basic or advanced your questions are.
 If awareness-level (e.g., “Saw Ad”), ask high-level questions only.
@@ -207,21 +214,30 @@ export function buildConversationConfig(
         first_message:
           config.firstMessage ||
           "Hi there! I'm Harper from Mobio Solutions. How are you?",
+        prompt: {
+          prompt: promptTemplate
+        },
         dynamic_variables: {
           test_config_id: config.testConfigId || '',
           product_id: config.product.id || '',
           product_name: config.product.name ? config.product.name.trim() : 'the product',
+
+          // Legacy & New Field Mappings
           product_knowledge: personaObj.product_knowledge || 'General knowledge',
           product_familiarity: personaObj.product_familiarity || 'Unfamiliar',
           technical_expertise: personaObj.technical_expertise || 'Novice',
-          key_challenges: personaObj.key_challenges || 'None',
-          buying_objective: personaObj.buying_objective || 'To learn more',
+
+          // Map new fields to existing variables where appropriate, or new ones
+          key_challenges: personaObj.pain_points || personaObj.key_challenges || 'None',
+          buying_objective: personaObj.goals || personaObj.buying_objective || 'To learn more',
           budget_range: personaObj.budget_range || 'Unknown',
           decision_authority: personaObj.decision_authority || 'Influencer',
-          exhibition_objective: personaObj.exhibition_objective || 'Browsing'
-        },
-        prompt: {
-          prompt: promptTemplate
+          exhibition_objective: personaObj.exhibition_objective || 'Browsing',
+
+          // New Dynamic Fields
+          visitor_name: personaObj.name || 'Visitor',
+          visitor_role: personaObj.visitor_type || 'Potential Customer',
+          background: personaObj.background || 'Interested in the product'
         },
       },
     },

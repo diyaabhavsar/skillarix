@@ -12,6 +12,17 @@ class VisitorPersona(BaseModel):
     budget_range: str  # Very low, Low, Mid, High, Very high
     decision_authority: str  # User, Influencer, Evaluator, Approver, Final sign-off
     exhibition_objective: str  # Info gathering, Spec comparison, Pricing talk, Terms/warranty, Partnership, Demo booking
+    
+    # New Fields
+    name: Optional[str] = None
+    visitor_type: Optional[str] = None
+    background: Optional[str] = None
+    pain_points: Optional[str] = None
+    goals: Optional[str] = None
+    distraction_handling: Optional[str] = None
+    communication_simplicity: Optional[str] = None
+    category: Optional[str] = None
+
 
 class AdditionalCriteria(BaseModel):
     distraction_handling: bool

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from ....schemas.elevenlabs import ElevenLabsSchema
+from ....schemas.elevenlabs import ElevenLabsSchema, ElevenLabsAgentUpdateSchema
+from ....services.elevenlabs_service import update_elevenlabs_agent
 from bson import ObjectId
 from datetime import datetime
 from ....services.auth import verify_bearer_token
@@ -14,6 +15,8 @@ from ....services.conversation import (
     get_transcript_by_id_service,
     evaluate_complete_conversation
 )
+from ....services.elevenlabs_service import update_elevenlabs_agent
+from ....schemas.elevenlabs import ElevenLabsSchema, ElevenLabsAgentUpdateSchema
 
 
 test_configurations_collection = db["test_configurations"]
@@ -97,6 +100,61 @@ async def get_test_config_details_tool(
     except Exception as e:
         print(f"🚨 [ElevenLabs Tool] Exception: {str(e)}\n")
         return {"error": str(e)}
+
+
+@router.post("/agent/update")
+async def update_agent_endpoint(
+    data: ElevenLabsAgentUpdateSchema,
+    token = Depends(verify_bearer_token)
+):
+    """
+    Updates the ElevenLabs agent with the configuration from the specified test ID.
+    Generates a dynamic system prompt based on the persona.
+    """
+    try:
+        if not ObjectId.is_valid(data.test_config_id):
+            raise HTTPException(status_code=400, detail="Invalid Test Config ID")
+            
+        test_config = test_configurations_collection.find_one({"_id": ObjectId(data.test_config_id)})
+        if not test_config:
+            raise HTTPException(status_code=404, detail="Test Configuration not found")
+            
+        product_id = test_config.get("product_id")
+        product = product_collection.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+            
+        persona = test_config.get("visitorPersona", {})
+        
+        # Ensure product has necessary fields
+        # Note: We are using product_data dict to pass to the service
+        product_data = {
+            "name": product.get("name"),
+            "description": product.get("description"),
+            "category": str(product.get("category_id")), # Or category name if we join
+            "content": product.get("content")
+        }
+        
+        # If agent_id is provided in the request, pass it. Otherwise service uses default form env.
+        # But wait, create_elevenlabs_service logic uses settings.AGENT_ID if None.
+        
+        # We need to await the async function? No, update_elevenlabs_agent is synchronous in my implementation.
+        # Wait, I declared update_elevenlabs_agent with `async def` in Steps 66? No, I declared it with `def` in `write_to_file`.
+        # Let me check step 66 content.
+        # Ah, I see `async def update_elevenlabs_agent` in Step 66? No, I see `def update_elevenlabs_agent`?
+        # Actually, Step 66 shows `async def update_elevenlabs_agent`.
+        # Wait, my Step 66 code content: `async def update_elevenlabs_agent(...)`. It is async.
+        
+        result = await update_elevenlabs_agent(persona, product_data, agent_id=data.agent_id)
+        
+        # Update result might return the full JSON response from ElevenLabs.
+        return {"status": "success", "agent_id": result.get("agent_id")}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating agent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/transcript")

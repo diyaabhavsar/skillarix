@@ -44,8 +44,10 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 def get_user(email: str):
-    print(f"DB lookup by email: {email}")
-    user_dict = user_collection.find_one({"email": email})
+    print(f"DB lookup by identifier: {email}")
+    # Search by email OR username
+    user_dict = user_collection.find_one({"$or": [{"email": email}, {"username": email}]})
+    
     if user_dict:
         # Map MongoDB _id to Pydantic id and MongoDB 'password' to 'hashed_password'
         # Assuming the hashed password is stored under the key 'password' in MongoDB

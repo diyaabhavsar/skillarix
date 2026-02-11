@@ -48,7 +48,25 @@ def startup_checks():
         missing.append("GROQ_API_KEY")
         
     if missing:
-        print(f"WARNING: The following critical environment variables are missing: {', '.join(missing)}. Evaluation features may fail.")
+        print(f"WARNING: Missing environment variables: {', '.join(missing)}")
+    
+    # Verify login credentials on startup
+    try:
+        from .services.auth import authenticate_user
+        print("🔍 Verifying 'admin' login credentials...")
+        user = authenticate_user("admin", "admin123")
+        if user:
+            print("✅ LOGIN VERIFIED: 'admin' / 'admin123' works correctly!")
+        else:
+            print("❌ LOGIN FAILED: 'admin' / 'admin123' failed authentication.")
+            # Try email
+            user_email = authenticate_user("admin@skillarix.com", "admin123")
+            if user_email:
+                print("✅ LOGIN VERIFIED: 'admin@skillarix.com' / 'admin123' works!")
+            else:
+                print("❌ LOGIN FAILED: Both username and email failed with 'admin123'.")
+    except Exception as e:
+        print(f"❌ LOGIN CHECK ERROR: {e}")
 
 # Ensure 'uploads/' directory exists at the project root
 UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../uploads"))

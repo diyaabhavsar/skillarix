@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     
     #openai
     OPENAI_API_KEY: str
+
+    # ElevenLabs
+    ELEVENLABS_API_KEY: str
+    AGENT_ID: str
     
     MODEL: int
     MODEL_NAME: str

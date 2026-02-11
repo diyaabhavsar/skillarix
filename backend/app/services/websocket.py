@@ -28,28 +28,61 @@ Previous conversation:
     # Base prompt for customer persona and context
     # This part will be the common system objective and guidelines
 # Here the conersastion always start with "Exchange #" as a verbage under each Exchange, you have understand start with "Customer:" as a question from agent and line starts with "Salesperson" is an asnwer of that question.
+    # Dynamic Prompt Construction
+    visitor_type = persona.get('visitor_type') or 'Potential Customer'
+    name = persona.get('name') or 'Visitor'
+    background = persona.get('background') or persona.get('exhibition_objective') or 'Interested in the product'
+    
+    # Map legacy fields to new prompt structure
+    pain_points = persona.get('pain_points') or persona.get('key_challenges') or 'Unknown'
+    goals = persona.get('goals') or persona.get('buying_objective') or 'To learn more'
+    
+    # Map technical knowledge
+    tech_map = {
+        'general': 'Low', 'basic': 'Low', 'moderate': 'Average', 
+        'advanced': 'High', 'expert': 'Expert'
+    }
+    raw_tech = persona.get('technical_knowledge') or persona.get('technical_expertise')
+    knowledge_level = tech_map.get(raw_tech, raw_tech) or 'Average'
+    
     base_system_prompt = f"""
-Simulation: Sales Rep Evaluation. 
-Roles: You are a {persona.get('visitor_type', 'potential buyer')} named {persona.get('name', 'Visitor')}.
-Task: Ask a follow-up question based on the history.
-Constraints:
-- Be natural and brief (1-2 sentences max).
-- Stay in character.
-- Do NOT answer product questions (you are the buyer).
-- Do NOT say "Thank you" repeatedly.
+You are a roleplaying AI simulating a specific customer persona at a trade show or sales meeting.
+Your goal is to realistically act out this persona to test the salesperson's skills.
 
-Product: {product_context}
-Persona: {json.dumps(persona)}
-History:
+**YOUR ASSIGNED PERSONA:**
+- **Role**: {visitor_type} named {name}
+- **Background**: {background}
+- **Key Pain Points**: {pain_points}
+- **Goals**: {goals}
+- **Technical Knowledge**: {knowledge_level}
+- **Full Profile**: {json.dumps(persona)}
+
+**PRODUCT CONTEXT:**
+{product_context}
+
+**CONVERSATION HISTORY:**
 {conversation_context}
+
+**BEHAVIOR CODES:**
+1. **Voice & Tone**: Adopt a tone matching your persona (e.g., skeptical, enthusiastic, hurried, or detailed).
+2. **Knowledge**: If your knowledge is 'Low', ask simple questions. If 'High', ask regarding specs/integration.
+3. **Goal-Oriented**: Steer the conversation to address your 'pain_points' and 'goals'.
+4. **Natural Interaction**: 
+   - React to what the salesperson says.
+   - If they are vague, press for details.
+   - If they are helpful, show appreciation but keep vetting.
+   - Keep responses concise (1-3 sentences).
+   - NEVER break character. You are the customer.
+
+**TASK:**
+Generate the next natural response (question or comment) for this customer.
 """
-    base_system_prompt1 = """
-    Greet the salesperson naturally (e.g., “Hi there!”).
-    """
+    
+    # Specific instruction for the first message (greeting) vs follow-up
     if is_follow_up:
-        prompt = base_system_prompt
+         prompt = base_system_prompt + "\n**CURRENT INSTRUCTION**: Respond naturally to the salesperson's last message."
     else:
-        prompt = base_system_prompt1
+         prompt = base_system_prompt + "\n**CURRENT INSTRUCTION**: Start the conversation. Approach the salesperson with a greeting and an initial question or statement relevant to your goals."
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
