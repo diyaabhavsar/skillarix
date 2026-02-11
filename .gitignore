@@ -1,12 +1,26 @@
-# Python Backend
+# ============================================
+# PYTHON BACKEND
+# ============================================
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# C extensions
+*.so
+
+# Distribution / packaging
 .Python
 backend/env/
 backend/venv/
+backend/app/venv/
+env/
+venv/
 ENV/
+env.bak/
+venv.bak/
 build/
 develop-eggs/
 dist/
@@ -19,15 +33,18 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.env
-.env.local
-.env.*
-backend/uploads/
+MANIFEST
 
-# Python Testing/Coverage
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -42,41 +59,91 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# React/Node Frontend
-frontend/node_modules
-frontend/dist
-frontend/dist-ssr
-frontend/build
-frontend/*.local
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# ============================================
+# NODE.JS / REACT FRONTEND
+# ============================================
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+frontend/coverage
+
+# Production builds
+frontend/dist/
+frontend/dist-ssr/
+frontend/build/
+build/
+dist/
+
+# Misc
+.DS_Store
+frontend/.DS_Store
+.env
 frontend/.env
+.env.local
 frontend/.env.local
+.env.development.local
 frontend/.env.development.local
+.env.test.local
 frontend/.env.test.local
+.env.production.local
 frontend/.env.production.local
 
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+logs/
+*.log
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
 # Optional npm cache directory
 .npm
@@ -84,15 +151,264 @@ lerna-debug.log*
 # Optional eslint cache
 .eslintcache
 
-# Misc
-.DS_Store
-Thumbs.db
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Bun
 .bun
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# ============================================
+# DATABASE
+# ============================================
 
-# But allow example env file
+# MongoDB
+data/
+mongodb/
+*.mongodb
+dump/
+
+# SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# UPLOADS & MEDIA
+# ============================================
+
+# Uploaded files
+uploads/
+backend/uploads/
+backend/app/uploads/
+media/
+static/media/
+
+# ============================================
+# LOGS & ERROR FILES
+# ============================================
+
+# Application logs
+*.log
+error.log
+debug.log
+access.log
+combined.log
+exceptions.log
+
+# Python logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ============================================
+# IDE & EDITOR FILES
+# ============================================
+
+# VSCode
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# JetBrains IDEs (PyCharm, WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.*.sw?
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ============================================
+# OPERATING SYSTEM FILES
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# ENVIRONMENT & SECRETS
+# ============================================
+
+# Environment files (NEVER commit these!)
+.env
+.env.*
 !.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# API Keys & Secrets
+secrets.json
+credentials.json
+*.pem
+*.key
+*.cert
+
+# ============================================
+# PROJECT-SPECIFIC
+# ============================================
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Test output
+test-results/
+test-output/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+
+# ============================================
+# MISCELLANEOUS
+# ============================================
+
+# Lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
+# poetry.lock
+
+# Cache directories
+.cache/
+*.cache
+
+# Temporary system files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.pyc
+
+# Package managers
+bower_components/
+
+# Serverless
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+
+# Gatsby files
+.cache/
+public/
+
+# Storybook
+storybook-static/
+
+# ============================================
+# ALLOW SPECIFIC FILES
+# ============================================
+
+# Allow example/template files
+!.env.example
+!backend/.env.example
+!frontend/.env.example
