@@ -44,4 +44,18 @@ export const authService = {
       throw new Error(error.detail || "Registration failed");
     }
   },
+
+  async updateProfile(data: { name?: string; email?: string }): Promise<any> {
+    try {
+      // The backend expects "username" or "full_name" or "name"
+      // Let's send "username" as the display name
+      const payload = {
+        username: data.name,
+        email: data.email
+      };
+      return await api.put("/users/profile", payload);
+    } catch (error: any) {
+      throw new Error(error.detail || "Profile update failed");
+    }
+  },
 };

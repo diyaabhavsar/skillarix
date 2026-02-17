@@ -15,6 +15,8 @@ import {
   Settings,
   Users,
   ShieldCheck,
+  Trophy,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,11 +33,16 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
     path: "/admin/dashboard",
   };
 
-  // Common navigation items for all users
+  // Common navigation items for all users (except My Assignments for admin)
   const commonNavItems = [
-    // { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { label: "Assessment", icon: MessageSquare, path: "/Practice" },
+    { label: "Gamification", icon: Trophy, path: "/gamification" },
     { label: "Settings", icon: Settings, path: "/settings" },
+  ];
+
+  const userOnlyItems = [
+    { label: "My Assignments", icon: FileUp, path: "/my-assignments" },
+    { label: "AI Sales Coach", icon: Bot, path: "/ai-companion" },
   ];
 
   // Admin-specific navigation items
@@ -44,12 +51,13 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
     { label: "Categories", icon: ShieldCheck, path: "/categories" },
     { label: "Products", icon: FileUp, path: "/products" },
     { label: "Test Configurations", icon: Settings, path: "/test-setup" },
+    { label: "Assignments", icon: FileUp, path: "/admin/assignments" },
   ];
 
   // Determine which items to show based on user role
   const navItems = isAdmin()
     ? [DashboardItem, ...adminNavItems, ...commonNavItems]
-    : [DashboardItem, ...commonNavItems];
+    : [DashboardItem, ...commonNavItems, ...userOnlyItems];
 
   return (
     <SidebarContent className="pt-4">
@@ -70,10 +78,9 @@ const SidebarNav = ({ isActive }: SidebarNavProps) => {
                     to={item.path}
                     className={({ isActive }) =>
                       `flex items-center gap-2 transition-all duration-200 hover:bg-sidebar-accent/70 relative
-                      ${
-                        isActive
-                          ? "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary before:rounded-r animate-fade-in"
-                          : "hover:translate-x-1"
+                      ${isActive
+                        ? "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary before:rounded-r animate-fade-in"
+                        : "hover:translate-x-1"
                       }`
                     }
                   >

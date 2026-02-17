@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+﻿from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from ....schemas.conversation import EvaluationRequest, ConversationPair, EvaluationResponse
 from ....services.product import get_product
@@ -12,8 +12,9 @@ from ....services.conversation import (
     extract_score,
     calculate_metrics,
     save_conversation,
-    get_conversation_by_id  # ✅ FIXED IMPORT
+    get_conversation_by_id  # âœ… FIXED IMPORT
 )
+from ....services.gamification import award_xp, update_streak, check_milestones
 from ....services.test_configuration import convert_objectids_to_strings
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -22,11 +23,52 @@ from math import ceil
 from datetime import datetime
 
 conversation_collection = db["conversations"]
+assignments_collection = db["assignments"]
 router = APIRouter()
+
+async def process_gamification(user_id: str, score: float):
+    """
+    Triggers gamification updates:
+    - Updates streak
+    - Awards XP for completion and score
+    - Checks session milestones
+    """
+    try:
+        # 1. Update Streak
+        await update_streak(user_id)
+        
+        # 2. Award XP for completion
+        await award_xp(user_id, 50, "conversation_complete")
+        
+        # 3. Award XP for score (Max 100 XP for perfect score)
+        # Handle score being 0-10 or 0-100
+        bonus_xp = 0
+        if score <= 10:
+             bonus_xp = int(score * 10)
+        else:
+             bonus_xp = int(score) # already percentage
+             
+        if bonus_xp > 0:
+            await award_xp(user_id, bonus_xp, "score_bonus")
+
+        # 4. Check Milestones (Sessions)
+        # Optimized count - maybe cache this later
+        session_count = conversation_collection.count_documents({"user_id": ObjectId(user_id), "is_deleted": {"$ne": True}})
+        
+        # We pass the session_count as the current value
+        # But check_milestones implementation might need update if it expects incremental.
+        # Our implementation:
+        # if not user_ms: current >= target
+        # else: current > user_ms["current_value"] -> update
+        # So passing absolute count is correct.
+        await check_milestones(user_id, "sessions", session_count)
+        
+    except Exception as e:
+        print(f"Gamification Error: {e}")
 
 
 # -----------------------------------------------------------
-# 1️⃣  Evaluate Single Turn Conversation
+# 1ï¸âƒ£  Evaluate Single Turn Conversation
 # -----------------------------------------------------------
 @router.post("")
 async def evaluate_conversation(
@@ -47,7 +89,7 @@ async def evaluate_conversation(
 
     last_exchange = conversation_dict[-1]
 
-    # ✅ Correct call signature for RAG answer
+    # âœ… Correct call signature for RAG answer
     rag_answer = generate_answer_rag(
         context=context,
         question=last_exchange["visitor_text"],
@@ -56,7 +98,7 @@ async def evaluate_conversation(
         conversation_history=conversation_dict[:-1]
     )
 
-    # ✅ Correct evaluation function signature
+    # âœ… Correct evaluation function signature
     individual_evaluation = evaluate_individual_answer(
         rag_answer=rag_answer,
         salesperson_answer=last_exchange["salesperson_text"],
@@ -112,6 +154,38 @@ async def evaluate_conversation(
         cat_name=product.get("category_name", "")
     )
 
+    # Trigger Gamification if complete
+    if evaluation_request.is_complete:
+        # Use complete evaluation score if available, otherwise fallback to current turn score
+        final_score = score
+        if complete_evaluation:
+             final_score = extract_score(complete_evaluation)
+        await process_gamification(token["id"], final_score)
+
+        # Update Assignment if exists
+        try:
+            assignment = assignments_collection.find_one({
+                "salesperson_id": ObjectId(token["id"]),
+                "product_id": ObjectId(evaluation_request.product_id),
+                "status": "accepted"
+            })
+            
+            if assignment:
+                assignments_collection.update_one(
+                    {"_id": assignment["_id"]},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "score": final_score,
+                            "conversation_id": saved,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                print(f"âœ… Assignment {assignment['_id']} marked as completed.")
+        except Exception as e:
+            print(f"âš ï¸  Failed to update assignment: {e}")
+
 
     return {
         "individual_evaluation": individual_evaluation,
@@ -125,7 +199,7 @@ async def evaluate_conversation(
 
 
 # -----------------------------------------------------------
-# 2️⃣  Additional Criteria Evaluation
+# 2ï¸âƒ£  Additional Criteria Evaluation
 # -----------------------------------------------------------
 @router.post("/additional-criteria")
 async def evaluate_with_criteria(
@@ -171,7 +245,7 @@ async def evaluate_with_criteria(
 
 
 # -----------------------------------------------------------
-# 3️⃣  Full Conversation Evaluation
+# 3ï¸âƒ£  Full Conversation Evaluation
 # -----------------------------------------------------------
 @router.post("/complete")
 async def evaluate_full_conversation(
@@ -215,6 +289,33 @@ async def evaluate_full_conversation(
         prod_name=product["name"],
         cat_name=product.get("category_name", "")
     )
+
+    # Trigger Gamification
+    await process_gamification(token["id"], score)
+
+    # Update Assigmnemt if exists
+    try:
+        assignment = assignments_collection.find_one({
+            "salesperson_id": ObjectId(token["id"]),
+            "product_id": ObjectId(product_id),
+            "status": "accepted"
+        })
+        
+        if assignment:
+            assignments_collection.update_one(
+                {"_id": assignment["_id"]},
+                {
+                    "$set": {
+                        "status": "completed",
+                        "score": score,
+                        "conversation_id": saved,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            print(f"âœ… Assignment {assignment['_id']} marked as completed.")
+    except Exception as e:
+        print(f"âš ï¸  Failed to update assignment: {e}")
  #saved = save_conversation(
         # ObjectId(product_id),
         #{"pairs": conversation_dict},
@@ -236,7 +337,7 @@ async def evaluate_full_conversation(
 
 
 # -----------------------------------------------------------
-# 4️⃣ Conversation History
+# 4ï¸âƒ£ Conversation History
 # -----------------------------------------------------------
 @router.get("/history/{product_id}")
 async def get_conversation_history(product_id: str, token=Depends(verify_bearer_token)):
@@ -251,7 +352,100 @@ async def get_conversation_history(product_id: str, token=Depends(verify_bearer_
 
 
 # -----------------------------------------------------------
-# 5️⃣ GET Specific Conversation
+# 8ï¸âƒ£ Get Conversation Stats (Dashboard)
+# -----------------------------------------------------------
+@router.get("/stats")
+async def get_conversation_stats(token=Depends(verify_bearer_token)):
+    """
+    Returns aggregated statistics for the user's Dashboard.
+    Includes: Total Sessions, Average Score, Product Count.
+    """
+    # 1. Base Query (Filter out deleted)
+    if token["role"] == "admin":
+        base_query = {"is_deleted": {"$ne": True}}
+    else:
+        base_query = {"user_id": ObjectId(token["id"]), "is_deleted": {"$ne": True}}
+
+    print(f"DEBUG: token_id={token.get('id')} role={token.get('role')}")
+    print(f"DEBUG: base_query={base_query}")
+
+    # 2. Fetch all valid conversations (projection for speed)
+    conversations = list(conversation_collection.find(
+        base_query,
+        {
+            "evaluation_data.complete_rating.total.score": 1, 
+            "evaluation_data.complete_rating.total.max": 1,
+            "product_id": 1,
+            "created_at": 1,
+            "updated_at": 1
+        }
+    ))
+    
+    print(f"DEBUG: Found {len(conversations)} conversations")
+
+    total_sessions = len(conversations)
+    unique_products = len(set(str(c.get("product_id")) for c in conversations if c.get("product_id")))
+    
+    total_percentage = 0
+    scored_sessions_count = 0
+    current_max_percentage = 0
+    total_duration_minutes = 0
+
+    for c in conversations:
+        # Navigate safely to score
+        eval_data = c.get("evaluation_data", {})
+        rating = eval_data.get("complete_rating", {}) 
+        # Support both nested 'total' object or direct structure if any legacy data
+        total_obj = rating.get("total", {})
+        
+        score = total_obj.get("score", 0)
+        max_score = total_obj.get("max", 0)
+
+        # Only count if max_score > 0 to avoid division by zero
+        if max_score > 0:
+            percentage = (score / max_score) * 100
+            total_percentage += percentage
+            scored_sessions_count += 1
+            if percentage > current_max_percentage:
+                current_max_percentage = percentage
+
+        # Calculate duration
+        created_at = c.get("created_at")
+        updated_at = c.get("updated_at")
+        if created_at and updated_at:
+             # Ensure they are datetime objects
+             if isinstance(created_at, str):
+                 try:
+                     created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                 except:
+                     pass
+             if isinstance(updated_at, str):
+                 try:
+                     updated_at = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                 except:
+                     pass
+            
+             if isinstance(created_at, datetime) and isinstance(updated_at, datetime):
+                 diff = (updated_at - created_at).total_seconds()
+                 if diff > 0:
+                     total_duration_minutes += (diff / 60)
+
+
+    avg_score = round(total_percentage / scored_sessions_count) if scored_sessions_count > 0 else 0
+    best_score = round(current_max_percentage)
+
+    return {
+        "total_sessions": total_sessions,
+        "average_score": avg_score,
+        "best_score": best_score,
+        "products_active": unique_products,
+        "total_duration_minutes": round(total_duration_minutes),
+        "sessions_this_week": 0 # Placeholder or implement date filtering if needed
+    }
+
+
+# -----------------------------------------------------------
+# 5ï¸âƒ£ GET Specific Conversation
 # -----------------------------------------------------------
 @router.get("/{conversation_id}")
 async def get_conversation(conversation_id: str, token=Depends(verify_bearer_token)):
@@ -270,7 +464,7 @@ async def get_conversation(conversation_id: str, token=Depends(verify_bearer_tok
 
 
 # -----------------------------------------------------------
-# 6️⃣ Soft Delete
+# 6ï¸âƒ£ Soft Delete
 # -----------------------------------------------------------
 @router.delete("/{conversation_id}")
 async def soft_delete_conversation(conversation_id: str, token=Depends(verify_bearer_token)):
@@ -292,7 +486,7 @@ async def soft_delete_conversation(conversation_id: str, token=Depends(verify_be
 
     return {"detail": "Conversation deleted successfully"}
 # -----------------------------------------------------------
-# 7️⃣ Get All Conversations (History)
+# 7ï¸âƒ£ Get All Conversations (History)
 # -----------------------------------------------------------
 @router.get("")
 async def get_all_conversations_for_user(
@@ -340,58 +534,3 @@ async def get_all_conversations_for_user(
     }
 
 
-# -----------------------------------------------------------
-# 8️⃣ Get Conversation Stats (Dashboard)
-# -----------------------------------------------------------
-@router.get("/stats")
-async def get_conversation_stats(token=Depends(verify_bearer_token)):
-    """
-    Returns aggregated statistics for the user's Dashboard.
-    Includes: Total Sessions, Average Score, Product Count.
-    """
-    # 1. Base Query (Filter out deleted)
-    if token["role"] == "admin":
-        base_query = {"is_deleted": {"$ne": True}}
-    else:
-        base_query = {"user_id": ObjectId(token["id"]), "is_deleted": {"$ne": True}}
-
-    # 2. Fetch all valid conversations (projection for speed)
-    conversations = list(conversation_collection.find(
-        base_query,
-        {
-            "evaluation_data.complete_rating.total.score": 1, 
-            "evaluation_data.complete_rating.total.max": 1,
-            "product_id": 1
-        }
-    ))
-
-    total_sessions = len(conversations)
-    unique_products = len(set(str(c.get("product_id")) for c in conversations if c.get("product_id")))
-    
-    total_percentage = 0
-    scored_sessions_count = 0
-
-    for c in conversations:
-        # Navigate safely to score
-        eval_data = c.get("evaluation_data", {})
-        rating = eval_data.get("complete_rating", {}) 
-        # Support both nested 'total' object or direct structure if any legacy data
-        total_obj = rating.get("total", {})
-        
-        score = total_obj.get("score", 0)
-        max_score = total_obj.get("max", 0)
-
-        # Only count if max_score > 0 to avoid division by zero
-        if max_score > 0:
-            percentage = (score / max_score) * 100
-            total_percentage += percentage
-            scored_sessions_count += 1
-
-    avg_score = round(total_percentage / scored_sessions_count) if scored_sessions_count > 0 else 0
-
-    return {
-        "total_sessions": total_sessions,
-        "average_score": avg_score,
-        "products_active": unique_products,
-        "sessions_this_week": 0 # Placeholder or implement date filtering if needed
-    }

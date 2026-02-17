@@ -495,7 +495,7 @@ CRITICAL RULES:
     - **Average/Decent**: 5-6 (Expect '2's for Progress/Strategy if they did okay)
     - **Strong**: 7-8
     - **Perfect**: 9-10
-- **Short Chat**: If the chat was short but they were polite and tried, give at least a 4-5. Do not punish valid short chats too harshly.
+- **Short Chat**: If the conversation is very short (e.g., < 5 exchanges) and the deal was NOT closed, the score MUST be low (max 3-4). Do not give high scores for incomplete sessions.
 
 Visitor Persona:
 {{Visitor_persona}}
@@ -520,10 +520,24 @@ Conversation:
         except Exception as e:
              logger.error(f"Error fetching prompt from DB: {e}. Using fallback.")
 
-        # Replace placeholders
+        # ...
         prompt = prompt.replace("{{Visitor_persona}}", json.dumps(persona, indent=2))
         prompt = prompt.replace("{{Product_detail}}", context)
         prompt = prompt.replace("{{Conversion_history}}", format_conversation_history(full_conversation))
+        
+        # --- PENALTY INJECTION FOR SHORT SESSIONS ---
+        # If the session is short (< 5 exchanges), explicitly instruct the model to penalize.
+        if len(full_conversation) < 5:
+            prompt += """
+            
+CRITICAL INSTRUCTION - SHORT SESSION PENALTY:
+This conversation has fewer than 5 exchanges.
+UNLESS the customer explicitly agreed to buy/signed up/closed the deal in this short time:
+1. The Total Score MUST NOT exceed 4/10.
+2. "Overall Progress" should be max 1/3.
+3. Mention in the summary that the score is low due to the session being too short/incomplete.
+"""
+        # --------------------------------------------
         
         logger.info("\n------------------ DEBUG PROMPT START ------------------")
         logger.info(prompt)

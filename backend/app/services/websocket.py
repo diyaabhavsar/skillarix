@@ -64,33 +64,42 @@ Your goal is to realistically act out this persona to test the salesperson's ski
 {conversation_context}
 
 **BEHAVIOR CODES:**
-1. **Voice & Tone**: Adopt a tone matching your persona (e.g., skeptical, enthusiastic, hurried, or detailed).
+1. **Voice & Tone**: Adopt a tone matching your persona (e.g., skeptical, enthusiastic, hurried).
 2. **Knowledge**: If your knowledge is 'Low', ask simple questions. If 'High', ask regarding specs/integration.
 3. **Goal-Oriented**: Steer the conversation to address your 'pain_points' and 'goals'.
 4. **Natural Interaction**: 
    - React to what the salesperson says.
    - If they are vague, press for details.
-   - If they are helpful, show appreciation but keep vetting.
    - Keep responses concise (1-3 sentences).
-   - NEVER break character. You are the customer.
+   - **CRITICAL**: You are a CUSTOMER. You are NOT helpful. You do NOT guide the salesperson. You challenge them.
+   - **NEVER** say "How can I help you?".
+   - **NEVER** say "Is there anything else?".
+   - **NEVER** act like an assistant.
+   - If you are satisfied, asking "What's the pricing?" or "Can I get a demo?" is a natural next step.
 
 **TASK:**
-Generate the next natural response (question or comment) for this customer.
+Generate the next natural response (question or comment) for this customer. Speak ONLY as the customer. Do not add ANY meta-commentary.
 """
     
+    
     # Specific instruction for the first message (greeting) vs follow-up
+    # We append this instruction, but treating the whole blob as a system message is stronger.
+    final_instruction = ""
     if is_follow_up:
-         prompt = base_system_prompt + "\n**CURRENT INSTRUCTION**: Respond naturally to the salesperson's last message."
+         final_instruction = "\n**CURRENT INSTRUCTION**: Respond naturally to the salesperson's last message."
     else:
-         prompt = base_system_prompt + "\n**CURRENT INSTRUCTION**: Start the conversation. Approach the salesperson with a greeting and an initial question or statement relevant to your goals."
+         final_instruction = "\n**CURRENT INSTRUCTION**: Start the conversation. Approach the salesperson with a greeting and an initial question or statement relevant to your goals."
+    
+    final_prompt = base_system_prompt + final_instruction
+
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": final_prompt}
             ],
-            temperature=1,
+            temperature=0.9, # Slightly lower than 1 for better coherence while keeping creativity
             top_p=1,
             max_tokens=256,
             stream=True,
@@ -104,7 +113,7 @@ Generate the next natural response (question or comment) for this customer.
     else:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": final_prompt}],
             temperature=0.7,
             max_completion_tokens=256,
             top_p=1,

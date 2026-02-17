@@ -41,6 +41,8 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 
+import { authService } from "@/services/authService";
+
 const Settings = () => {
   const { user, logout } = useAuth();
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -69,13 +71,24 @@ const Settings = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    name: user?.name || "John Doe",
-    email: user?.email || "john@example.com",
-    role: user?.role || "Sales Representative",
+    name: "",
+    email: "",
+    role: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.name || user.username || "",
+        email: user.email || "",
+        role: user.role || ""
+      }));
+    }
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -85,9 +98,28 @@ const Settings = () => {
     }));
   };
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation would update user profile in database
+    try {
+      await authService.updateProfile({ name: formData.name, email: formData.email });
+
+      // Update local storage to reflect change immediately
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        parsed.name = formData.name;
+        parsed.username = formData.name;
+        parsed.email = formData.email;
+        localStorage.setItem("user", JSON.stringify(parsed));
+      }
+
+      // Quick reload to refresh context (or better: add updateUser to context)
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error("Failed to update profile", error);
+      alert("Failed to update profile: " + error.message);
+    }
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {

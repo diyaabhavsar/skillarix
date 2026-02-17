@@ -72,10 +72,11 @@ async def get_all_test_configurations(
     Only admin users are authorized to access this endpoint.
     When limit is not provided, returns all records.
     """
-    if token["role"] != "admin":
+    allowed_roles = ["admin", "salesman", "employee"]
+    if token["role"] not in allowed_roles:
         raise HTTPException(
             status_code=403,
-            detail="Not authorized. Only admin users can access their test configurations.",
+            detail="Not authorized to view test configurations.",
         )
     try:
         base_query = {"is_deleted": False}

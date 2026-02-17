@@ -8,6 +8,7 @@ class Transcript(BaseModel):
 class ElevenLabsSchema(BaseModel):
     test_config_id_str: Optional[str] = None
     product_id_str: str
+    assignment_id: Optional[str] = None
     transcript: List[Transcript]
 
 class ElevenLabsAgentUpdateSchema(BaseModel):

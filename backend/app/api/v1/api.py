@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .endpoints import auth, categories, products, conversations, test_configurations, user, websocket, reports, association, file_upload, elevenlabs, prompt
+from .endpoints import auth, categories, products, conversations, test_configurations, user, websocket, reports, association, file_upload, elevenlabs, prompt, gamification, assignments, companion, notifications
 
 api_router = APIRouter()
 
@@ -15,3 +15,7 @@ api_router.include_router(association.router, prefix="/association", tags=["asso
 api_router.include_router(file_upload.router, prefix="/file-upload", tags=["file-upload"])
 api_router.include_router(elevenlabs.router, prefix="/elevenlabs", tags=["elevenlabs"])
 api_router.include_router(prompt.router, prefix="/prompts", tags=["prompts"])
+api_router.include_router(gamification.router, prefix="/gamification", tags=["gamification"])
+api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
+api_router.include_router(companion.router, prefix="/companion", tags=["companion"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])

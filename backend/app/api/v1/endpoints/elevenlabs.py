@@ -13,8 +13,10 @@ from ....services.conversation import (
     save_transcript_conversation,
     update_transcript_service,
     get_transcript_by_id_service,
-    evaluate_complete_conversation
+    evaluate_complete_conversation,
+    extract_score
 )
+from .conversations import process_gamification
 from ....services.elevenlabs_service import update_elevenlabs_agent
 from ....schemas.elevenlabs import ElevenLabsSchema, ElevenLabsAgentUpdateSchema
 
@@ -23,6 +25,7 @@ test_configurations_collection = db["test_configurations"]
 product_collection = db["products"]
 category_collection = db["categories"]
 conversations_collection = db["conversations"]
+assignments_collection = db["assignments"]
 
 router = APIRouter()
 
@@ -414,11 +417,46 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         )
         conversation_db_id = str(saved_conversation_result)
         print(f"Conversation saved with ID: {conversation_db_id}")
+
+        # --- UPDATE ASSIGNMENT IF PRESENT ---
+        if data.assignment_id:
+            try:
+                # Use robust extract_score function
+                final_score = extract_score(complete_evaluation_raw)
+                
+                # Multiply by 10 if score is 0-10 format
+                if final_score <= 10 and final_score > 0:
+                    final_score = final_score * 10
+
+                assignments_collection.update_one(
+                    {"_id": ObjectId(data.assignment_id)},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "conversation_id": ObjectId(conversation_db_id),
+                            "score": final_score,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                print(f"✅ Assignment {data.assignment_id} updated to completed with score {final_score}")
+                
+                # Trigger gamification for assignment completion too
+                await process_gamification(token["id"], final_score)
+            except Exception as e:
+                print(f"❌ Error updating assignment: {e}")
+        else:
+            # If not an assignment, still trigger gamification for the user
+            try:
+                final_score = extract_score(complete_evaluation_raw)
+                await process_gamification(token["id"], final_score)
+            except Exception as e:
+                print(f"❌ Error triggering gamification: {e}")
         
     except Exception as save_error:
         print(f"Error saving conversation: {save_error}")
 
-    return {"transcript":transcript_text}
+    return {"transcript":transcript_text, "conversation_id": str(saved_conversation_result)}
 
 
 @router.put("/transcript/{conversation_id}")

@@ -39,7 +39,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   const [backDisabled, setBackDisabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { productId: selectedProductId, testConfigId: selectedTestConfigId } =
+  const { productId: selectedProductId, testConfigId: selectedTestConfigId, assignmentId: selectedAssignmentId } =
     getSessionContext();
 
   // Conversation logic
@@ -75,6 +75,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   const evaluateConversation = useEvaluateConversation(
     selectedProductId,
     selectedTestConfigId,
+    selectedAssignmentId,
     messagesRef,
     setIsEvaluating,
     setErrorMessage,
