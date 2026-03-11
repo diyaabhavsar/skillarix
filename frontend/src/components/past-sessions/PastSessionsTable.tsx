@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from "react";
-import { Calendar, Clock, FileText } from "lucide-react";
+import { Calendar, Clock, FileText, Trash2 } from "lucide-react";
 
 import ShadcnTable, {
   ShadcnColumn,
@@ -8,6 +8,18 @@ import ShadcnTable, {
 } from "@/components/ui/shadcnTable/shadcn-table";
 import { ConversationEvaluation, Rating } from "@/types/conversations";
 import { formatDateTimeToIndianSeparate } from "@/utils/dateUtils";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 import { FeedbackViewButton } from "./FeedbackViewButton";
 
@@ -52,14 +64,16 @@ interface PastSessionsTableProps {
     total_pages: number;
   };
   onPageChange?: (page: number) => void;
+  onDelete?: (id: string) => void;
 }
 
 const PastSessionsTable = React.memo<PastSessionsTableProps>(
-  ({ 
-    sessions = [], 
-    currentPage = 1, 
-    paginationData, 
-    onPageChange 
+  ({
+    sessions = [],
+    currentPage = 1,
+    paginationData,
+    onPageChange,
+    onDelete
   }) => {
     // All hooks at the top level
     const processSessionData = useCallback(
@@ -179,21 +193,51 @@ const PastSessionsTable = React.memo<PastSessionsTableProps>(
           key: "evaluation_data.actions",
           header: "Actions",
           className: "text-right",
-          render: (_, row) =>
-            row.evaluation_data.is_complete ? (
-              <FeedbackViewButton
-                sessionId={row._id}
-                session={processSessionData(row)}
-                className="w-full justify-center"
-              />
-            ) : (
-              <span className="text-muted-foreground italic text-sm">
-                Not completed
-              </span>
-            ),
+          render: (_, row) => (
+            <div className="flex items-center justify-end gap-2">
+              {row.evaluation_data.is_complete ? (
+                <FeedbackViewButton
+                  sessionId={row._id}
+                  session={processSessionData(row)}
+                  className="w-auto"
+                />
+              ) : (
+                <span className="text-muted-foreground italic text-sm px-3">
+                  Incomplete
+                </span>
+              )}
+              {onDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive/90 hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Session Record?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently remove this assessment record from your history.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => onDelete(row._id)}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+          ),
         },
       ],
-      [processSessionData]
+      [processSessionData, onDelete]
     );
 
     // Render table with empty state handled by ShadcnTable
@@ -208,6 +252,8 @@ const PastSessionsTable = React.memo<PastSessionsTableProps>(
           currentPage={currentPage}
           paginationData={paginationData}
           onPageChange={onPageChange}
+          searchable
+          searchPlaceholder="Search by product, test name, or category..."
         />
       </div>
     );
@@ -216,4 +262,4 @@ const PastSessionsTable = React.memo<PastSessionsTableProps>(
 
 PastSessionsTable.displayName = "PastSessionsTable";
 
-export default PastSessionsTable; // Remove extra memo since component is already memoized
+export default PastSessionsTable;

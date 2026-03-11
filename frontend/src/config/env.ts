@@ -5,6 +5,17 @@ export const env = {
   AGENT_ID: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
   API_KEY: import.meta.env.VITE_ELEVENLABS_API_KEY,
   FILE_URL_ENDPOINT: import.meta.env.FILE_URL_ENDPOINT,
-  ELEVENLABS_PROMPT_TITLE: import.meta.env.VITE_ELEVENLABS_TITLE ,
-  VITE_EVALUTION_TITLE: import.meta.env.VITE_EVALUTION_TITLE ,
+  ELEVENLABS_PROMPT_TITLE: import.meta.env.VITE_ELEVENLABS_TITLE,
+  VITE_EVALUTION_TITLE: import.meta.env.VITE_EVALUTION_TITLE,
 } as const;
+
+// Validate critical environment variables
+if (!env.AGENT_ID) {
+  console.error("Missing VITE_ELEVENLABS_AGENT_ID in environment variables");
+}
+if (!env.API_KEY) {
+  console.error("Missing VITE_ELEVENLABS_API_KEY in environment variables");
+}
+if (!env.ELEVENLABS_PROMPT_TITLE) {
+  console.error("Missing VITE_ELEVENLABS_TITLE in environment variables");
+}

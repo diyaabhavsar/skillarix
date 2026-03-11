@@ -15,6 +15,7 @@ import { AdditionalCriteriaSection } from "./AdditionalCriteriaSection";
 import { capitalizeWords } from "@/utils/textFormatting";
 
 const defaultVisitorPersona: VisitorPersona = {
+  // Original Fields
   product_knowledge: "",
   product_familiarity: "",
   technical_expertise: "",
@@ -23,6 +24,16 @@ const defaultVisitorPersona: VisitorPersona = {
   budget_range: "",
   decision_authority: "",
   exhibition_objective: "",
+
+  // New Dynamic Fields
+  name: "",
+  visitor_type: "",
+  background: "",
+  pain_points: "",
+  goals: "",
+  category: "",
+  distraction_handling: "",
+  communication_simplicity: "",
 };
 
 const defaultAdditionalCriteria: AdditionalCriteria = {
@@ -48,19 +59,19 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
   });
   const productsHook = useProducts();
   const categoriesHook = useCategories();
-  
+
   const {
     products,
     fetchProductsByCategory,
     fetchAllProducts,
     isLoading: productsLoading,
   } = productsHook;
-  
+
   const {
     categories,
     fetchAllCategories,
   } = categoriesHook;
-  
+
   const { createTest, updateTest } = useTests();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -200,8 +211,8 @@ const TestConfigurationForm: React.FC<TestConfigurationFormProps> = ({
             ? "Updating..."
             : "Creating..."
           : initialData
-          ? "Update Test Configuration"
-          : "Create Test Configuration"}
+            ? "Update Test Configuration"
+            : "Create Test Configuration"}
       </Button>
     </form>
   );

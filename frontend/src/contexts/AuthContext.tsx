@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { UserRole } from "@/types/session";
+import { UserRole, hasPermission as checkPermission, Permission } from "@/types/session";
 import { authService } from "@/services/authService";
 import { env } from "@/config/env";
 
@@ -51,6 +51,8 @@ type AuthContextType = {
   forgotPassword: (email: string) => Promise<void>;
   isAdmin: () => boolean;
   isEmployee: () => boolean;
+  isSalesman: () => boolean;
+  hasPermission: (permission: string) => boolean;
 };
 
 // Create the context with a default value
@@ -155,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     email: string,
     name: string,
     password: string,
-    role: UserRole = "employee"
+    role: UserRole = "salesman"
   ) => {
     setIsLoading(true);
     try {
@@ -215,6 +217,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       forgotPassword,
       isAdmin: () => user?.role === "admin",
       isEmployee: () => user?.role === "employee",
+      isSalesman: () => user?.role === "salesman",
+      hasPermission: (permission: string) => {
+        if (!user) return false;
+        return checkPermission(user.role, permission as Permission);
+      },
     }),
     [user, isLoading, token, login, register, logout, forgotPassword]
   );

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import useElevenLabsTranscript from "@/hooks/useElevenLabsTranscript";
 
-export function useEvaluateConversation(selectedProductId: string, selectedTestConfigId: string, messagesRef: React.RefObject<any>, setIsEvaluating: (b: boolean) => void, setErrorMessage: (msg: string) => void, onEndSession: () => void) {
+export function useEvaluateConversation(selectedProductId: string, selectedTestConfigId: string, selectedAssignmentId: string, messagesRef: React.RefObject<any>, setIsEvaluating: (b: boolean) => void, setErrorMessage: (msg: string) => void, onEndSession: () => void) {
   const { postTranscript } = useElevenLabsTranscript();
   return useCallback(async () => {
     setIsEvaluating(true);
@@ -10,6 +10,7 @@ export function useEvaluateConversation(selectedProductId: string, selectedTestC
       await postTranscript({
         product_id_str: selectedProductId,
         test_config_id_str: selectedTestConfigId,
+        assignment_id: selectedAssignmentId || null,
         transcript: finalMessages,
       });
       onEndSession();
@@ -19,5 +20,5 @@ export function useEvaluateConversation(selectedProductId: string, selectedTestC
     } finally {
       setIsEvaluating(false);
     }
-  }, [selectedProductId, selectedTestConfigId, messagesRef, setIsEvaluating, setErrorMessage, onEndSession, postTranscript]);
+  }, [selectedProductId, selectedTestConfigId, selectedAssignmentId, messagesRef, setIsEvaluating, setErrorMessage, onEndSession, postTranscript]);
 }

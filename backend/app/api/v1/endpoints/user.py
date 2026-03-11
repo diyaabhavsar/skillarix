@@ -14,6 +14,55 @@ product_collection = db["products"]
 
 router = APIRouter()
 
+@router.put("/profile")
+async def update_profile(
+    user_update: dict = Body(...),
+    token=Depends(verify_bearer_token)
+):
+    """
+    Allow logged-in users to update their own profile (username, name, email).
+    """
+    user_id = token["id"]
+    
+    update_fields = {}
+    
+    # Allow updating username, full_name, name
+    if "username" in user_update:
+        update_fields["username"] = user_update["username"]
+    if "full_name" in user_update:
+        update_fields["full_name"] = user_update["full_name"]
+    if "name" in user_update: # Handle both conventions
+        update_fields["name"] = user_update["name"]
+    
+    # Optional: Allow email update? Usually requires verification. 
+    # For now, let's allow it if checking for uniqueness.
+    if "email" in user_update:
+        # Check if email taken by another user
+        existing = user_collection.find_one({"email": user_update["email"]})
+        if existing and str(existing["_id"]) != user_id:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_fields["email"] = user_update["email"]
+        
+    if not update_fields:
+         raise HTTPException(status_code=400, detail="No valid fields to update")
+         
+    update_fields["updated_at"] = datetime.now()
+    
+    result = user_collection.update_one(
+        {"_id": ObjectId(user_id)}, 
+        {"$set": update_fields}
+    )
+    
+    # Return updated user
+    user = user_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user["_id"] = str(user["_id"])
+    user.pop("password", None)
+    
+    return user
+
 
 @router.post("")
 async def register_user(user: UserCreate):
@@ -36,7 +85,7 @@ async def get_users_list(
         raise HTTPException(
             status_code=403, detail="You don't have permission to access the users list"
         )
-    total_count = user_collection.count_documents({"is_deleted": False})
+    total_count = user_collection.count_documents({"is_deleted": {"$ne": True}})
     
     # If limit is not provided, set it to total count to return all records
     if limit is None:
@@ -45,7 +94,7 @@ async def get_users_list(
     skip = (page - 1) * limit
     total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
     users_cursor = (
-        user_collection.find({"is_deleted": False})
+        user_collection.find({"is_deleted": {"$ne": True}})
         .sort("created_at", -1)
         .skip(skip)
         .limit(limit)
@@ -153,23 +202,26 @@ async def get_admin_stats(token=Depends(verify_bearer_token)):
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    total_users = user_collection.count_documents({})
-    active_users = user_collection.count_documents({"active": True})
+    total_users = user_collection.count_documents({"is_deleted": {"$ne": True}})
+    active_users = user_collection.count_documents({"active": True, "is_deleted": {"$ne": True}})
     total_sessions = conversation_collection.count_documents(
-        {"evaluation_data.is_complete": True}
+        {"evaluation_data.is_complete": True, "is_deleted": {"$ne": True}}
     )
     # Calculate average score from all conversations (if available)
     scores = []
-    for conv in conversation_collection.find({}):
+    # Filter out deleted conversations
+    for conv in conversation_collection.find({"is_deleted": {"$ne": True}}):
         eval_data = conv.get("evaluation_data", {})
         # Try to get score from complete_rating or similar
         complete_rating = eval_data.get("complete_rating", {})
         if isinstance(complete_rating, dict):
             total = complete_rating.get("total", {})
             if isinstance(total, dict) and "score" in total:
+                # Also check max score to calculate percentage properly if needed, but keeping simple for now akin to previous
                 scores.append(total["score"])
+                
     average_score = round(sum(scores) / len(scores), 2) if scores else 0
-    total_products = product_collection.count_documents({})
+    total_products = product_collection.count_documents({"is_deleted": {"$ne": True}}) # Assuming products don't have is_deleted yet or handled differently
 
     return {
         "total_users": total_users,
@@ -187,7 +239,8 @@ async def get_latest_users(token=Depends(verify_bearer_token)):
     """
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    users = list(user_collection.find({}).sort("created_at", -1).limit(5))
+    # Filter deleted users
+    users = list(user_collection.find({"is_deleted": {"$ne": True}}).sort("created_at", -1).limit(5))
     for user in users:
         user["_id"] = str(user["_id"])
         if "updated_by" in user and user["updated_by"] is not None:
@@ -202,8 +255,9 @@ async def get_latest_sessions(token=Depends(verify_bearer_token)):
     if token["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    # Filter deleted sessions
     sessions = list(
-        conversation_collection.find({"evaluation_data.is_complete": True})
+        conversation_collection.find({"evaluation_data.is_complete": True, "is_deleted": {"$ne": True}})
         .sort("created_at", -1)
         .limit(5)
     )

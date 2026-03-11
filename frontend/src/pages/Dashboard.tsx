@@ -39,7 +39,7 @@ const statCards = [
 ];
 
 // Recent Sessions Mock (with questions field for SessionData type)
-const recentSessions = [
+const initialSessions = [
   {
     id: 1,
     productName: "CloudGuard Pro",
@@ -74,11 +74,23 @@ function getScoreColor(score: number) {
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [sessions, setSessions] = useState(initialSessions);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleStartPractice = () => {
     navigate("/practice");
+  };
+
+  const handleDeleteSession = async (id: number | string) => {
+    // In a real application, you would make an API call here:
+    // await api.delete(`/elevenlabs/transcript/${id}`);
+
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    toast({
+      title: "Session Deleted",
+      description: "The assessment record has been removed.",
+    });
   };
 
   return (
@@ -135,7 +147,7 @@ const Dashboard = () => {
               <CardContent className="p-0">
                 <ScrollArea className="h-64 px-4">
                   <div className="space-y-4 py-4">
-                    {recentSessions.map((s) => (
+                    {sessions.slice(0, 3).map((s) => (
                       <div
                         key={s.id}
                         className="flex items-center justify-between border-b pb-3 last:border-b-0"
@@ -188,7 +200,8 @@ const Dashboard = () => {
         {/* Session History Tab */}
         <TabsContent value="history" className="space-y-6">
           <SessionHistoryTable
-            sessions={[...recentSessions, ...recentSessions]}
+            sessions={sessions}
+            onDelete={handleDeleteSession}
           />
         </TabsContent>
       </Tabs>

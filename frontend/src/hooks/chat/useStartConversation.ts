@@ -1,96 +1,71 @@
-import { useCallback, useEffect } from "react";
+
+import { useCallback } from "react";
 import { useProducts } from "@/hooks/useProducts";
 import { useTests } from "@/hooks/useTests";
-import useElevenLabsConfig from "@/hooks/useElevenLabs";
 import { env } from "@/config/env";
 import { toast } from "sonner";
-import { title } from "process";
-
-// Create a helper function outside the hook to refresh the prompt
-async function refreshPromptBeforeConversation(elevenLabsConfig: any): Promise<boolean> {
-  try {
-    const success = await elevenLabsConfig.refreshPrompt();
-    return success;
-  } catch (error) {
-    console.error("Error refreshing prompt:", error);
-    return false;
-  }
-}
+import { api } from "@/utils/api";
 
 export function useStartConversation(
-  selectedProductId: string, 
-  selectedTestConfigId: string, 
-  conversation: any, 
-  setConversationId: (id: string) => void, 
-  setIsStarting: (b: boolean) => void, 
+  selectedProductId: string,
+  selectedTestConfigId: string,
+  conversation: any,
+  setConversationId: (id: string) => void,
+  setIsStarting: (b: boolean) => void,
   setErrorMessage: (msg: string) => void
 ) {
   const { getProductById } = useProducts();
   const { fetchTestById } = useTests();
-  const elevenLabs = useElevenLabsConfig();
   const agent_id = env.AGENT_ID;
-  
-  // Instead of having state in the hook, we'll handle this in the callback function
 
-  // Use useEffect instead of immediate function execution to initialize
-  useEffect(() => {
-    refreshPromptBeforeConversation(elevenLabs);
-  }, [elevenLabs]);
-  
   return useCallback(async () => {
     const fetchedProduct = getProductById(selectedProductId);
     const fetchedTest = fetchTestById(selectedTestConfigId);
     setIsStarting(true);
-    
-    const dynamicBody = {
-      visitorPersona: JSON.stringify(fetchedTest.visitorPersona),
-      product: {
-        content: fetchedProduct.content,
-        description: fetchedProduct.description,
-        name: fetchedProduct.name,
-      },
-    };
-    
+
+    if (!fetchedProduct || !fetchedTest) {
+      toast.error("Missing product or test configuration");
+      setIsStarting(false);
+      return;
+    }
+
+    console.log("Starting Conversation with Backend Agent Update:", {
+      product_name: fetchedProduct.name,
+      test_config: fetchedTest.name
+    });
+
     try {
-      // Try to refresh the prompt again right before starting
-      try {
-        const refreshSuccess = await refreshPromptBeforeConversation(elevenLabs);
-        if (!refreshSuccess) {
-          toast.warning("Using cached prompt template. Prompt drawer changes may not be reflected.", {
-            duration: 5000,
-            id: "prompt-cache-warning"
-          });
-        }
-      } catch (error) {
-        console.error("Error refreshing prompt before conversation start:", error);
-      }
-      
-      // Update the agent config with the prompt
-      await elevenLabs.updateAgentConfig(dynamicBody);
-      
-      // Start the conversation
+      // 1. Update the agent configuration via our backend
+      // This will generate the dynamic prompt and update ElevenLabs
+      await api.post("/elevenlabs/agent/update", {
+        test_config_id: selectedTestConfigId
+        // agent_id: agent_id // Let backend use its configured default to avoid mismatch
+      });
+
+      toast.success("Agent configured with dynamic persona");
+
+      // 2. Start the conversation
       const conversation_id = await conversation.startSession({ agentId: agent_id });
       setConversationId(conversation_id);
-      
-      toast.success("Conversation started with the latest prompt", {
-        duration: 3000
-      });
-    } catch (error) {
-      setErrorMessage("Failed to start conversation");
+
+      toast.success("Conversation started");
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || "Failed to start conversation";
+      setErrorMessage(msg);
       console.error("Error starting conversation:", error);
+      toast.error(msg);
     } finally {
       setIsStarting(false);
     }
   }, [
-    selectedProductId, 
-    selectedTestConfigId, 
-    conversation, 
-    setConversationId, 
-    setIsStarting, 
-    setErrorMessage, 
-    getProductById, 
-    fetchTestById, 
-    elevenLabs, 
+    selectedProductId,
+    selectedTestConfigId,
+    conversation,
+    setConversationId,
+    setIsStarting,
+    setErrorMessage,
+    getProductById,
+    fetchTestById,
     agent_id
   ]);
 }

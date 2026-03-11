@@ -4,7 +4,7 @@ export interface ApiUser {
   username?: string;
   name?: string;
   email: string;
-  role: "admin" | "employee";
+  role: string;
   active?: boolean;
   sessions?: number;
   last_login?: string;
@@ -14,7 +14,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "employee";
+  role: string;
   active: true | false;
   sessions: number;
   lastActive: string;

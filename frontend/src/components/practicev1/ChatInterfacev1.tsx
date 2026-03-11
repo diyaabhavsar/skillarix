@@ -1,7 +1,8 @@
 import React, { useState, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { Mic, MicOff } from "lucide-react";
-import chatbotEmptyState from "../../../public/chatbot-empty-state.svg";
+import { Mic, MicOff, Loader2 } from "lucide-react";
+// Use public URL path instead of importing
+const chatbotEmptyState = "/chatbot-empty-state.svg";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import ChatHeading from "./ChatHeading";
 import ChatMessage from "./ChatMessage";
@@ -32,12 +33,13 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   );
   const [isStarting, setIsStarting] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [promptDrawerOpen, setPromptDrawerOpen] = useState(false);
   const [backDisabled, setBackDisabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const { productId: selectedProductId, testConfigId: selectedTestConfigId } =
+  const { productId: selectedProductId, testConfigId: selectedTestConfigId, assignmentId: selectedAssignmentId } =
     getSessionContext();
 
   // Conversation logic
@@ -73,6 +75,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
   const evaluateConversation = useEvaluateConversation(
     selectedProductId,
     selectedTestConfigId,
+    selectedAssignmentId,
     messagesRef,
     setIsEvaluating,
     setErrorMessage,
@@ -95,8 +98,10 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
 
   const handleEndConversation = async () => {
     try {
+      setIsEnding(true);
       await conversation.endSession();
     } catch (error) {
+      setIsEnding(false);
       setIsEvaluating(false);
       setErrorMessage("Failed to end conversation");
       console.error("Error ending conversation:", error);
@@ -122,7 +127,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
     // If prompt drawer is already open, close it. Otherwise open it and close the left drawer
     if (promptDrawerOpen) {
       setPromptDrawerOpen(false);
-      
+
       // Let the user know that changes will be applied to new conversations
       toast.info("Prompt changes will be applied to new conversations", {
         duration: 3000,
@@ -139,9 +144,8 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
       <div className="flex flex-row w-full h-full">
         {/* Left Drawer - Test Configuration */}
         <div
-          className={`transition-all duration-300 h-full ${
-            drawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
-          } relative`}
+          className={`transition-all duration-300 h-full ${drawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
+            } relative`}
           style={{ flexShrink: 0 }}
         >
           <LeftDrawer
@@ -152,9 +156,8 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
         </div>
         {/* Prompt Drawer */}
         <div
-          className={`transition-all duration-300 h-full ${
-            promptDrawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
-          } relative`}
+          className={`transition-all duration-300 h-full ${promptDrawerOpen ? "w-[400px] min-w-[300px]" : "w-0 min-w-0"
+            } relative`}
           style={{ flexShrink: 0 }}
         >
           <PromptDrawer
@@ -227,10 +230,20 @@ const VoiceChat: React.FC<VoiceChatProps> = ({ onEndSession }) => {
                       </button>
                       <button
                         onClick={handleEndConversation}
-                        className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-white text-lg font-semibold bg-red-500 hover:bg-red-600 transition focus:outline-none"
+                        disabled={isEnding}
+                        className="w-full flex items-center justify-center gap-2 py-4 rounded-lg text-white text-lg font-semibold bg-red-500 hover:bg-red-600 transition focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
                       >
-                        <MicOff className="mr-2 h-5 w-5" />
-                        End Conversation
+                        {isEnding ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Ending Session...
+                          </>
+                        ) : (
+                          <>
+                            <MicOff className="mr-2 h-5 w-5" />
+                            End Conversation
+                          </>
+                        )}
                       </button>
                     </>
                   ) : (

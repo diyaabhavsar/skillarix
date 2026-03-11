@@ -66,6 +66,8 @@ const SessionSetupPage = () => {
     }
 
     try {
+      const navState = location.state as { assignmentId?: string } | null;
+
       // Save session details in localStorage for chat page
       localStorage.setItem(
         "currentSession",
@@ -73,6 +75,7 @@ const SessionSetupPage = () => {
           categoryId: selectedCategoryId,
           productId: selectedProductId,
           testConfigId: selectedTestConfigId,
+          assignmentId: navState?.assignmentId || null,
           timestamp: new Date().toISOString(),
         })
       );

@@ -16,6 +16,8 @@ MODEL_NAME = settings.MODEL_NAME
 
 def generate_customer_question(product_context: str, conversation_history: List[dict], persona: dict) -> str:
     print(persona)
+
+    print(product_context, conversation_history, persona)
     conversation_context = ""
     if conversation_history:
         conversation_context = f"""
@@ -26,50 +28,80 @@ Previous conversation:
     # Base prompt for customer persona and context
     # This part will be the common system objective and guidelines
 # Here the conersastion always start with "Exchange #" as a verbage under each Exchange, you have understand start with "Customer:" as a question from agent and line starts with "Salesperson" is an asnwer of that question.
+    # Dynamic Prompt Construction
+    visitor_type = persona.get('visitor_type') or 'Potential Customer'
+    name = persona.get('name') or 'Visitor'
+    background = persona.get('background') or persona.get('exhibition_objective') or 'Interested in the product'
+    
+    # Map legacy fields to new prompt structure
+    pain_points = persona.get('pain_points') or persona.get('key_challenges') or 'Unknown'
+    goals = persona.get('goals') or persona.get('buying_objective') or 'To learn more'
+    
+    # Map technical knowledge
+    tech_map = {
+        'general': 'Low', 'basic': 'Low', 'moderate': 'Average', 
+        'advanced': 'High', 'expert': 'Expert'
+    }
+    raw_tech = persona.get('technical_knowledge') or persona.get('technical_expertise')
+    knowledge_level = tech_map.get(raw_tech, raw_tech) or 'Average'
+    
     base_system_prompt = f"""
-We are in a simulation designed to evaluate the skills of a sales representative.
- Each exchange contains a question from the customer (denoted by “Customer:”) and a response from the sales rep (denoted by “Salesperson:”).
-The agent (customer) should only ask questions to the sales rep about the product based on the provided product description and visitor persona.
- The agent must not answer any product or service-related questions. The agent is here as a visitor, not a salesperson.
-Your task is:
-To generate the next follow-up question the customer might ask based on the complete history of the conversation (all prior exchanges).
-Ensure the follow-up question is natural, relevant, and continues the flow of the conversation.
+You are a roleplaying AI simulating a specific customer persona at a trade show or sales meeting.
+Your goal is to realistically act out this persona to test the salesperson's skills.
 
+**YOUR ASSIGNED PERSONA:**
+- **Role**: {visitor_type} named {name}
+- **Background**: {background}
+- **Key Pain Points**: {pain_points}
+- **Goals**: {goals}
+- **Technical Knowledge**: {knowledge_level}
+- **Full Profile**: {json.dumps(persona)}
 
-product description: {product_context}
+**PRODUCT CONTEXT:**
+{product_context}
 
-Visitor Persona (who is actually an agent):
-{json.dumps(persona, indent=2)}
-
-Exchanges:
+**CONVERSATION HISTORY:**
 {conversation_context}
 
+**BEHAVIOR CODES:**
+1. **Voice & Tone**: Adopt a tone matching your persona (e.g., skeptical, enthusiastic, hurried).
+2. **Knowledge**: If your knowledge is 'Low', ask simple questions. If 'High', ask regarding specs/integration.
+3. **Goal-Oriented**: Steer the conversation to address your 'pain_points' and 'goals'.
+4. **Natural Interaction**: 
+   - React to what the salesperson says.
+   - If they are vague, press for details.
+   - Keep responses concise (1-3 sentences).
+   - **CRITICAL**: You are a CUSTOMER. You are NOT helpful. You do NOT guide the salesperson. You challenge them.
+   - **NEVER** say "How can I help you?".
+   - **NEVER** say "Is there anything else?".
+   - **NEVER** act like an assistant.
+   - If you are satisfied, asking "What's the pricing?" or "Can I get a demo?" is a natural next step.
 
-### 📝 Final Output Instructions
-
-* Do **not** include any labels, metadata, or formatting
-* The message must:
-
-  * Be contextual and in-character
-  * Respect the simulation and role constraints
+**TASK:**
+Generate the next natural response (question or comment) for this customer. Speak ONLY as the customer. Do not add ANY meta-commentary.
 """
-    base_system_prompt1 = """
-    Greet the salesperson naturally (e.g., “Hi there!”).
-    """
+    
+    
+    # Specific instruction for the first message (greeting) vs follow-up
+    # We append this instruction, but treating the whole blob as a system message is stronger.
+    final_instruction = ""
     if is_follow_up:
-        prompt = base_system_prompt
+         final_instruction = "\n**CURRENT INSTRUCTION**: Respond naturally to the salesperson's last message."
     else:
-        prompt = base_system_prompt1
+         final_instruction = "\n**CURRENT INSTRUCTION**: Start the conversation. Approach the salesperson with a greeting and an initial question or statement relevant to your goals."
+    
+    final_prompt = base_system_prompt + final_instruction
+
     if FLAG == 1:
         # Streaming OpenAI Chat completion
         response_stream = openai_client.chat.completions.create(
             model=MODEL_NAME,  # or gpt-3.5-turbo / gpt-3.5-turbo
             messages=[
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": final_prompt}
             ],
-            temperature=1,
+            temperature=0.9, # Slightly lower than 1 for better coherence while keeping creativity
             top_p=1,
-            max_tokens=1024,
+            max_tokens=256,
             stream=True,
         )
         full_response = ""
@@ -80,10 +112,10 @@ Exchanges:
         return full_response.strip()
     else:
         completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "system", "content": final_prompt}],
             temperature=0.7,
-            max_completion_tokens=1024,
+            max_completion_tokens=256,
             top_p=1,
             stream=True,
             stop=None,
@@ -200,69 +232,7 @@ Exchanges:
 #                 full_response += chunk.choices[0].delta.content
 #         return full_response.strip()
 
-def evaluate_complete_conversation(full_conversation: List[dict], context: str, persona: dict) -> str:
-    """
-    Evaluate the entire sales conversation for overall effectiveness and outcomes.
-    """
 
-    def select_evaluation_prompt(prompt_data):
-        """Selects the main or first available prompt from prompt_data."""
-        if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
-            for prompt_item in prompt_data['prompt']:
-                if prompt_item.get('condition') == 'main':
-                    return prompt_item.get('prompt', '')
-            return prompt_data['prompt'][0].get('prompt', '')
-        return ''
-
-    def fill_prompt_placeholders(prompt: str, persona: dict, context: str, conversation: List[dict]) -> str:
-        """Replaces placeholders in the prompt with actual values."""
-        return (
-            prompt
-            .replace("{{Visitor_persona}}", json.dumps(persona, indent=2))
-            .replace("{{Product_detail}}", context)
-            .replace("{{Conversion_history}}", format_conversation_history(conversation))
-        )
-
-    def stream_response_openai(prompt: str) -> str:
-        response_stream = openai_client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=1,
-            top_p=1,
-            max_tokens=1024,
-            stream=True,
-        )
-        return "".join(
-            chunk.choices[0].delta.content
-            for chunk in response_stream
-            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content
-        ).strip()
-
-    def stream_response_groq(prompt: str) -> str:
-        completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_completion_tokens=1024,
-            top_p=1,
-            stream=True,
-            stop=None,
-        )
-        return "".join(
-            chunk.choices[0].delta.content
-            for chunk in completion
-            if chunk.choices[0].delta.content
-        ).strip()
-
-    prompt_data = get_prompt_by_title("Complete Evaluation")
-    print(prompt_data)
-    evaluation_prompt = select_evaluation_prompt(prompt_data)
-    prompt = fill_prompt_placeholders(evaluation_prompt, persona, context, full_conversation)
-
-    if FLAG == 1:
-        return stream_response_openai(prompt)
-    else:
-        return stream_response_groq(prompt)
 
 # Helper function to remove invalid control characters from a string
 def remove_invalid_json_chars(raw_string: str) -> str:
@@ -280,7 +250,7 @@ def remove_invalid_json_chars(raw_string: str) -> str:
     control_char_regex = re.compile(r'[\x00-\x07\x0B\x0C\x0E-\x1F]+')
     return control_char_regex.sub('', raw_string)
 
-def evaluate_additional_criteria(conversation: List[dict], criteria: str, context: str, persona: dict) -> str:
+def evaluate_additional_criteria(conversation: List[dict], criteria: str, context: str, persona: dict) -> str:  
     """
     Evaluate the conversation based on additional criteria.
     
@@ -297,27 +267,24 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
     prompt_data = get_prompt_by_title("Additional Criteria Evaluation")
     print(prompt_data)
     
-    # Extract the actual prompt text from the prompt_data structure based on criteria
-    evaluation_prompt = ""
-    if prompt_data and 'prompt' in prompt_data and len(prompt_data['prompt']) > 0:
-        # Map criteria to condition names
-        criteria_mapping = {
-            "Distraction Handling": "distraction_handling",
-            "Communication Simplicity": "communication_simplicity"
-        }
-        
-        target_condition = criteria_mapping.get(criteria)
-        
-        if target_condition:
-            # Look for the specific condition
-            for prompt_item in prompt_data['prompt']:
-                if prompt_item.get('condition') == target_condition:
-                    evaluation_prompt = prompt_item.get('prompt', '')
-                    break
-        
-        # If no specific condition found, use fallback
-        if not evaluation_prompt and len(prompt_data['prompt']) > 0:
-            evaluation_prompt = prompt_data['prompt'][0].get('prompt', '')
+    # Hardcoded strict prompt to ensure JSON output
+    criteria_prompt = ""
+    if criteria == "Distraction Handling":
+        criteria_prompt = """
+Evaluate how well the salesperson manages distractions and off-topic questions.
+Return JSON: { "evaluation": "short text", "rating": { "focus_maintenance": {"score": X, "max":3}, "off_topic_response": {"score": X, "max":3}, "flow_management": {"score": X, "max":4}, "total": {"score": Y, "max":10} } }
+Include 1-2 short examples from the conversation.
+"""
+    elif criteria == "Communication Simplicity":
+        criteria_prompt = """
+Evaluate clarity and simplicity of explanations.
+Return JSON: { "evaluation": "short text", "rating": { "clarity": {"score": X, "max":3}, "examples_usage": {"score": X, "max":3}, "organization": {"score": X, "max":4}, "total": {"score": Y, "max":10} } }
+Include 1-2 short examples from the conversation.
+"""
+    else:
+        criteria_prompt = f"Evaluate according to {criteria}. Return JSON: {{ 'evaluation': 'text', 'rating': {{ 'total': {{ 'score': X, 'max': 10 }} }} }}"
+
+    evaluation_prompt = criteria_prompt
     
     # Use the evaluation prompt from database instead of hardcoded prompts
     if not evaluation_prompt:
@@ -327,7 +294,7 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
     conversation_text = format_conversation_history(conversation)
     
     # Create the full prompt
-    full_prompt = f"""
+    full_prompt = f""".
 Based on the following conversation and product context, evaluate the salesperson's performance according to the specified criteria.
 
 Customer Persona:
@@ -339,9 +306,12 @@ Product Context:
 Conversation:
 {conversation_text}
 
+Instructions:
 {evaluation_prompt}
 
-Your evaluation:
+Return JSON only when the criteria_prompt above expects JSON. Otherwise return plain text.
+
+CRITICAL: Be strict in your scoring. High scores should only be given for exceptional performance.
 """
     if FLAG == 1:
         # Streaming OpenAI Chat completion
@@ -365,7 +335,7 @@ Your evaluation:
     else:   
         # Generate evaluation using Groq
         completion = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": full_prompt}],
             temperature=0.7,
             max_completion_tokens=1024,
@@ -399,10 +369,18 @@ def evaluate_mid_conversation(recent_exchanges: List[dict], context: str, person
     ])
 
     prompt = f"""
-You are evaluating a series of recent exchanges in a sales conversation. Analyze the last few interactions 
-to assess the conversation's progress and effectiveness.
+You are evaluating a short sequence of recent sales exchanges. Return ONLY a single valid JSON object.
 
-Customer Persona:
+The JSON must have two keys: "scores" and "recommendations".
+
+- "scores": an object with numeric scores:
+   * "conversation_direction": {{ "score": X, "max": 3 }}
+   * "information_consistency": {{ "score": X, "max": 3 }}
+   * "customer_engagement": {{ "score": X, "max": 4 }}
+   * "total": {{ "score": Y, "max": 10 }}
+- "recommendations": a list of 2 concise strings (actionable advice).
+
+Visitor Persona:
 {json.dumps(persona, indent=2)}
 
 Context from product documentation:
@@ -411,42 +389,9 @@ Context from product documentation:
 Recent Exchanges:
 {exchanges_text}
 
-Evaluate the following aspects:
-1. Conversation Direction (0-3 points)
-   - Is the conversation moving towards a clear goal?
-   - Are key product benefits being effectively communicated?
-   - Is there a logical progression in the discussion?
-   - Is the sales approach appropriate for this specific customer persona?
-
-2. Information Consistency (0-3 points)
-   - Are the salesperson's responses consistent with previous statements?
-   - Is product information accurately maintained throughout?
-   - Are customer concerns being tracked and addressed?
-   - Is the technical level appropriate for the customer's knowledge?
-
-3. Customer Engagement (0-4 points)
-   - Is the customer showing increasing interest?
-   - Are their questions being fully addressed?
-   - Is the salesperson building rapport and trust?
-   - Is the conversation becoming more specific/detailed?
-   - Is the salesperson addressing the customer's:
-     * Product Knowledge Level
-     * Product Familiarity
-     * Technical Expertise
-     * Key Challenges
-     * Buying Objective
-     * Budget Range
-     * Decision Authority
-     * Exhibition Objective
-
-Provide:
-1. Scores for each category
-2. Specific examples from the conversation
-3. Actionable recommendations for improvement
-4. Suggested next steps or topics to address
-5. How well the salesperson is adapting to this specific customer persona
-
-Your evaluation:
+INSTRUCTIONS:
+- Be strict. If the salesperson is passive or rude, give low scores.
+- Return JSON ONLY.
 """
     if FLAG == 1:
         # Streaming OpenAI Chat completion

@@ -7,6 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { visitorPersonaFields, VISITOR_PERSONA_OPTIONS } from "@/data/visitPersona";
 import { VisitorPersona } from "@/types/testconfig";
 
@@ -36,26 +38,47 @@ export const VisitorPersonaSection: React.FC<VisitorPersonaSectionProps> = ({
                 {fieldItem.description}
               </p>
             </div>
-            <Select
-              value={visitorPersona[fieldItem.key as keyof VisitorPersona] || ""}
-              onValueChange={(value) =>
-                onFieldChange(fieldItem.key as keyof VisitorPersona, value)
-              }
-              disabled={isLoading}
-            >
-              <SelectTrigger id={fieldItem.key}>
-                <SelectValue
-                  placeholder={`Select ${fieldItem.label}`}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {VISITOR_PERSONA_OPTIONS[fieldItem.key as keyof typeof VISITOR_PERSONA_OPTIONS].map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {(VISITOR_PERSONA_OPTIONS as any)[fieldItem.key] ? (
+              <Select
+                value={visitorPersona[fieldItem.key as keyof VisitorPersona] || ""}
+                onValueChange={(value) =>
+                  onFieldChange(fieldItem.key as keyof VisitorPersona, value)
+                }
+                disabled={isLoading}
+              >
+                <SelectTrigger id={fieldItem.key}>
+                  <SelectValue
+                    placeholder={`Select ${fieldItem.label}`}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {((VISITOR_PERSONA_OPTIONS as any)[fieldItem.key]).map((option: any) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : fieldItem.key === 'background' || fieldItem.key === 'pain_points' || fieldItem.key === 'goals' ? (
+              <Textarea
+                id={fieldItem.key}
+                value={visitorPersona[fieldItem.key as keyof VisitorPersona] || ""}
+                onChange={(e) => onFieldChange(fieldItem.key as keyof VisitorPersona, e.target.value)}
+                placeholder={`Enter ${fieldItem.label}`}
+                disabled={isLoading}
+                className="min-h-[80px]"
+              />
+            ) : (
+              <Input
+                id={fieldItem.key}
+                value={visitorPersona[fieldItem.key as keyof VisitorPersona] || ""}
+                onChange={(e) => onFieldChange(fieldItem.key as keyof VisitorPersona, e.target.value)}
+                placeholder={`Enter ${fieldItem.label}`}
+                disabled={isLoading}
+              />
+            )}
           </div>
         ))}
       </div>

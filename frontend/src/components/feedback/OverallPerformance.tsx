@@ -1,8 +1,9 @@
-import React from 'react';
-import { motion } from "framer-motion";
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Star, Award } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Star, Award, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 
@@ -18,6 +19,8 @@ const OverallPerformance: React.FC<OverallPerformanceProps> = ({
   completeRating,
   formatRatingKey,
 }) => {
+  const [expandedReasoning, setExpandedReasoning] = useState<string | null>(null);
+
   if (!completeRating) return null;
 
   const getScoreColor = (score: number, max: number) => {
@@ -42,6 +45,10 @@ const OverallPerformance: React.FC<OverallPerformanceProps> = ({
     show: { opacity: 1, y: 0 }
   };
 
+  const toggleReasoning = (key: string) => {
+    setExpandedReasoning(expandedReasoning === key ? null : key);
+  };
+
   return (
     <Card className="rounded-xl shadow-md bg-card">
       <CardHeader className="border-b">
@@ -61,6 +68,9 @@ const OverallPerformance: React.FC<OverallPerformanceProps> = ({
             .filter(([key]) => key !== "total")
             .map(([key, value]) => {
               const percentage = (value.score / value.max) * 100;
+              const hasReasoning = value.reasoning && value.reasoning.trim().length > 0;
+              const isExpanded = expandedReasoning === key;
+
               return (
                 <motion.div
                   key={key}
@@ -69,16 +79,61 @@ const OverallPerformance: React.FC<OverallPerformanceProps> = ({
                   aria-label={`${formatRatingKey(key)} score: ${value.score} out of ${value.max}`}
                 >
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {formatRatingKey(key)}
-                    </span>
-                    <Badge 
-                      variant="outline" 
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {formatRatingKey(key)}
+                      </span>
+                      {hasReasoning && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-primary/10"
+                          onClick={() => toggleReasoning(key)}
+                          title="View reasoning"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Info className="h-4 w-4 text-primary" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    <Badge
+                      variant="outline"
                       className={`${getScoreColor(value.score, value.max)} px-2 py-0.5`}
                     >
                       {value.score}/{value.max}
                     </Badge>
                   </div>
+
+                  {/* Reasoning Section */}
+                  <AnimatePresence>
+                    {hasReasoning && isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-xs font-semibold text-blue-900 mb-1">
+                                Why this score?
+                              </p>
+                              <p className="text-sm text-blue-800 leading-relaxed">
+                                {value.reasoning}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="relative h-2 bg-muted rounded-full overflow-hidden">
                     <motion.div
                       className="absolute left-0 top-0 h-full bg-primary rounded-full"
@@ -102,8 +157,8 @@ const OverallPerformance: React.FC<OverallPerformanceProps> = ({
                     <Award className="h-5 w-5 text-primary" />
                     <h3 className="font-semibold">Total Score</h3>
                   </div>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={`${getScoreColor(completeRating.total.score, completeRating.total.max)} px-3 py-1`}
                   >
                     {completeRating.total.score}/{completeRating.total.max}

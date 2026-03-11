@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,20 +41,54 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 
+import { authService } from "@/services/authService";
+
 const Settings = () => {
   const { user, logout } = useAuth();
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Initialize theme from localStorage or system preference
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark" ||
+        (!localStorage.getItem("theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+    return false;
+  });
+
+  // Apply theme class to document
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (isDarkMode) {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.add("light");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
 
   // Form state
   const [formData, setFormData] = useState({
-    name: user?.name || "John Doe",
-    email: user?.email || "john@example.com",
-    role: user?.role || "Sales Representative",
+    name: "",
+    email: "",
+    role: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.name || user.username || "",
+        email: user.email || "",
+        role: user.role || ""
+      }));
+    }
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -64,9 +98,28 @@ const Settings = () => {
     }));
   };
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation would update user profile in database
+    try {
+      await authService.updateProfile({ name: formData.name, email: formData.email });
+
+      // Update local storage to reflect change immediately
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        parsed.name = formData.name;
+        parsed.username = formData.name;
+        parsed.email = formData.email;
+        localStorage.setItem("user", JSON.stringify(parsed));
+      }
+
+      // Quick reload to refresh context (or better: add updateUser to context)
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error("Failed to update profile", error);
+      alert("Failed to update profile: " + error.message);
+    }
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
@@ -97,13 +150,12 @@ const Settings = () => {
 
   const handleThemeToggle = () => {
     setIsDarkMode(!isDarkMode);
-    // Implementation would toggle theme in app
   };
 
   return (
     <div className="min-h-screen flex flex-col">
       {/* <Navbar /> */}
-      
+
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Settings</h1>
@@ -111,7 +163,7 @@ const Settings = () => {
             Manage your account preferences and profile information
           </p>
         </div>
-        
+
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           <Card className="col-span-1 h-fit">
             <CardHeader>
@@ -145,14 +197,14 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
-          
+
           <div className="col-span-1 md:col-span-2">
             <Tabs defaultValue="account" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="account">Account</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="account">
                 <Card>
                   <CardHeader>
@@ -202,7 +254,7 @@ const Settings = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col gap-1">
                             <h4 className="font-medium">Theme Preference</h4>
@@ -223,7 +275,7 @@ const Settings = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
-              
+
               <TabsContent value="security">
                 <Card>
                   <CardHeader>
@@ -276,7 +328,7 @@ const Settings = () => {
                         <Button type="submit">Change Password</Button>
                       </div>
                     </form>
-                    
+
                     <div className="mt-8 pt-6 border-t">
                       <h3 className="text-lg font-medium text-destructive mb-2">Danger Zone</h3>
                       <p className="text-sm text-muted-foreground mb-4">

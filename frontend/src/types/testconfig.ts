@@ -8,6 +8,14 @@ export type VisitorPersona = {
   decision_authority: string;
   exhibition_objective: string;
   category?: string;
+  // Dynamic fields
+  name?: string;
+  visitor_type?: string;
+  background?: string;
+  pain_points?: string;
+  goals?: string;
+  distraction_handling?: string;
+  communication_simplicity?: string;
 };
 
 export type AdditionalCriteria = {

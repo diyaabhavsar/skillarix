@@ -119,8 +119,13 @@ const ShadcnTable = React.memo(
     currentPage = 1,
     paginationData,
     onPageChange,
-  }: ShadcnTableProps<T>) => {
-    const [search, setSearch] = React.useState("");
+    defaultSearch = "",
+  }: ShadcnTableProps<T> & { defaultSearch?: string }) => {
+    const [search, setSearch] = React.useState(defaultSearch);
+
+    const getNestedValue = (obj: any, path: string) => {
+      return path.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
+    };
 
     const filteredData = useMemo(() => {
       if (!searchable || !search.trim()) return data;
@@ -128,7 +133,7 @@ const ShadcnTable = React.memo(
       return data.filter((row) =>
         (searchKeys.length ? searchKeys : columns.map((c) => c.key)).some(
           (key) => {
-            const value = row[key];
+            const value = getNestedValue(row, String(key));
             return value && String(value).toLowerCase().includes(lower);
           }
         )

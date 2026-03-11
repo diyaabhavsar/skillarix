@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/utils/api";
 import { toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 interface Category {
   id: string;
@@ -37,11 +38,6 @@ interface PracticeSessionState {
 interface CategoryResponse {
   _id: string;
   name: string;
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
-  is_deleted?: boolean;
 }
 
 interface ProductResponse {
@@ -69,7 +65,7 @@ interface PracticeSessionHook {
   selectedCategoryId: string;
   selectedProductId: string;
   selectedTestConfigId: string;
-  
+
   // Loading and error states
   isLoading: boolean;
   error: string | null;
@@ -99,6 +95,7 @@ interface PracticeSessionHook {
 }
 
 export const usePracticeSession = (): PracticeSessionHook => {
+  const location = useLocation();
   const [state, setState] = useState<PracticeSessionState>({
     categories: [],
     products: [],
@@ -109,6 +106,23 @@ export const usePracticeSession = (): PracticeSessionHook => {
     isLoading: false,
     error: null,
   });
+
+  // Refs to handle auto-selection from navigation state without causing loops
+  const pendingProductId = useRef<string | null>(null);
+  const pendingConfigId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const navState = location.state as { preSelectedCategoryId?: string; preSelectedProductId?: string; preSelectedConfigId?: string } | null;
+    if (navState) {
+      if (navState.preSelectedProductId) pendingProductId.current = navState.preSelectedProductId;
+      if (navState.preSelectedConfigId) pendingConfigId.current = navState.preSelectedConfigId;
+
+      // If Category provided, set it immediately to trigger cascade
+      if (navState.preSelectedCategoryId && navState.preSelectedCategoryId !== state.selectedCategoryId) {
+        setState(prev => ({ ...prev, selectedCategoryId: navState.preSelectedCategoryId! }));
+      }
+    }
+  }, [location.state]); // Only run when location state changes (usually mount)
 
   const setStateWithLoading = (updater: (prevState: PracticeSessionState) => Partial<PracticeSessionState>) => {
     setState(prev => ({
@@ -126,8 +140,8 @@ export const usePracticeSession = (): PracticeSessionHook => {
   };
 
   const isSelectionValid = Boolean(
-    state.selectedCategoryId && 
-    state.selectedProductId && 
+    state.selectedCategoryId &&
+    state.selectedProductId &&
     state.selectedTestConfigId
   );
 
@@ -145,29 +159,31 @@ export const usePracticeSession = (): PracticeSessionHook => {
 
   // Fetch Categories
   const fetchCategories = async () => {
-    setStateWithLoading(prev => ({ ...prev, categories: [] }));
+    // Don't clear categories if we already have them (prevents flicker on re-mount if cached)
+    // But for now, simple implementation
+    setStateWithLoading(prev => ({ ...prev })); // Just set loading
     try {
       const response = await api.get("/categories");
-      
-      // Handle response format - could be array or object with data property
-      const categoriesData = Array.isArray(response) ? response : 
-                           (response && typeof response === 'object' && 'data' in response) ? response.data : 
-                           [];
-      
+
+      const categoriesData = Array.isArray(response) ? response :
+        (response && typeof response === 'object' && 'data' in response) ? response.data :
+          [];
+
       if (!Array.isArray(categoriesData)) {
         throw new Error('Invalid categories data format received');
       }
 
-      const fetchedCategories: Category[] = categoriesData.map((cat: CategoryResponse) => ({ 
-        id: cat._id, 
-        name: cat.name 
+      const fetchedCategories: Category[] = categoriesData.map((cat: CategoryResponse) => ({
+        id: cat._id,
+        name: cat.name
       }));
 
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         categories: fetchedCategories,
-        selectedCategoryId: fetchedCategories.length > 0 ? fetchedCategories[0].id : "",
-        isLoading: false 
+        // Only set default if NO selection exists
+        selectedCategoryId: prev.selectedCategoryId || (fetchedCategories.length > 0 ? fetchedCategories[0].id : ""),
+        isLoading: false
       }));
     } catch (error) {
       handleError("load categories", error);
@@ -189,11 +205,21 @@ export const usePracticeSession = (): PracticeSessionHook => {
         description: prod.description,
         category_id: prod.category_id,
       }));
-      setState(prev => ({ 
-        ...prev, 
+
+      let nextProductId = "";
+      // Check pending selection first
+      if (pendingProductId.current && fetchedProducts.find(p => p.id === pendingProductId.current)) {
+        nextProductId = pendingProductId.current;
+        pendingProductId.current = null; // Clear it
+      } else {
+        nextProductId = fetchedProducts.length > 0 ? fetchedProducts[0].id : "";
+      }
+
+      setState(prev => ({
+        ...prev,
         products: fetchedProducts,
-        selectedProductId: fetchedProducts.length > 0 ? fetchedProducts[0].id : "",
-        isLoading: false 
+        selectedProductId: nextProductId,
+        isLoading: false
       }));
     } catch (error) {
       handleError("load products", error);
@@ -218,11 +244,21 @@ export const usePracticeSession = (): PracticeSessionHook => {
         additionalCriteria: config.additionalCriteria || {},
         created_at: config.created_at
       }));
-      setState(prev => ({ 
-        ...prev, 
+
+      let nextConfigId = "";
+      // Check pending selection
+      if (pendingConfigId.current && formattedConfigs.find(c => c.id === pendingConfigId.current)) {
+        nextConfigId = pendingConfigId.current;
+        pendingConfigId.current = null;
+      } else {
+        nextConfigId = formattedConfigs.length > 0 ? formattedConfigs[0].id : "";
+      }
+
+      setState(prev => ({
+        ...prev,
         testConfigurations: formattedConfigs,
-        selectedTestConfigId: formattedConfigs.length > 0 ? formattedConfigs[0].id : "",
-        isLoading: false 
+        selectedTestConfigId: nextConfigId,
+        isLoading: false
       }));
     } catch (error) {
       handleError("load test configurations", error);
@@ -252,11 +288,11 @@ export const usePracticeSession = (): PracticeSessionHook => {
   const chatMessages: any[] = [];
   const userResponse = "";
   const isEndEvaluationOpen = false;
-  const setIsEndEvaluationOpen = () => {};
-  const handleResponseChange = () => {};
-  const submitResponse = () => {};
-  const handleEndSession = () => {};
-  const handleNewSession = () => {};
+  const setIsEndEvaluationOpen = () => { };
+  const handleResponseChange = () => { };
+  const submitResponse = () => { };
+  const handleEndSession = () => { };
+  const handleNewSession = () => { };
   const waitingForLLM = false;
 
   return {
@@ -267,16 +303,16 @@ export const usePracticeSession = (): PracticeSessionHook => {
     selectedCategoryId: state.selectedCategoryId,
     selectedProductId: state.selectedProductId,
     selectedTestConfigId: state.selectedTestConfigId,
-    
+
     // Status
     isLoading: state.isLoading,
     error: state.error,
-    
+
     // Setters
     setSelectedCategoryId: (id: string) => setState(prev => ({ ...prev, selectedCategoryId: id })),
     setSelectedProductId: (id: string) => setState(prev => ({ ...prev, selectedProductId: id })),
     setSelectedTestConfigId: (id: string) => setState(prev => ({ ...prev, selectedTestConfigId: id })),
-    
+
     // Helpers
     isSelectionValid,
     getSelectedConfig,

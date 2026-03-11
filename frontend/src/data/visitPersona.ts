@@ -57,10 +57,46 @@ export const VISITOR_PERSONA_OPTIONS = {
     { value: 'partnership', label: 'Partnership' },
     { value: 'demo-booking', label: 'Demo booking' },
   ],
+  distraction_handling: [
+    { value: 'none', label: 'None' },
+    { value: 'low', label: 'Low (check phone once)' },
+    { value: 'moderate', label: 'Moderate (distracted by passersby)' },
+    { value: 'high', label: 'High (frequently interrupts)' },
+  ],
+  communication_simplicity: [
+    { value: 'technical', label: 'Technical / Jargon-heavy' },
+    { value: 'normal', label: 'Normal / Professional' },
+    { value: 'simple', label: 'Simple / Layman terms' },
+  ],
 };
 
 
 export const visitorPersonaFields = [
+  {
+    key: "name",
+    label: "Visitor Name",
+    description: "The persona's name (e.g., Dr. Sarah)",
+  },
+  {
+    key: "visitor_type",
+    label: "Role / Job Title",
+    description: "e.g., CTO, Procurement Manager",
+  },
+  {
+    key: "background",
+    label: "Background",
+    description: "Short bio or context about the visitor",
+  },
+  {
+    key: "pain_points",
+    label: "Pain Points",
+    description: "Specific problems they want to solve",
+  },
+  {
+    key: "goals",
+    label: "Goals",
+    description: "What they hope to achieve",
+  },
   {
     key: "product_knowledge",
     label: "Product Knowledge",
@@ -74,32 +110,41 @@ export const visitorPersonaFields = [
   {
     key: "technical_expertise",
     label: "Technical Expertise",
-    description: "How comfortable they are with product-related details",
+    description: "Their comfort level with technical details",
   },
   {
     key: "key_challenges",
-    label: "Key Challenges",
-    description: "Their primary concern or pain point",
+    label: "Key Challenge",
+    description: "The primary problem they need solved",
   },
   {
     key: "buying_objective",
     label: "Buying Objective",
-    description: "Their main \"why\" today",
+    description: "What outcome they need (e.g., save money)",
   },
   {
     key: "budget_range",
     label: "Budget Range",
-    description: "Their rough spend capacity",
+    description: "Price sensitivity level",
   },
   {
     key: "decision_authority",
     label: "Decision Authority",
-    description: "Their role in the purchase process",
+    description: "Who makes the final call",
   },
   {
     key: "exhibition_objective",
     label: "Exhibition Objective",
-    description: "What they want to achieve at your booth",
+    description: "Why they are talking to you right now",
+  },
+  {
+    key: "distraction_handling",
+    label: "Distraction Handling",
+    description: "How easily distracted they are (if applicable)",
+  },
+  {
+    key: "communication_simplicity",
+    label: "Communication Simplicity",
+    description: "Preferred complexity of language",
   },
 ];
-

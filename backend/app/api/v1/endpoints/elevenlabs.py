@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from ....schemas.elevenlabs import ElevenLabsSchema
+from ....schemas.elevenlabs import ElevenLabsSchema, ElevenLabsAgentUpdateSchema
+from ....services.elevenlabs_service import update_elevenlabs_agent
 from bson import ObjectId
 from datetime import datetime
 from ....services.auth import verify_bearer_token
 from ....services.websocket import (
-    evaluate_complete_conversation,
     remove_invalid_json_chars, evaluate_additional_criteria,
 )
 from ....database import db
@@ -12,16 +12,152 @@ import json
 from ....services.conversation import (
     save_transcript_conversation,
     update_transcript_service,
-    get_transcript_by_id_service
+    get_transcript_by_id_service,
+    evaluate_complete_conversation,
+    extract_score
 )
+from .conversations import process_gamification
+from ....services.elevenlabs_service import update_elevenlabs_agent
+from ....schemas.elevenlabs import ElevenLabsSchema, ElevenLabsAgentUpdateSchema
 
 
 test_configurations_collection = db["test_configurations"]
 product_collection = db["products"]
 category_collection = db["categories"]
 conversations_collection = db["conversations"]
+assignments_collection = db["assignments"]
 
 router = APIRouter()
+
+
+
+@router.get("/tool/product_details")
+async def get_product_details_tool(
+    product_id: str
+):
+    """
+    Public endpoint for ElevenLabs tools to fetch product details.
+    """
+    try:
+        if not ObjectId.is_valid(product_id):
+             return {"error": "Invalid Product ID Format"}
+             
+        product = product_collection.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            return {"error": "Product not found"}
+            
+        return {
+            "name": product.get("name"),
+            "description": product.get("description"),
+            "content": product.get("content"),
+            "category_id": str(product.get("category_id"))
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/tool/test_config_details")
+async def get_test_config_details_tool(
+    test_config_id: str
+):
+    """
+    Public endpoint for ElevenLabs tools to fetch test configuration details.
+    """
+    print(f"\n🔍 [ElevenLabs Tool] Request Received for Config ID: {test_config_id}")
+
+    try:
+        if not ObjectId.is_valid(test_config_id):
+             print(f"❌ [ElevenLabs Tool] Invalid ID Format")
+             return {"error": "Invalid Test Configuration ID Format"}
+             
+        test_config = test_configurations_collection.find_one({"_id": ObjectId(test_config_id)})
+        if not test_config:
+            print(f"❌ [ElevenLabs Tool] Test Configuration Not Found")
+            return {"error": "Test Configuration not found"}
+            
+        product = product_collection.find_one({"_id": test_config.get("product_id")})
+        visitor_persona = test_config.get("visitorPersona", {})
+
+        # Base response
+        response = {
+            "test_config_name": test_config.get("name"),
+            "product_name": product.get("name") if product else None,
+            "product_id": str(test_config.get("product_id")),
+            "category_id": str(test_config.get("category_id")),
+            "additional_criteria": test_config.get("additionalCriteria"),
+            # Keep visitor_persona object for structure if needed, but variables are now also at root
+            "visitor_persona": visitor_persona
+        }
+
+        # Flatten visitor persona fields to top level for easy variable mapping
+        # This exposes: product_knowledge, budget_range, etc. directly
+        if isinstance(visitor_persona, dict):
+            response.update(visitor_persona)
+
+        print(f"✅ [ElevenLabs Tool] Success! Returning payload:")
+        print(f"   Product: {response.get('product_name')}")
+        print(f"   Variables: {list(response.keys())}")
+        print(f"   Full Data: {response}\n")
+
+        return response
+    except Exception as e:
+        print(f"🚨 [ElevenLabs Tool] Exception: {str(e)}\n")
+        return {"error": str(e)}
+
+
+@router.post("/agent/update")
+async def update_agent_endpoint(
+    data: ElevenLabsAgentUpdateSchema,
+    token = Depends(verify_bearer_token)
+):
+    """
+    Updates the ElevenLabs agent with the configuration from the specified test ID.
+    Generates a dynamic system prompt based on the persona.
+    """
+    try:
+        if not ObjectId.is_valid(data.test_config_id):
+            raise HTTPException(status_code=400, detail="Invalid Test Config ID")
+            
+        test_config = test_configurations_collection.find_one({"_id": ObjectId(data.test_config_id)})
+        if not test_config:
+            raise HTTPException(status_code=404, detail="Test Configuration not found")
+            
+        product_id = test_config.get("product_id")
+        product = product_collection.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+            
+        persona = test_config.get("visitorPersona", {})
+        
+        # Ensure product has necessary fields
+        # Note: We are using product_data dict to pass to the service
+        product_data = {
+            "name": product.get("name"),
+            "description": product.get("description"),
+            "category": str(product.get("category_id")), # Or category name if we join
+            "content": product.get("content")
+        }
+        
+        # If agent_id is provided in the request, pass it. Otherwise service uses default form env.
+        # But wait, create_elevenlabs_service logic uses settings.AGENT_ID if None.
+        
+        # We need to await the async function? No, update_elevenlabs_agent is synchronous in my implementation.
+        # Wait, I declared update_elevenlabs_agent with `async def` in Steps 66? No, I declared it with `def` in `write_to_file`.
+        # Let me check step 66 content.
+        # Ah, I see `async def update_elevenlabs_agent` in Step 66? No, I see `def update_elevenlabs_agent`?
+        # Actually, Step 66 shows `async def update_elevenlabs_agent`.
+        # Wait, my Step 66 code content: `async def update_elevenlabs_agent(...)`. It is async.
+        
+        result = await update_elevenlabs_agent(persona, product_data, agent_id=data.agent_id)
+        
+        # Update result might return the full JSON response from ElevenLabs.
+        return {"status": "success", "agent_id": result.get("agent_id")}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating agent: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/transcript")
@@ -37,12 +173,33 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
     # Filter transcript to remove the first agent message
     filtered_transcript = data_dict["transcript"]
 
-    for i in range(0, len(filtered_transcript) - 1, 2):
-        if filtered_transcript[i]["source"] == "ai" and filtered_transcript[i + 1]["source"] == "user":
+    # Robust transcript processing: Flatten consecutive messages first
+    flattened_transcript = []
+    if filtered_transcript:
+        current_msg = filtered_transcript[0].copy()
+        for i in range(1, len(filtered_transcript)):
+            next_msg = filtered_transcript[i].copy()
+            if next_msg["source"] == current_msg["source"]:
+                current_msg["text"] += " " + next_msg["text"]
+            else:
+                flattened_transcript.append(current_msg)
+                current_msg = next_msg
+        flattened_transcript.append(current_msg)
+
+    # Pair AI -> User exchanges
+    structured_output = []
+    i = 0
+    while i < len(flattened_transcript) - 1:
+        # We look for an AI message followed immediately by a User message
+        if flattened_transcript[i]["source"] == "ai" and flattened_transcript[i+1]["source"] == "user":
             structured_output.append({
-                "salesperson_text": filtered_transcript[i + 1]["text"],
-                "visitor_text": filtered_transcript[i]["text"],
+                "salesperson_text": flattened_transcript[i+1]["text"],
+                "visitor_text": flattened_transcript[i]["text"],
             })
+            i += 2 # Consumed both
+        else:
+            # If we see User first, or AI->AI (already flattened), skip one
+            i += 1
 
     transcript_text = structured_output
     product_content_str = product.get("content") if product.get("content") else ""
@@ -260,11 +417,46 @@ async def get_transcript(data: ElevenLabsSchema, token = Depends(verify_bearer_t
         )
         conversation_db_id = str(saved_conversation_result)
         print(f"Conversation saved with ID: {conversation_db_id}")
+
+        # --- UPDATE ASSIGNMENT IF PRESENT ---
+        if data.assignment_id:
+            try:
+                # Use robust extract_score function
+                final_score = extract_score(complete_evaluation_raw)
+                
+                # Multiply by 10 if score is 0-10 format
+                if final_score <= 10 and final_score > 0:
+                    final_score = final_score * 10
+
+                assignments_collection.update_one(
+                    {"_id": ObjectId(data.assignment_id)},
+                    {
+                        "$set": {
+                            "status": "completed",
+                            "conversation_id": ObjectId(conversation_db_id),
+                            "score": final_score,
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+                print(f"✅ Assignment {data.assignment_id} updated to completed with score {final_score}")
+                
+                # Trigger gamification for assignment completion too
+                await process_gamification(token["id"], final_score)
+            except Exception as e:
+                print(f"❌ Error updating assignment: {e}")
+        else:
+            # If not an assignment, still trigger gamification for the user
+            try:
+                final_score = extract_score(complete_evaluation_raw)
+                await process_gamification(token["id"], final_score)
+            except Exception as e:
+                print(f"❌ Error triggering gamification: {e}")
         
     except Exception as save_error:
         print(f"Error saving conversation: {save_error}")
 
-    return {"transcript":transcript_text}
+    return {"transcript":transcript_text, "conversation_id": str(saved_conversation_result)}
 
 
 @router.put("/transcript/{conversation_id}")
@@ -312,6 +504,34 @@ async def get_transcript_by_id(
         )
         
         return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.delete("/transcript/{conversation_id}")
+async def delete_transcript(
+    conversation_id: str,
+    token = Depends(verify_bearer_token)
+):
+    """Delete a conversation/transcript by ID"""
+    try:
+        if not ObjectId.is_valid(conversation_id):
+            raise HTTPException(status_code=400, detail="Invalid conversation ID")
+            
+        # Delete the document ensuring it belongs to the user (if user_id stored)
+        # Note: We check user_id matching to ensure users can't delete others' data
+        result = conversations_collection.delete_one({
+            "_id": ObjectId(conversation_id), 
+            "user_id": ObjectId(token["id"])
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Conversation not found or access denied")
+            
+        return {"status": "success", "message": "Conversation deleted successfully"}
         
     except HTTPException:
         raise

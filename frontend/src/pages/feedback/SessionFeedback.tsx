@@ -49,9 +49,9 @@ const SessionFeedback: React.FC = () => {
   const formatValue = (value: string): string =>
     value
       ? value
-          .split(/[-_]/)
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ")
+        .split(/[-_]/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
       : "-";
 
   const formatDate = (dateString: string) =>
@@ -102,17 +102,30 @@ const SessionFeedback: React.FC = () => {
   const formatEvaluationValue = (value: any) => {
     if (!value) return "";
     if (typeof value === "string") return value;
+
+    if (Array.isArray(value)) {
+      return (
+        <ul className="list-disc pl-5 space-y-2">
+          {value.map((item, i) => (
+            <li key={i} className="text-slate-700 leading-relaxed">
+              {typeof item === "string" ? item : JSON.stringify(item)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
     if (typeof value === "object") {
       return (
-        <div className="border rounded bg-slate-50 p-3 my-2">
+        <div className="border rounded-lg bg-slate-50/50 p-4 my-2 shadow-sm">
           <table className="w-full text-sm">
             <tbody>
               {Object.entries(value).map(([k, v]) => (
-                <tr key={k}>
-                  <td className="pr-2 py-1 font-medium align-top text-slate-700 whitespace-nowrap">
-                    {k.replace(/_/g, " ")}:
+                <tr key={k} className="border-b border-slate-100 last:border-0">
+                  <td className="pr-4 py-2 font-semibold align-top text-slate-700 whitespace-nowrap capitalize">
+                    {k.replace(/_/g, " ")}
                   </td>
-                  <td className="py-1 text-slate-600">
+                  <td className="py-2 text-slate-600">
                     {typeof v === "string" ? v : JSON.stringify(v)}
                   </td>
                 </tr>
@@ -280,10 +293,10 @@ const SessionFeedback: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative">
         <div className="space-y-6 container mx-auto px-4 py-6 h-full overflow-y-scroll"
-             style={{
-               scrollbarWidth: 'none',
-               msOverflowStyle: 'none'
-             }}>
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
           <style dangerouslySetInnerHTML={{
             __html: `
               .space-y-6.container::-webkit-scrollbar {
@@ -361,47 +374,47 @@ const SessionFeedback: React.FC = () => {
               {availableTabs.find(
                 (tab) => tab.value === "overall-performance"
               ) && (
-                <TabsContent
-                  value="overall-performance"
-                  className="mt-6"
-                  asChild
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                  <TabsContent
+                    value="overall-performance"
+                    className="mt-6"
+                    asChild
                   >
-                    <OverallPerformance
-                      completeRating={evaluation_data.complete_rating}
-                      formatRatingKey={formatRatingKey}
-                      renderRating={renderRating}
-                    />
-                  </motion.div>
-                </TabsContent>
-              )}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <OverallPerformance
+                        completeRating={evaluation_data.complete_rating}
+                        formatRatingKey={formatRatingKey}
+                        renderRating={renderRating}
+                      />
+                    </motion.div>
+                  </TabsContent>
+                )}
 
               {availableTabs.find(
                 (tab) => tab.value === "complete-evaluation"
               ) && (
-                <TabsContent
-                  value="complete-evaluation"
-                  className="mt-6"
-                  asChild
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                  <TabsContent
+                    value="complete-evaluation"
+                    className="mt-6"
+                    asChild
                   >
-                    <CompleteEvaluation
-                      completeEvaluation={evaluation_data.complete_evaluation}
-                      formatEvaluationValue={formatEvaluationValue}
-                    />
-                  </motion.div>
-                </TabsContent>
-              )}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <CompleteEvaluation
+                        completeEvaluation={evaluation_data.complete_evaluation}
+                        formatEvaluationValue={formatEvaluationValue}
+                      />
+                    </motion.div>
+                  </TabsContent>
+                )}
 
               {availableTabs.find((tab) => tab.value === "conversation") && (
                 <TabsContent value="conversation" className="mt-6" asChild>
@@ -422,48 +435,48 @@ const SessionFeedback: React.FC = () => {
               {availableTabs.find(
                 (tab) => tab.value === "exchange-evaluations"
               ) && (
-                <TabsContent
-                  value="exchange-evaluations"
-                  className="mt-6"
-                  asChild
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                  <TabsContent
+                    value="exchange-evaluations"
+                    className="mt-6"
+                    asChild
                   >
-                    <ExchangeEvaluations
-                      evaluations={evaluation_data.individual_evaluations}
-                      formatEvaluationData={formatEvaluationData}
-                    />
-                  </motion.div>
-                </TabsContent>
-              )}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ExchangeEvaluations
+                        evaluations={evaluation_data.individual_evaluations}
+                        formatEvaluationData={formatEvaluationData}
+                      />
+                    </motion.div>
+                  </TabsContent>
+                )}
 
               {availableTabs.find(
                 (tab) => tab.value === "additional-criteria"
               ) && (
-                <TabsContent
-                  value="additional-criteria"
-                  className="mt-6"
-                  asChild
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.2 }}
+                  <TabsContent
+                    value="additional-criteria"
+                    className="mt-6"
+                    asChild
                   >
-                    <AdditionalCriteria
-                      criteriaEvaluation={
-                        evaluation_data.additional_criteria_evaluation
-                      }
-                      formatAIGeneratedText={formatAIGeneratedText}
-                    />
-                  </motion.div>
-                </TabsContent>
-              )}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <AdditionalCriteria
+                        criteriaEvaluation={
+                          evaluation_data.additional_criteria_evaluation
+                        }
+                        formatAIGeneratedText={formatAIGeneratedText}
+                      />
+                    </motion.div>
+                  </TabsContent>
+                )}
 
               {availableTabs.find((tab) => tab.value === "mid-evaluations") && (
                 <TabsContent value="mid-evaluations" className="mt-6" asChild>
