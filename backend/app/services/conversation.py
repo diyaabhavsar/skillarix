@@ -283,7 +283,7 @@ INSTRUCTIONS:
                 messages=[{"role":"user","content":prompt}],
                 temperature=0.0,
                 top_p=1,
-                max_tokens=400,
+                max_tokens=1024,
                 stream=True,
             )
             full_response = ""
@@ -298,7 +298,7 @@ INSTRUCTIONS:
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
                 messages=[{"role":"user","content":prompt}],
                 temperature=0.0,
-                max_completion_tokens=400,
+                max_completion_tokens=1024,
                 top_p=1,
                 stream=True,
                 stop=None,
@@ -585,22 +585,28 @@ def evaluate_additional_criteria(conversation: List[dict], criteria: str, contex
     """
     try:
         persona_block = json.dumps(persona, indent=2) if persona else "{}"
-        # Provide a unified JSON-output prompt for criteria as well
+        
+        # Get specific persona requirements if available
+        comm_req = persona.get('communication_simplicity', 'normal') if persona else 'normal'
+        dist_req = persona.get('distraction_handling', 'none') if persona else 'none'
+
         if criteria == "Distraction Handling":
-            criteria_prompt = """
+            criteria_prompt = f"""
 Evaluate how well the salesperson manages distractions and off-topic questions.
-Return JSON: { "evaluation": "short text", "rating": { "focus_maintenance": {"score": X, "max":3}, "off_topic_response": {"score": X, "max":3}, "flow_management": {"score": X, "max":4}, "total": {"score": Y, "max":10} } }
+The visitor has a distraction level of: {dist_req}.
+Return JSON: {{ "evaluation": "1-2 paragraph feedback text", "rating": {{ "focus_maintenance": {{"score": X, "max":3}}, "off_topic_response": {{"score": X, "max":3}}, "flow_management": {{"score": X, "max":4}}, "total": {{"score": Y, "max":10}} }} }}
 Include 1-2 short examples from the conversation.
 """
         elif criteria == "Communication Simplicity":
-            criteria_prompt = """
+            criteria_prompt = f"""
 Evaluate clarity and simplicity of explanations.
-Return JSON: { "evaluation": "short text", "rating": { "clarity": {"score": X, "max":3}, "examples_usage": {"score": X, "max":3}, "organization": {"score": X, "max":4}, "total": {"score": Y, "max":10} } }
+The visitor prefers communication style: {comm_req}.
+Return JSON: {{ "evaluation": "1-2 paragraph feedback text", "rating": {{ "clarity": {{"score": X, "max":3}}, "examples_usage": {{"score": X, "max":3}}, "organization": {{"score": X, "max":4}}, "total": {{"score": Y, "max":10}} }} }}
 Include 1-2 short examples from the conversation.
 """
         else:
-            # default fallback: plain text
-            criteria_prompt = f"Evaluate according to {criteria}. Provide short plain text feedback and 1-2 suggestions."
+            # default fallback: return JSON for consistency
+            criteria_prompt = f"Evaluate according to {criteria}. Return JSON: {{ 'evaluation': '1-2 paragraphs of feedback', 'rating': {{ 'total': {{ 'score': X, 'max': 10 }} }} }} Include 1-2 examples."
 
         conversation_text = format_conversation_history(conversation)
         prompt = f"""
@@ -618,9 +624,7 @@ Conversation:
 Instructions:
 {criteria_prompt}
 
-Return JSON only when the criteria_prompt above expects JSON. Otherwise return plain text.
-
-CRITICAL: Be strict in your scoring. High scores should only be given for exceptional performance.
+CRITICAL: Return ONLY a valid JSON object. No preamble, no conversational text.
 """
         if FLAG == 1:
             response_stream = openai_client.chat.completions.create(
@@ -628,20 +632,25 @@ CRITICAL: Be strict in your scoring. High scores should only be given for except
                 messages=[{"role":"user","content":prompt}],
                 temperature=0.0,
                 top_p=1,
-                max_tokens=400,
+                max_tokens=1024,
                 stream=True,
             )
             full_response = ""
             for chunk in response_stream:
                 if getattr(chunk.choices[0].delta, "content", None):
                     full_response += chunk.choices[0].delta.content
-            return full_response.strip()
+            
+            full_response = full_response.strip()
+            parsed = safe_json_load(full_response)
+            if parsed:
+                return json.dumps(parsed)
+            return full_response
         else:
             completion = client.chat.completions.create(
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
                 messages=[{"role":"user","content":prompt}],
                 temperature=0.0,
-                max_completion_tokens=400,
+                max_completion_tokens=1024,
                 top_p=1,
                 stream=True,
                 stop=None,
@@ -650,7 +659,12 @@ CRITICAL: Be strict in your scoring. High scores should only be given for except
             for chunk in completion:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
-            return full_response.strip()
+            
+            full_response = full_response.strip()
+            parsed = safe_json_load(full_response)
+            if parsed:
+                return json.dumps(parsed)
+            return full_response
     except Exception as e:
         print(f"Error in evaluate_additional_criteria: {e}")
         traceback.print_exc()

@@ -41,7 +41,7 @@ const getStepTitle = (key: string): string =>
 
 const getStepIcon = (key: string): JSX.Element => {
   const keyLower = key.toLowerCase();
-  
+
   if (keyLower.includes("analogy") || keyLower.includes("example")) {
     return <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
   }
@@ -54,14 +54,14 @@ const getStepIcon = (key: string): JSX.Element => {
 const calculateTotalScores = (criteriaEvaluation: Record<string, AdditionalCriteriaValue>) => {
   let totalScore = 0;
   let totalMax = 0;
-  
+
   Object.values(criteriaEvaluation).forEach((val) => {
     if (val && typeof val === "object" && "score" in val) {
       totalScore += Number(val.score) || 0;
       totalMax += Number(val.max) || 0;
     }
   });
-  
+
   return { totalScore, totalMax };
 };
 
@@ -86,14 +86,30 @@ const CriteriaItem: React.FC<CriteriaItemProps> = ({
   let suggestion = "";
   let example = "";
 
-  if (value && typeof value === "object") {
-    score = "score" in value ? value.score : null;
-    max = "max" in value ? value.max : null;
-    feedback = value.feedback || value.summary || "";
-    suggestion = value.suggestion || value.tip || "";
-    example = value.example || "";
-  } else if (typeof value === "string") {
-    feedback = value;
+  let parsedValue = value;
+  if (typeof value === "string") {
+    try {
+      parsedValue = JSON.parse(value);
+    } catch (e) {
+      // Not JSON, use as is
+    }
+  }
+
+  if (parsedValue && typeof parsedValue === "object") {
+    // Check for nested rating object
+    if (parsedValue.rating && typeof parsedValue.rating === "object") {
+      score = parsedValue.rating.score ?? parsedValue.rating.total?.score ?? null;
+      max = parsedValue.rating.max ?? parsedValue.rating.total?.max ?? null;
+    } else {
+      score = "score" in parsedValue ? parsedValue.score : null;
+      max = "max" in parsedValue ? parsedValue.max : null;
+    }
+
+    feedback = parsedValue.evaluation || parsedValue.feedback || parsedValue.summary || "";
+    suggestion = parsedValue.suggestion || parsedValue.tip || "";
+    example = parsedValue.example || "";
+  } else if (typeof parsedValue === "string") {
+    feedback = parsedValue;
   }
 
   return (
@@ -185,9 +201,9 @@ const AdditionalCriteria: React.FC<AdditionalCriteriaProps> = ({
         </div>
         {totalMax > 0 && (
           <div className="flex items-center gap-3 mt-2">
-            <Progress 
-              value={(totalScore / totalMax) * 100} 
-              className="w-64 h-2" 
+            <Progress
+              value={(totalScore / totalMax) * 100}
+              className="w-64 h-2"
             />
             <Badge variant="secondary" className="text-sm font-medium">
               {totalScore}/{totalMax}
@@ -195,7 +211,7 @@ const AdditionalCriteria: React.FC<AdditionalCriteriaProps> = ({
           </div>
         )}
       </CardHeader>
-      
+
       <CardContent className="flex-1 min-h-0 p-0">
         <ScrollArea className="h-full px-6 pb-6">
           <div className="flex flex-col gap-6">
@@ -220,7 +236,7 @@ const AdditionalCriteria: React.FC<AdditionalCriteriaProps> = ({
 // Enhanced text formatter for AI-generated content
 export function formatAIGeneratedText(text: string): React.ReactNode {
   if (!text) return null;
-  
+
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let inList = false;
@@ -228,7 +244,7 @@ export function formatAIGeneratedText(text: string): React.ReactNode {
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
-    
+
     if (/^[-*]\s+/.test(trimmed)) {
       // List item
       inList = true;
@@ -259,7 +275,7 @@ export function formatAIGeneratedText(text: string): React.ReactNode {
         listItems = [];
         inList = false;
       }
-      
+
       // Bold for headings or labels
       if (/^[A-Z][^:]+:/.test(trimmed)) {
         elements.push(
@@ -276,7 +292,7 @@ export function formatAIGeneratedText(text: string): React.ReactNode {
       }
     }
   });
-  
+
   // Handle remaining list items
   if (inList && listItems.length) {
     elements.push(
@@ -285,7 +301,7 @@ export function formatAIGeneratedText(text: string): React.ReactNode {
       </ul>
     );
   }
-  
+
   return <div className="space-y-1">{elements}</div>;
 }
 
