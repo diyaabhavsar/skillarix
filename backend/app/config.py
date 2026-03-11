@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -32,6 +33,10 @@ class Settings(BaseSettings):
     
     
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra='ignore')
+    model_config = SettingsConfigDict(
+        env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
+        case_sensitive=True,
+        extra='ignore'
+    )
 
 settings = Settings()

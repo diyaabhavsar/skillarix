@@ -22,7 +22,7 @@ from app.database import db
 router = APIRouter()
 
 # -----------------------------------------------------------
-# 1️⃣ Get User Profile (Gamification)
+# 1 Get User Profile (Gamification)
 # -----------------------------------------------------------
 @router.get("/profile", response_model=GamificationProfile)
 async def get_my_gamification_profile(token=Depends(verify_bearer_token)):
@@ -48,7 +48,7 @@ async def get_my_gamification_profile(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 2️⃣ Get Leaderboard
+# 2 Get Leaderboard
 # -----------------------------------------------------------
 @router.get("/leaderboard")
 async def get_leaderboard_view(
@@ -81,7 +81,7 @@ async def get_leaderboard_view(
 
 
 # -----------------------------------------------------------
-# 3️⃣ Get User Badges
+# 3 Get User Badges
 # -----------------------------------------------------------
 @router.get("/badges", response_model=List[dict])
 async def get_my_badges(token=Depends(verify_bearer_token)):
@@ -102,7 +102,7 @@ async def get_my_badges(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 4️⃣ Get User Points
+# 4 Get User Points
 # -----------------------------------------------------------
 @router.get("/points", response_model=UserPoints)
 async def get_my_points(token=Depends(verify_bearer_token)):
@@ -111,7 +111,7 @@ async def get_my_points(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 5️⃣ Get User Milestones
+# 5 Get User Milestones
 # -----------------------------------------------------------
 @router.get("/milestones")
 async def get_my_milestones(token=Depends(verify_bearer_token)):
@@ -146,7 +146,7 @@ async def get_my_milestones(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 6️⃣ Get User Streak
+# 6 Get User Streak
 # -----------------------------------------------------------
 @router.get("/streak", response_model=UserStreak)
 async def get_my_streak(token=Depends(verify_bearer_token)):
@@ -163,7 +163,7 @@ async def get_my_streak(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 7️⃣ Get User Rank
+# 7 Get User Rank
 # -----------------------------------------------------------
 @router.get("/rank")
 async def get_my_rank(token=Depends(verify_bearer_token)):
@@ -173,7 +173,7 @@ async def get_my_rank(token=Depends(verify_bearer_token)):
 
 
 # -----------------------------------------------------------
-# 8️⃣ Get Gamification Stats (Admin)
+# 8 Get Gamification Stats (Admin)
 # -----------------------------------------------------------
 @router.get("/stats")
 async def get_gamification_stats(token=Depends(verify_bearer_token)):

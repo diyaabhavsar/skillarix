@@ -9,6 +9,12 @@ from .api.v1.api import api_router
 
 app = FastAPI(title=settings.PROJECT_NAME, debug=True)
 
+import sys
+import io
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 import traceback
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -53,20 +59,20 @@ def startup_checks():
     # Verify login credentials on startup
     try:
         from .services.auth import authenticate_user
-        print("🔍 Verifying 'admin' login credentials...")
+        print("[INFO] Verifying 'admin' login credentials...")
         user = authenticate_user("admin", "admin123")
         if user:
-            print("✅ LOGIN VERIFIED: 'admin' / 'admin123' works correctly!")
+            print("[SUCCESS] LOGIN VERIFIED: 'admin' / 'admin123' works correctly!")
         else:
-            print("❌ LOGIN FAILED: 'admin' / 'admin123' failed authentication.")
+            print("[FAILED] LOGIN FAILED: 'admin' / 'admin123' failed authentication.")
             # Try email
             user_email = authenticate_user("admin@skillarix.com", "admin123")
             if user_email:
-                print("✅ LOGIN VERIFIED: 'admin@skillarix.com' / 'admin123' works!")
+                print("[SUCCESS] LOGIN VERIFIED: 'admin@skillarix.com' / 'admin123' works!")
             else:
-                print("❌ LOGIN FAILED: Both username and email failed with 'admin123'.")
+                print("[FAILED] LOGIN FAILED: Both username and email failed with 'admin123'.")
     except Exception as e:
-        print(f"❌ LOGIN CHECK ERROR: {e}")
+        print(f"[ERROR] LOGIN CHECK ERROR: {e}")
 
 # Ensure 'uploads/' directory exists at the project root
 UPLOADS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../uploads"))
