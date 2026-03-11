@@ -5,7 +5,7 @@ from bson import ObjectId
 from datetime import datetime
 from ....services.auth import verify_bearer_token
 from ....services.websocket import (
-    remove_invalid_json_chars, evaluate_additional_criteria,
+    remove_invalid_json_chars,
 )
 from ....database import db
 import json
@@ -14,6 +14,7 @@ from ....services.conversation import (
     update_transcript_service,
     get_transcript_by_id_service,
     evaluate_complete_conversation,
+    evaluate_additional_criteria,
     extract_score
 )
 from .conversations import process_gamification
