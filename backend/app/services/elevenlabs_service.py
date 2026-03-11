@@ -168,14 +168,14 @@ class ElevenLabsService:
         
         # Voice mapping (using provided ElevenLabs voice IDs)
         voice_mapping = {
-            'cto': '21m00Tcm4TlvDq8ikWAM',          # Josh - Deep, authoritative
-            'ceo': 'VR6AewLTigWG4xSOukaG',          # Arnold - Confident, mature
-            'engineer': 'yoZ06aMxZJJ28mfd3POQ',     # Sam - Technical
-            'manager': 'EXAVITQu4vr4xnSDxMaL',      # Sarah - Professional female
-            'director': 'ThT5KcBeYPX3keUQqHPh',     # Dorothy - Mature female
-            'analyst': 'jBpfuIE2acCO8z3wKNLl',      # Gigi - Young professional
-            'default_male': 'pNInz6obpgDQGcFmaJgB',  # Adam
-            'default_female': 'MF3mGyEYCl7XYWbV9V6O' # Elli
+            'cto': 'jP5jSWhfXz3nfQENMtf4',          # Custom Voice
+            'ceo': 'jP5jSWhfXz3nfQENMtf4',          # Custom Voice
+            'engineer': 'jP5jSWhfXz3nfQENMtf4',     # Custom Voice
+            'manager': 'jP5jSWhfXz3nfQENMtf4',      # Custom Voice
+            'director': 'jP5jSWhfXz3nfQENMtf4',     # Custom Voice
+            'analyst': 'jP5jSWhfXz3nfQENMtf4',      # Custom Voice
+            'default_male': 'jP5jSWhfXz3nfQENMtf4',  # Custom Voice
+            'default_female': 'jP5jSWhfXz3nfQENMtf4' # Custom Voice
         }
         
         # Check if role matches any key
