@@ -348,6 +348,24 @@ docs/_build/
 docs/.doctrees/
 
 # ============================================
+# DEVELOPMENT / DEBUG SCRIPTS
+# ============================================
+
+# One-off scripts used during development — not part of the app
+backend/debug_*.py
+backend/check_*.py
+backend/verify_*.py
+backend/list_*.py
+frontend/verify_*.py
+
+# Script output and debug text dumps
+backend/*.txt
+
+# PM2 / process manager logs (also caught by *.log above)
+server.out.log
+server.err.log
+
+# ============================================
 # MISCELLANEOUS
 # ============================================
 
