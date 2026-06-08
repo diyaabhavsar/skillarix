@@ -150,68 +150,97 @@ skillarix/
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Python 3.9+
-- MongoDB (local or cloud)
-- ElevenLabs account with a configured Conversational AI agent
-- Groq API key (or OpenAI API key)
+| Requirement | Version | Notes |
+|---|---|---|
+| Python | 3.9 – 3.13 (3.11 recommended) | Backend runtime |
+| Node.js | 18+ | Frontend build tool |
+| MongoDB | Any | Local (`mongod`) or cloud (Atlas) |
+| ElevenLabs account | — | Conversational AI agent required |
+| Groq API key | — | Default LLM provider (or OpenAI) |
 
-### Backend Setup
+---
+
+### Step 1 — Clone the repo
+
+```bash
+git clone https://github.com/diyaabhavsar/skillarix.git
+cd skillarix
+```
+
+---
+
+### Step 2 — Backend setup
 
 ```bash
 cd backend
+
+# Create and activate virtual environment
 python -m venv venv
 
 # Windows
-.\venv\Scripts\activate
+venv\Scripts\activate
+
 # Linux / macOS
 source venv/bin/activate
 
+# Install dependencies
 pip install -r app/requirements.txt
-cp .env.example .env   # then fill in values
+
+# Copy env file and fill in your values
+cp .env.example .env
 ```
 
-Backend `.env` reference:
+**Backend `.env` — fill in every value before starting:**
 
 ```env
 PROJECT_NAME=Skillarix API
 API_V1_STR=/api/v1
 BACKEND_URL=http://localhost:8070
 
-SECRET_KEY=your-secret-key
+# Security — generate a strong random string for SECRET_KEY
+SECRET_KEY=your-secret-key-min-32-chars
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-MODEL=0                  # 0 = Groq, 1 = OpenAI
+# AI model: 0 = Groq (default), 1 = OpenAI
+MODEL=0
 MODEL_NAME=meta-llama/llama-4-scout-17b-16e-instruct
-GROQ_API_KEY=your-groq-api-key
-OPENAI_API_KEY=your-openai-api-key
+GROQ_API_KEY=your-groq-api-key       # required if MODEL=0
+OPENAI_API_KEY=your-openai-api-key   # required if MODEL=1
 
+# ElevenLabs voice agent
 ELEVENLABS_API_KEY=your-elevenlabs-api-key
 AGENT_ID=your-elevenlabs-agent-id
 
+# MongoDB
 MONGODB_URL=mongodb://localhost:27017
 DATABASE_NAME=skillarix
 
-CORS_ORIGINS=["http://localhost:5173"]
+# CORS — must include whichever port the frontend runs on
+CORS_ORIGINS=["http://localhost:3005","http://localhost:5173","http://localhost:8080"]
 EVALUTION_TITLE=[Complete Evaluation,Additional Criteria Evaluation]
 ```
 
-Start the backend:
+**Start the backend (port 8070):**
 
 ```bash
+# Make sure the venv is activated first
 uvicorn app.main:app --reload --port 8070
 ```
 
-### Frontend Setup
+Confirm it's running: open **http://localhost:8070/docs** — you should see the Swagger UI.
+
+---
+
+### Step 3 — Frontend setup
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # then fill in values
+cp .env.example .env
 ```
 
-Frontend `.env` reference:
+**Frontend `.env` — fill in ElevenLabs values:**
 
 ```env
 VITE_API_URL=http://localhost:8070/api/v1
@@ -226,13 +255,78 @@ VITE_ELEVENLABS_TITLE=ElevenLabs Agent System
 VITE_EVALUTION_TITLE=[Complete Evaluation,Additional Criteria Evaluation]
 ```
 
-Start the frontend:
+**Start the frontend (port 3005):**
 
 ```bash
 npm run dev
 ```
 
-Access the app at **http://localhost:5173**
+Access the app at **http://localhost:3005**
+
+> **Port note:** The frontend always binds to port **3005** (set in `vite.config.ts`).
+> The backend must be on **8070** to match the `VITE_API_URL` above.
+
+---
+
+### Quick start (Windows) — one double-click
+
+A convenience launcher script is included at the repo root:
+
+```
+start-dev.bat
+```
+
+Double-click it (or run from terminal). It opens **two separate CMD windows** — one for the backend, one for the frontend — so you can see each server's logs and stop them independently.
+
+```
+start-dev.bat
+  ├── Window 1: "Skillarix BACKEND :8070"   → activates venv, runs uvicorn
+  └── Window 2: "Skillarix FRONTEND :3005"  → runs npm run dev
+```
+
+URLs after both windows show "ready":
+
+| Service | URL |
+|---|---|
+| Frontend app | http://localhost:3005 |
+| Backend API | http://localhost:8070 |
+| Swagger UI (API docs) | http://localhost:8070/docs |
+| ReDoc | http://localhost:8070/redoc |
+
+---
+
+### Production start (PM2)
+
+If you have PM2 installed globally (`npm install -g pm2`), you can manage both processes together:
+
+```bash
+# Start both servers
+pm2 start ecosystem.config.js
+
+# View logs
+pm2 logs
+
+# Stop all
+pm2 stop all
+
+# Restart
+pm2 restart all
+```
+
+PM2 config file: [`ecosystem.config.js`](ecosystem.config.js)
+— Backend on port **3006**, Frontend on port **3005** in the PM2 profile.
+
+---
+
+### Stopping the servers
+
+**Development (manual start):**
+- Press `Ctrl + C` in each terminal window, or simply close the window.
+
+**PM2:**
+```bash
+pm2 stop all
+```
 
 ---
 
